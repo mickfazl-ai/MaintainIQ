@@ -15,6 +15,7 @@ body {
   height: 100vh;
 }
 
+/* ===== NAVBAR ===== */
 .navbar {
   width: 220px;
   background-color: #16213e;
@@ -56,6 +57,36 @@ body {
   color: white;
 }
 
+.navbar-footer {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid #0f3460;
+}
+
+.logged-in-as {
+  color: #a8a8b3;
+  font-size: 11px;
+  margin-bottom: 10px;
+  word-break: break-all;
+}
+
+.btn-logout {
+  width: 100%;
+  padding: 10px;
+  background-color: transparent;
+  color: #e94560;
+  border: 1px solid #e94560;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.btn-logout:hover {
+  background-color: #e94560;
+  color: white;
+}
+
+/* ===== MAIN CONTENT ===== */
 .main-content {
   flex: 1;
   padding: 50px;
@@ -73,6 +104,7 @@ body {
   font-size: 18px;
 }
 
+/* ===== DASHBOARD ===== */
 .dashboard h2 {
   font-size: 32px;
   margin-bottom: 5px;
@@ -123,6 +155,7 @@ body {
   color: white;
 }
 
+/* ===== BUTTONS ===== */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -144,6 +177,7 @@ body {
   background-color: #c73652;
 }
 
+/* ===== FORMS ===== */
 .form-card {
   background-color: #16213e;
   padding: 25px;
@@ -172,6 +206,7 @@ body {
   font-size: 14px;
 }
 
+/* ===== TABLE ===== */
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -193,6 +228,7 @@ body {
   font-size: 14px;
 }
 
+/* ===== BADGES ===== */
 .status-badge {
   padding: 5px 12px;
   border-radius: 20px;
@@ -248,6 +284,7 @@ body {
   color: #e94560;
 }
 
+/* ===== MAINTENANCE ===== */
 .pm-summary {
   display: flex;
   gap: 15px;
@@ -323,6 +360,7 @@ body {
   color: white;
 }
 
+/* ===== REPORTS ===== */
 .report-summary {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -408,6 +446,7 @@ body {
   text-align: right;
 }
 
+/* ===== LOGIN ===== */
 .login-page {
   display: flex;
   justify-content: center;
@@ -500,31 +539,99 @@ body {
   cursor: not-allowed;
 }
 
-.navbar-footer {
-  margin-top: auto;
-  padding-top: 20px;
-  border-top: 1px solid #0f3460;
-}
-
-.logged-in-as {
-  color: #a8a8b3;
-  font-size: 11px;
-  margin-bottom: 10px;
-  word-break: break-all;
-}
-
-.btn-logout {
-  width: 100%;
-  padding: 10px;
-  background-color: transparent;
-  color: #e94560;
-  border: 1px solid #e94560;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.btn-logout:hover {
-  background-color: #e94560;
+/* ===== HAMBURGER ===== */
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
   color: white;
+  font-size: 28px;
+  cursor: pointer;
+  padding: 5px;
+}
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .App {
+    flex-direction: column;
+  }
+
+  .hamburger {
+    display: block;
+  }
+
+  .navbar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 20px;
+    overflow: visible;
+  }
+
+  .navbar-brand h2 {
+    margin-bottom: 0;
+  }
+
+  .navbar nav {
+    display: none;
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    background-color: #16213e;
+    padding: 20px;
+    z-index: 999;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+
+  .navbar nav.nav-open {
+    display: block;
+  }
+
+  .navbar-footer {
+    display: block;
+    margin-top: 20px;
+    border-top: 1px solid #0f3460;
+    padding-top: 20px;
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 20px;
+    width: 100%;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .data-table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .pm-summary {
+    flex-wrap: wrap;
+  }
 }
