@@ -1,6 +1,6 @@
 import React from 'react';
 
-function Navbar({ currentPage, setCurrentPage }) {
+function Navbar({ currentPage, setCurrentPage, onLogout, session }) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'assets', label: 'Assets' },
@@ -27,6 +27,10 @@ function Navbar({ currentPage, setCurrentPage }) {
           ))}
         </ul>
       </nav>
+      <div className="navbar-footer">
+        <p className="logged-in-as">{session?.user?.email}</p>
+        <button className="btn-logout" onClick={onLogout}>Logout</button>
+      </div>
     </div>
   );
 }
