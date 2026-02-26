@@ -3,6 +3,9 @@ import './App.css';
 import Navbar from './Navbar';
 import Dashboard from './Dashboard';
 import Assets from './Assets';
+import Downtime from './Downtime';
+import Maintenance from './Maintenance';
+import Reports from './Reports';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -11,9 +14,9 @@ function App() {
     switch(currentPage) {
       case 'dashboard': return <Dashboard />;
       case 'assets': return <Assets />;
-      case 'downtime': return <h2>Downtime Page - Coming Soon</h2>;
-      case 'maintenance': return <h2>Maintenance Page - Coming Soon</h2>;
-      case 'reports': return <h2>Reports Page - Coming Soon</h2>;
+      case 'downtime': return <Downtime />;
+      case 'maintenance': return <Maintenance />;
+      case 'reports': return <Reports />;
       default: return <Dashboard />;
     }
   };
