@@ -1,28 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from './supabase';
 
 function Maintenance() {
-  const [tasks, setTasks] = useState([
-    { id: 1, asset: 'Excavator CAT 390', task: 'Engine Oil Change', frequency: 'Every 250 hours', nextDue: '15/03/2026', status: 'Upcoming', assignedTo: 'John S' },
-    { id: 2, asset: 'Drill Rig DR750', task: 'Hydraulic Filter Replace', frequency: 'Every 500 hours', nextDue: '01/03/2026', status: 'Overdue', assignedTo: 'Mick F' },
-    { id: 3, asset: 'Crusher Fixed 01', task: 'Belt Inspection', frequency: 'Monthly', nextDue: '28/02/2026', status: 'Due Soon', assignedTo: 'Steve R' },
-    { id: 4, asset: 'Angle Grinder 04', task: 'Disc Replacement', frequency: 'Weekly', nextDue: '05/03/2026', status: 'Upcoming', assignedTo: 'John S' },
-  ]);
-
+  const [tasks, setTasks] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState({
-    asset: '', task: '', frequency: '', nextDue: '', assignedTo: ''
+    asset: '', task: '', frequency: '', next_due: '', assigned_to: ''
   });
 
-  const handleAdd = () => {
-    if (newTask.asset && newTask.task && newTask.nextDue) {
-      setTasks([...tasks, { ...newTask, id: tasks.length + 1, status: 'Upcoming' }]);
-      setNewTask({ asset: '', task: '', frequency: '', nextDue: '', assignedTo: '' });
-      setShowForm(false);
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const fetchTasks = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('maintenance')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.log('Error:', error);
+    } else {
+      setTasks(data);
+    }
+    setLoading(false);
+  };
+
+  const handleAdd = async () => {
+    if (newTask.asset && newTask.task && newTask.next_due) {
+      const { error } = await supabase
+        .from('maintenance')
+        .insert([{ ...newTask, status: 'Upcoming' }]);
+      if (error) {
+        alert('Error: ' + error.message);
+      } else {
+        fetchTasks();
+        setNewTask({ asset: '', task: '', frequency: '', next_due: '', assigned_to: '' });
+        setShowForm(false);
+      }
     }
   };
 
-  const handleComplete = (id) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, status: 'Completed' } : t));
+  const handleComplete = async (id) => {
+    const { error } = await supabase
+      .from('maintenance')
+      .update({ status: 'Completed' })
+      .eq('id', id);
+    if (error) {
+      alert('Error: ' + error.message);
+    } else {
+      fetchTasks();
+    }
   };
 
   return (
@@ -68,51 +97,55 @@ function Maintenance() {
               <option>Every 1000 hours</option>
               <option>Annually</option>
             </select>
-            <input type="date" value={newTask.nextDue}
-              onChange={e => setNewTask({...newTask, nextDue: e.target.value})} />
-            <input placeholder="Assigned To" value={newTask.assignedTo}
-              onChange={e => setNewTask({...newTask, assignedTo: e.target.value})} />
+            <input type="date" value={newTask.next_due}
+              onChange={e => setNewTask({...newTask, next_due: e.target.value})} />
+            <input placeholder="Assigned To" value={newTask.assigned_to}
+              onChange={e => setNewTask({...newTask, assigned_to: e.target.value})} />
           </div>
           <button className="btn-primary" onClick={handleAdd}>Save PM Task</button>
         </div>
       )}
 
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Asset</th>
-            <th>Task</th>
-            <th>Frequency</th>
-            <th>Next Due</th>
-            <th>Status</th>
-            <th>Assigned To</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.map(t => (
-            <tr key={t.id}>
-              <td>{t.asset}</td>
-              <td>{t.task}</td>
-              <td>{t.frequency}</td>
-              <td>{t.nextDue}</td>
-              <td>
-                <span className={`pm-status ${t.status.toLowerCase().replace(' ', '-')}`}>
-                  {t.status}
-                </span>
-              </td>
-              <td>{t.assignedTo}</td>
-              <td>
-                {t.status !== 'Completed' && (
-                  <button className="btn-complete" onClick={() => handleComplete(t.id)}>
-                    Mark Complete
-                  </button>
-                )}
-              </td>
+      {loading ? (
+        <p style={{color: '#a8a8b3'}}>Loading maintenance tasks...</p>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Task</th>
+              <th>Frequency</th>
+              <th>Next Due</th>
+              <th>Status</th>
+              <th>Assigned To</th>
+              <th>Action</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {tasks.map(t => (
+              <tr key={t.id}>
+                <td>{t.asset}</td>
+                <td>{t.task}</td>
+                <td>{t.frequency}</td>
+                <td>{t.next_due}</td>
+                <td>
+                  <span className={`pm-status ${t.status.toLowerCase().replace(' ', '-')}`}>
+                    {t.status}
+                  </span>
+                </td>
+                <td>{t.assigned_to}</td>
+                <td>
+                  {t.status !== 'Completed' && (
+                    <button className="btn-complete" onClick={() => handleComplete(t.id)}>
+                      Mark Complete
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

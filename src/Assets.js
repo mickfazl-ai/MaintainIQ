@@ -1,21 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from './supabase';
 
 function Assets() {
-  const [assets, setAssets] = useState([
-    { id: 1, name: 'Excavator CAT 390', type: 'Mobile Plant', location: 'Site A', status: 'Running' },
-    { id: 2, name: 'Drill Rig DR750', type: 'Drilling Plant', location: 'Site B', status: 'Down' },
-    { id: 3, name: 'Crusher Fixed 01', type: 'Fixed Plant', location: 'Site A', status: 'Running' },
-    { id: 4, name: 'Angle Grinder 04', type: 'Small Machinery', location: 'Workshop', status: 'Maintenance' },
-  ]);
-
+  const [assets, setAssets] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [newAsset, setNewAsset] = useState({ name: '', type: '', location: '', status: 'Running' });
+  const [loading, setLoading] = useState(true);
 
-  const handleAdd = () => {
+  useEffect(() => {
+    fetchAssets();
+  }, []);
+
+  const fetchAssets = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('assets')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.log('Error fetching assets:', error);
+    } else {
+      setAssets(data);
+    }
+    setLoading(false);
+  };
+
+  const handleAdd = async () => {
     if (newAsset.name && newAsset.type && newAsset.location) {
-      setAssets([...assets, { ...newAsset, id: assets.length + 1 }]);
-      setNewAsset({ name: '', type: '', location: '', status: 'Running' });
-      setShowForm(false);
+      const { error } = await supabase
+        .from('assets')
+        .insert([newAsset]);
+      if (error) {
+        alert('Error: ' + error.message);
+      } else {
+        fetchAssets();
+        setNewAsset({ name: '', type: '', location: '', status: 'Running' });
+        setShowForm(false);
+      }
     }
   };
 
@@ -55,30 +76,34 @@ function Assets() {
         </div>
       )}
 
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Asset Name</th>
-            <th>Type</th>
-            <th>Location</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {assets.map(asset => (
-            <tr key={asset.id}>
-              <td>{asset.name}</td>
-              <td>{asset.type}</td>
-              <td>{asset.location}</td>
-              <td>
-                <span className={`status-badge ${asset.status.toLowerCase()}`}>
-                  {asset.status}
-                </span>
-              </td>
+      {loading ? (
+        <p style={{color: '#a8a8b3'}}>Loading assets...</p>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Asset Name</th>
+              <th>Type</th>
+              <th>Location</th>
+              <th>Status</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {assets.map(asset => (
+              <tr key={asset.id}>
+                <td>{asset.name}</td>
+                <td>{asset.type}</td>
+                <td>{asset.location}</td>
+                <td>
+                  <span className={`status-badge ${asset.status.toLowerCase()}`}>
+                    {asset.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
