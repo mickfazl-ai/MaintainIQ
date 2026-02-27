@@ -707,4 +707,15 @@ body {
   .pm-summary {
     flex-wrap: wrap;
   }
+}.recent-downtime {
+  margin-top: 40px;
+}
+
+.recent-downtime h3 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #00c2e0;
 }
