@@ -19,11 +19,13 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session }) {
   return (
     <div className="navbar">
       <div className="navbar-brand">
-        <h2>MaintainIQ</h2>
+        <span className="brand-white">MAINTAIN</span><span className="brand-cyan">IQ</span>
       </div>
+
       <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)}>
         {menuOpen ? '✕' : '☰'}
       </button>
+
       <nav className={menuOpen ? 'nav-open' : ''}>
         <ul>
           {menuItems.map(item => (
@@ -36,8 +38,8 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session }) {
             </li>
           ))}
         </ul>
-        <div className="navbar-footer">
-          <p className="logged-in-as">{session?.user?.email}</p>
+        <div className="navbar-user">
+          <span className="logged-in-as">{session?.user?.email}</span>
           <button className="btn-logout" onClick={onLogout}>Logout</button>
         </div>
       </nav>

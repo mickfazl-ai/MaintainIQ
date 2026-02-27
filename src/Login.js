@@ -24,7 +24,7 @@ function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1 className="login-title">MaintainIQ</h1>
+        <h1 className="login-title">MAINTAIN<span>IQ</span></h1>
         <p className="login-subtitle">Machine Maintenance Software</p>
         <div className="login-form">
           <div className="login-field">
