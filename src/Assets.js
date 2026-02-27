@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
-function Assets() {
+function Assets({ userRole }) {
   const [assets, setAssets] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [newAsset, setNewAsset] = useState({ name: '', type: '', location: '', status: 'Running' });
+  const [newAsset, setNewAsset] = useState({ name: '', type: '', location: '', status: 'Running', hourly_rate: '' });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,8 +34,22 @@ function Assets() {
         alert('Error: ' + error.message);
       } else {
         fetchAssets();
-        setNewAsset({ name: '', type: '', location: '', status: 'Running' });
+        setNewAsset({ name: '', type: '', location: '', status: 'Running', hourly_rate: '' });
         setShowForm(false);
+      }
+    }
+  };
+
+  const handleDelete = async (id, name) => {
+    if (window.confirm(`Are you sure you want to delete ${name}?`)) {
+      const { error } = await supabase
+        .from('assets')
+        .delete()
+        .eq('id', id);
+      if (error) {
+        alert('Error: ' + error.message);
+      } else {
+        fetchAssets();
       }
     }
   };
@@ -44,9 +58,11 @@ function Assets() {
     <div className="assets">
       <div className="page-header">
         <h2>Assets</h2>
-        <button className="btn-primary" onClick={() => setShowForm(!showForm)}>
-          + Add Asset
-        </button>
+        {userRole?.role !== 'technician' && (
+          <button className="btn-primary" onClick={() => setShowForm(!showForm)}>
+            + Add Asset
+          </button>
+        )}
       </div>
 
       {showForm && (
@@ -71,13 +87,19 @@ function Assets() {
               <option>Down</option>
               <option>Maintenance</option>
             </select>
+            <input
+              placeholder="Hourly Rate ($/hr)"
+              type="number"
+              value={newAsset.hourly_rate}
+              onChange={e => setNewAsset({...newAsset, hourly_rate: e.target.value})}
+            />
           </div>
           <button className="btn-primary" onClick={handleAdd}>Save Asset</button>
         </div>
       )}
 
       {loading ? (
-        <p style={{color: '#a8a8b3'}}>Loading assets...</p>
+        <p style={{color: '#a0b0b0'}}>Loading assets...</p>
       ) : (
         <table className="data-table">
           <thead>
@@ -85,7 +107,9 @@ function Assets() {
               <th>Asset Name</th>
               <th>Type</th>
               <th>Location</th>
+              <th>Hourly Rate</th>
               <th>Status</th>
+              {userRole?.role !== 'technician' && <th>Action</th>}
             </tr>
           </thead>
           <tbody>
@@ -94,11 +118,19 @@ function Assets() {
                 <td>{asset.name}</td>
                 <td>{asset.type}</td>
                 <td>{asset.location}</td>
+                <td>{asset.hourly_rate ? `$${asset.hourly_rate}/hr` : '-'}</td>
                 <td>
                   <span className={`status-badge ${asset.status.toLowerCase()}`}>
                     {asset.status}
                   </span>
                 </td>
+                {userRole?.role !== 'technician' && (
+                  <td>
+                    <button className="btn-delete" onClick={() => handleDelete(asset.id, asset.name)}>
+                      Delete
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

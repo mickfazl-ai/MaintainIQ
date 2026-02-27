@@ -718,4 +718,135 @@ body {
   text-transform: uppercase;
   letter-spacing: 2px;
   color: #00c2e0;
+}.cost-banner {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background-color: #0d1515;
+  border: 1px solid #1a2f2f;
+  border-left: 3px solid #ff6b00;
+  padding: 15px 20px;
+  border-radius: 4px;
+  margin-bottom: 25px;
+  font-size: 14px;
+  color: #a0b0b0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.cost-total {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: #ff6b00;
+}
+
+.cost-badge {
+  background-color: rgba(255, 107, 0, 0.15);
+  color: #ff6b00;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: bold;
+}.btn-delete {
+  background-color: #cc0000;
+  color: white;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+
+.btn-delete:hover {
+  background-color: #aa0000;
+  color: white;
+}.weekly-report {
+  background-color: #0d1515;
+  border: 1px solid #1a2f2f;
+  border-radius: 4px;
+  padding: 25px;
+  margin-bottom: 30px;
+}
+
+.weekly-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.weekly-header h3 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #00c2e0;
+}
+
+.week-selector {
+  display: flex;
+  gap: 10px;
+}
+
+.week-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: 1px solid #1a2f2f;
+  background-color: transparent;
+  color: #a0b0b0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+
+.week-btn.active {
+  background-color: #00c2e0;
+  color: #0a0f0f;
+  border-color: #00c2e0;
+}
+
+.week-btn:hover {
+  border-color: #00c2e0;
+  color: #00c2e0;
+}
+
+.week-label {
+  color: #a0b0b0;
+  font-size: 12px;
+  margin-bottom: 20px;
+}
+
+.weekly-stats {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 15px;
+}
+
+.weekly-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.weekly-stat-label {
+  color: #a0b0b0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.weekly-stat-value {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: white;
 }
