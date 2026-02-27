@@ -6,26 +6,45 @@ import Assets from './Assets';
 import Downtime from './Downtime';
 import Maintenance from './Maintenance';
 import Reports from './Reports';
+import Users from './Users';
 import Login from './Login';
 import { supabase } from './supabase';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [session, setSession] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setLoading(false);
+      if (session) fetchUserRole(session.user.email);
+      else setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session) fetchUserRole(session.user.email);
+      else { setUserRole(null); setLoading(false); }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const fetchUserRole = async (email) => {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('*')
+      .eq('email', email)
+      .single();
+    if (error) {
+      setUserRole({ role: 'technician', name: email });
+    } else {
+      setUserRole(data);
+    }
+    setLoading(false);
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -34,21 +53,36 @@ function App() {
   const renderPage = () => {
     switch(currentPage) {
       case 'dashboard': return <Dashboard />;
-      case 'assets': return <Assets />;
-      case 'downtime': return <Downtime />;
-      case 'maintenance': return <Maintenance />;
-      case 'reports': return <Reports />;
+      case 'assets': return <Assets userRole={userRole} />;
+      case 'downtime': return <Downtime userRole={userRole} />;
+      case 'maintenance': return <Maintenance userRole={userRole} />;
+      case 'reports':
+        if (userRole?.role === 'technician') {
+          return <div style={{padding:'20px'}}><h2>Access Denied</h2><p style={{color:'#a0b0b0', marginTop:'10px'}}>You don't have permission to view reports.</p></div>;
+        }
+        return <Reports />;
+      case 'users':
+        if (userRole?.role !== 'admin') {
+          return <div style={{padding:'20px'}}><h2>Access Denied</h2><p style={{color:'#a0b0b0', marginTop:'10px'}}>Only admins can manage users.</p></div>;
+        }
+        return <Users />;
       default: return <Dashboard />;
     }
   };
 
-  if (loading) return <div style={{color:'white', padding:'50px', textAlign:'center'}}>Loading...</div>;
+  if (loading) return <div style={{color:'white', padding:'50px', textAlign:'center', backgroundColor:'#0a0f0f', height:'100vh'}}>Loading...</div>;
 
   if (!session) return <Login />;
 
   return (
     <div className="App">
-      <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} onLogout={handleLogout} session={session} />
+      <Navbar
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        onLogout={handleLogout}
+        session={session}
+        userRole={userRole}
+      />
       <div className="main-content">
         {renderPage()}
       </div>

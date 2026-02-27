@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
 
-function Navbar({ currentPage, setCurrentPage, onLogout, session }) {
+function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'assets', label: 'Assets' },
-    { id: 'downtime', label: 'Downtime' },
-    { id: 'maintenance', label: 'Maintenance' },
-    { id: 'reports', label: 'Reports' },
+    { id: 'dashboard', label: 'Dashboard', roles: ['admin', 'supervisor', 'technician'] },
+    { id: 'assets', label: 'Assets', roles: ['admin', 'supervisor', 'technician'] },
+    { id: 'downtime', label: 'Downtime', roles: ['admin', 'supervisor', 'technician'] },
+    { id: 'maintenance', label: 'Maintenance', roles: ['admin', 'supervisor', 'technician'] },
+    { id: 'reports', label: 'Reports', roles: ['admin', 'supervisor'] },
+    { id: 'users', label: 'Users', roles: ['admin'] },
   ];
 
   const handleNav = (id) => {
     setCurrentPage(id);
     setMenuOpen(false);
   };
+console.log('Current userRole:', userRole);
+  const visibleItems = menuItems.filter(item =>
+    item.roles.includes(userRole?.role || 'technician')
+  );
 
   return (
     <div className="navbar">
@@ -28,7 +33,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session }) {
 
       <nav className={menuOpen ? 'nav-open' : ''}>
         <ul>
-          {menuItems.map(item => (
+          {visibleItems.map(item => (
             <li
               key={item.id}
               className={currentPage === item.id ? 'active' : ''}
@@ -39,7 +44,8 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session }) {
           ))}
         </ul>
         <div className="navbar-user">
-          <span className="logged-in-as">{session?.user?.email}</span>
+          <span className="logged-in-as">{userRole?.name || session?.user?.email}</span>
+          <span className="role-badge">{userRole?.role || 'technician'}</span>
           <button className="btn-logout" onClick={onLogout}>Logout</button>
         </div>
       </nav>
