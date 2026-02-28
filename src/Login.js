@@ -15,9 +15,7 @@ function Login({ onShowSignup }) {
     setLoading(true);
     setError('');
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setError(error.message);
-    }
+    if (error) setError(error.message);
     setLoading(false);
   };
 
@@ -29,21 +27,11 @@ function Login({ onShowSignup }) {
         <div className="login-form">
           <div className="login-field">
             <label>Email</label>
-            <input
-              type="email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-            />
+            <input type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} />
           </div>
           <div className="login-field">
             <label>Password</label>
-            <input
-              type="password"
-              placeholder="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-            />
+            <input type="password" placeholder="password" value={password} onChange={e => setPassword(e.target.value)} />
           </div>
           {error && <p className="login-error">{error}</p>}
           <button className="btn-login" onClick={handleLogin} disabled={loading}>
