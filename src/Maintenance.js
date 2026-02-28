@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
-function Maintenance() {
+function Maintenance({ userRole }) {
   const [tasks, setTasks] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -10,14 +10,15 @@ function Maintenance() {
   });
 
   useEffect(() => {
-    fetchTasks();
-  }, []);
+    if (userRole?.company_id) fetchTasks();
+  }, [userRole]);
 
   const fetchTasks = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('maintenance')
       .select('*')
+      .eq('company_id', userRole.company_id)
       .order('created_at', { ascending: false });
     if (error) {
       console.log('Error:', error);
@@ -31,7 +32,7 @@ function Maintenance() {
     if (newTask.asset && newTask.task && newTask.next_due) {
       const { error } = await supabase
         .from('maintenance')
-        .insert([{ ...newTask, status: 'Upcoming' }]);
+        .insert([{ ...newTask, status: 'Upcoming', company_id: userRole.company_id }]);
       if (error) {
         alert('Error: ' + error.message);
       } else {

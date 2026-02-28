@@ -8,6 +8,7 @@ import Maintenance from './Maintenance';
 import Reports from './Reports';
 import Users from './Users';
 import Login from './Login';
+import Signup from './Signup';
 import { supabase } from './supabase';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
   const [session, setSession] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showSignup, setShowSignup] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -52,7 +54,7 @@ function App() {
 
   const renderPage = () => {
     switch(currentPage) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <Dashboard companyId={userRole?.company_id} />;
       case 'assets': return <Assets userRole={userRole} />;
       case 'downtime': return <Downtime userRole={userRole} />;
       case 'maintenance': return <Maintenance userRole={userRole} />;
@@ -60,19 +62,23 @@ function App() {
         if (userRole?.role === 'technician') {
           return <div style={{padding:'20px'}}><h2>Access Denied</h2><p style={{color:'#a0b0b0', marginTop:'10px'}}>You don't have permission to view reports.</p></div>;
         }
-        return <Reports />;
+        return <Reports companyId={userRole?.company_id} />;
       case 'users':
         if (userRole?.role !== 'admin') {
           return <div style={{padding:'20px'}}><h2>Access Denied</h2><p style={{color:'#a0b0b0', marginTop:'10px'}}>Only admins can manage users.</p></div>;
         }
-        return <Users />;
-      default: return <Dashboard />;
+        return <Users companyId={userRole?.company_id} userRole={userRole} />;
+      default: return <Dashboard companyId={userRole?.company_id} />;
     }
   };
 
   if (loading) return <div style={{color:'white', padding:'50px', textAlign:'center', backgroundColor:'#0a0f0f', height:'100vh'}}>Loading...</div>;
 
-  if (!session) return <Login />;
+  if (!session) {
+    return showSignup
+      ? <Signup onBackToLogin={() => setShowSignup(false)} />
+      : <Login onShowSignup={() => setShowSignup(true)} />;
+  }
 
   return (
     <div className="App">

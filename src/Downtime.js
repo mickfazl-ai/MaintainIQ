@@ -11,12 +11,17 @@ function Downtime({ userRole }) {
   });
 
   useEffect(() => {
-    fetchDowntimes();
-    fetchAssets();
-  }, []);
+    if (userRole?.company_id) {
+      fetchDowntimes();
+      fetchAssets();
+    }
+  }, [userRole]);
 
   const fetchAssets = async () => {
-    const { data } = await supabase.from('assets').select('name, hourly_rate');
+    const { data } = await supabase
+      .from('assets')
+      .select('name, hourly_rate')
+      .eq('company_id', userRole.company_id);
     setAssets(data || []);
   };
 
@@ -25,6 +30,7 @@ function Downtime({ userRole }) {
     const { data, error } = await supabase
       .from('downtime')
       .select('*')
+      .eq('company_id', userRole.company_id)
       .order('created_at', { ascending: false });
     if (error) {
       console.log('Error:', error);
@@ -43,7 +49,7 @@ function Downtime({ userRole }) {
       const cost = assetData?.hourly_rate ? (parseFloat(hours) * parseFloat(assetData.hourly_rate)).toFixed(2) : 0;
       const { error } = await supabase
         .from('downtime')
-        .insert([{ ...newDowntime, hours, cost }]);
+        .insert([{ ...newDowntime, hours, cost, company_id: userRole.company_id }]);
       if (error) {
         alert('Error: ' + error.message);
       } else {
@@ -53,7 +59,8 @@ function Downtime({ userRole }) {
       }
     }
   };
-const handleDelete = async (id) => {
+
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this downtime record?')) {
       const { error } = await supabase
         .from('downtime')
@@ -66,6 +73,7 @@ const handleDelete = async (id) => {
       }
     }
   };
+
   const totalCost = downtimes.reduce((sum, d) => sum + parseFloat(d.cost || 0), 0);
 
   return (
@@ -153,9 +161,7 @@ const handleDelete = async (id) => {
                 <td>{d.description}</td>
                 <td>{d.reported_by}</td>
                 <td>
-                  <button className="btn-delete" onClick={() => handleDelete(d.id)}>
-                    Delete
-                  </button>
+                  <button className="btn-delete" onClick={() => handleDelete(d.id)}>Delete</button>
                 </td>
               </tr>
             ))}

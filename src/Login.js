@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from './supabase';
 
-function Login() {
+function Login({ onShowSignup }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,6 +49,12 @@ function Login() {
           <button className="btn-login" onClick={handleLogin} disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
+          <p style={{textAlign:'center', marginTop:'20px', color:'#a0b0b0', fontSize:'14px'}}>
+            Don't have an account?{' '}
+            <span style={{color:'#00c2e0', cursor:'pointer'}} onClick={onShowSignup}>
+              Sign up free
+            </span>
+          </p>
         </div>
       </div>
     </div>

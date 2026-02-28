@@ -8,14 +8,15 @@ function Assets({ userRole }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAssets();
-  }, []);
+    if (userRole?.company_id) fetchAssets();
+  }, [userRole]);
 
   const fetchAssets = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('assets')
       .select('*')
+      .eq('company_id', userRole.company_id)
       .order('created_at', { ascending: false });
     if (error) {
       console.log('Error fetching assets:', error);
@@ -29,7 +30,7 @@ function Assets({ userRole }) {
     if (newAsset.name && newAsset.type && newAsset.location) {
       const { error } = await supabase
         .from('assets')
-        .insert([newAsset]);
+        .insert([{ ...newAsset, company_id: userRole.company_id }]);
       if (error) {
         alert('Error: ' + error.message);
       } else {

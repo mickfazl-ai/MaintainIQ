@@ -5,7 +5,7 @@ import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-function Reports() {
+function Reports({ companyId }) {
   const [downtimeData, setDowntimeData] = useState([]);
   const [assetCount, setAssetCount] = useState(0);
   const [totalHours, setTotalHours] = useState(0);
@@ -24,13 +24,13 @@ function Reports() {
 
   const [dateRange, setDateRange] = useState(getDefaultDates());
 
-  useEffect(() => { fetchReportData(); }, []);
+  useEffect(() => { if (companyId) fetchReportData(); }, [companyId]);
 
   const fetchReportData = async () => {
     setLoading(true);
-    const { data: assets } = await supabase.from('assets').select('id');
+    const { data: assets } = await supabase.from('assets').select('id').eq('company_id', companyId);
     setAssetCount(assets?.length || 0);
-    const { data: downtime } = await supabase.from('downtime').select('*').order('date', { ascending: false });
+    const { data: downtime } = await supabase.from('downtime').select('*').eq('company_id', companyId).order('date', { ascending: false });
     if (downtime) {
       setDowntimeData(downtime);
       setTotalHours(downtime.reduce((sum, d) => sum + parseFloat(d.hours || 0), 0).toFixed(1));

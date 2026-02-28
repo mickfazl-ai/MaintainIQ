@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
-function Dashboard() {
+function Dashboard({ companyId }) {
   const [stats, setStats] = useState({
     totalAssets: 0,
     machinesDown: 0,
@@ -12,25 +12,28 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (companyId) fetchDashboardData();
+  }, [companyId]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
 
     const { data: assets } = await supabase
       .from('assets')
-      .select('*');
+      .select('*')
+      .eq('company_id', companyId);
 
     const { data: downtime } = await supabase
       .from('downtime')
       .select('*')
+      .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(5);
 
     const { data: maintenance } = await supabase
       .from('maintenance')
-      .select('*');
+      .select('*')
+      .eq('company_id', companyId);
 
     const totalAssets = assets?.length || 0;
     const machinesDown = assets?.filter(a => a.status === 'Down').length || 0;
