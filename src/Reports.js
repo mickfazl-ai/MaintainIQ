@@ -407,4 +407,3 @@ function Reports({ companyId }) {
 }
 
 export default Reports;
-```
