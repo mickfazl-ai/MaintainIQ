@@ -6,36 +6,38 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
 function Reports({ companyId }) {
+  const [activeTab, setActiveTab] = useState('downtime');
   const [downtimeData, setDowntimeData] = useState([]);
   const [assetCount, setAssetCount] = useState(0);
   const [totalHours, setTotalHours] = useState(0);
   const [totalCost, setTotalCost] = useState(0);
+  const [assets, setAssets] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const getDefaultDates = () => {
     const end = new Date();
     const start = new Date();
-    start.setDate(start.getDate() - 7);
-    return {
-      start: start.toISOString().split('T')[0],
-      end: end.toISOString().split('T')[0]
-    };
+    start.setDate(start.getDate() - 30);
+    return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] };
   };
-
   const [dateRange, setDateRange] = useState(getDefaultDates());
 
   useEffect(() => { if (companyId) fetchReportData(); }, [companyId]);
 
   const fetchReportData = async () => {
     setLoading(true);
-    const { data: assets } = await supabase.from('assets').select('id').eq('company_id', companyId);
-    setAssetCount(assets?.length || 0);
+    const { data: assetData } = await supabase.from('assets').select('*').eq('company_id', companyId);
+    setAssets(assetData || []);
+    setAssetCount(assetData?.length || 0);
     const { data: downtime } = await supabase.from('downtime').select('*').eq('company_id', companyId).order('date', { ascending: false });
     if (downtime) {
       setDowntimeData(downtime);
       setTotalHours(downtime.reduce((sum, d) => sum + parseFloat(d.hours || 0), 0).toFixed(1));
       setTotalCost(downtime.reduce((sum, d) => sum + parseFloat(d.cost || 0), 0).toFixed(2));
     }
+    const { data: subs } = await supabase.from('form_submissions').select('*').eq('company_id', companyId).order('date', { ascending: true });
+    setSubmissions(subs || []);
     setLoading(false);
   };
 
@@ -55,20 +57,65 @@ function Reports({ companyId }) {
     return Object.entries(totals).map(([asset, data]) => ({ asset, hours: data.hours.toFixed(1), cost: data.cost.toFixed(2) })).sort((a, b) => b.hours - a.hours).slice(0, 6);
   };
 
+  // Machine Availability calculations
+  const getAvailabilityData = () => {
+    const filteredSubs = submissions.filter(s => s.date >= dateRange.start && s.date <= dateRange.end);
+    return assets.map(asset => {
+      const assetSubs = filteredSubs.filter(s => s.asset === asset.name).sort((a, b) => a.date.localeCompare(b.date));
+      let totalRunHours = 0;
+      for (let i = 1; i < assetSubs.length; i++) {
+        const diff = parseFloat(assetSubs[i].hrs_start || 0) - parseFloat(assetSubs[i-1].hrs_start || 0);
+        if (diff > 0 && diff < 24) totalRunHours += diff;
+      }
+      const days = Math.max(1, Math.ceil((new Date(dateRange.end) - new Date(dateRange.start)) / (1000 * 60 * 60 * 24)));
+      const targetHours = (asset.target_hours || 8) * days;
+      const utilisation = targetHours > 0 ? Math.min(100, (totalRunHours / targetHours) * 100) : 0;
+      const prestartCount = assetSubs.length;
+      return { asset: asset.name, totalRunHours: totalRunHours.toFixed(1), targetHours: targetHours.toFixed(1), utilisation: utilisation.toFixed(1), prestartCount, targetPerDay: asset.target_hours || 8 };
+    }).filter(a => parseFloat(a.prestartCount) > 0 || assets.length > 0);
+  };
+
+  const getUtilisationByPeriod = (period) => {
+    const now = new Date();
+    let start, end = now.toISOString().split('T')[0];
+    if (period === 'daily') { start = end; }
+    else if (period === 'weekly') { const s = new Date(); s.setDate(s.getDate() - 7); start = s.toISOString().split('T')[0]; }
+    else { const s = new Date(now.getFullYear(), now.getMonth(), 1); start = s.toISOString().split('T')[0]; }
+    const filteredSubs = submissions.filter(s => s.date >= start && s.date <= end);
+    return assets.map(asset => {
+      const assetSubs = filteredSubs.filter(s => s.asset === asset.name).sort((a, b) => a.date.localeCompare(b.date));
+      let totalRunHours = 0;
+      for (let i = 1; i < assetSubs.length; i++) {
+        const diff = parseFloat(assetSubs[i].hrs_start || 0) - parseFloat(assetSubs[i-1].hrs_start || 0);
+        if (diff > 0 && diff < 24) totalRunHours += diff;
+      }
+      const days = Math.max(1, Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24)) + 1);
+      const targetHours = (asset.target_hours || 8) * days;
+      const utilisation = targetHours > 0 ? Math.min(100, (totalRunHours / targetHours) * 100) : 0;
+      return { asset: asset.name, totalRunHours: totalRunHours.toFixed(1), targetHours: targetHours.toFixed(1), utilisation: utilisation.toFixed(1) };
+    });
+  };
+
+  const getUtilColour = (pct) => {
+    if (pct >= 80) return '#00c264';
+    if (pct >= 50) return '#ffc800';
+    return '#e94560';
+  };
+
   const filteredData = getFilteredData();
   const filteredHours = filteredData.reduce((sum, d) => sum + parseFloat(d.hours || 0), 0);
   const filteredCost = filteredData.reduce((sum, d) => sum + parseFloat(d.cost || 0), 0);
   const maxHours = Math.max(...getCategoryTotals().map(i => parseFloat(i.hours)), ...getAssetTotals().map(i => parseFloat(i.hours)), 1);
   const barColors = ['#00c2e0', '#ff6b00', '#ffc800', '#00c264', '#a0b0b0', '#e94560'];
 
-  const exportPDF = () => {
+  const exportDowntimePDF = () => {
     const doc = new jsPDF();
     doc.setFillColor(13, 21, 21); doc.rect(0, 0, 210, 297, 'F');
     doc.setTextColor(0, 194, 224); doc.setFontSize(28); doc.setFont('helvetica', 'bold'); doc.text('MAINTAINIQ', 14, 20);
     doc.setTextColor(160, 176, 176); doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text('by Coastline Machine Management', 14, 27);
     doc.setTextColor(255, 255, 255); doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.text('DOWNTIME REPORT', 14, 40);
     doc.setTextColor(160, 176, 176); doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-    doc.text('Period: ' + dateRange.start + ' - ' + dateRange.end, 14, 48);
+    doc.text('Period: ' + dateRange.start + ' to ' + dateRange.end, 14, 48);
     doc.text('Generated: ' + new Date().toLocaleDateString('en-AU'), 14, 54);
     doc.setDrawColor(26, 47, 47); doc.line(14, 58, 196, 58);
     doc.setFillColor(26, 47, 47); doc.rect(14, 62, 55, 20, 'F'); doc.rect(74, 62, 55, 20, 'F'); doc.rect(134, 62, 62, 20, 'F');
@@ -88,58 +135,50 @@ function Reports({ companyId }) {
     doc.setTextColor(0, 194, 224); doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text('DOWNTIME BY CATEGORY', 14, finalY + 15);
     autoTable(doc, { startY: finalY + 18, head: [['Category', 'Hours Lost']], body: getCategoryTotals().map(c => [c.category, c.hours + 'h']), theme: 'plain', headStyles: { fillColor: [26, 47, 47], textColor: [160, 176, 176], fontSize: 8, fontStyle: 'bold' }, bodyStyles: { fillColor: [13, 21, 21], textColor: [255, 255, 255], fontSize: 9 }, styles: { lineColor: [26, 47, 47], lineWidth: 0.1 } });
     doc.setTextColor(160, 176, 176); doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.text('Generated by MaintainIQ - coastlinemm.com.au', 14, 285);
-    doc.save('MaintainIQ-Report-' + dateRange.start + '-to-' + dateRange.end + '.pdf');
+    doc.save('MaintainIQ-Downtime-' + dateRange.start + '-to-' + dateRange.end + '.pdf');
+  };
+
+  const exportAvailabilityPDF = () => {
+    const availData = getAvailabilityData();
+    const doc = new jsPDF();
+    doc.setFillColor(13, 21, 21); doc.rect(0, 0, 210, 297, 'F');
+    doc.setTextColor(0, 194, 224); doc.setFontSize(28); doc.setFont('helvetica', 'bold'); doc.text('MAINTAINIQ', 14, 20);
+    doc.setTextColor(160, 176, 176); doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text('by Coastline Machine Management', 14, 27);
+    doc.setTextColor(255, 255, 255); doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.text('MACHINE AVAILABILITY REPORT', 14, 40);
+    doc.setTextColor(160, 176, 176); doc.setFontSize(10); doc.setFont('helvetica', 'normal');
+    doc.text('Period: ' + dateRange.start + ' to ' + dateRange.end, 14, 48);
+    doc.text('Generated: ' + new Date().toLocaleDateString('en-AU'), 14, 54);
+    doc.setDrawColor(26, 47, 47); doc.line(14, 58, 196, 58);
+    doc.setTextColor(0, 194, 224); doc.setFontSize(12); doc.setFont('helvetica', 'bold'); doc.text('UTILISATION BY MACHINE', 14, 68);
+    autoTable(doc, {
+      startY: 72,
+      head: [['Machine', 'Run Hours', 'Target Hours', 'Utilisation %', 'Prestarts']],
+      body: availData.map(a => [a.asset, a.totalRunHours + 'h', a.targetHours + 'h', a.utilisation + '%', a.prestartCount]),
+      theme: 'plain',
+      headStyles: { fillColor: [26, 47, 47], textColor: [160, 176, 176], fontSize: 8, fontStyle: 'bold' },
+      bodyStyles: { fillColor: [13, 21, 21], textColor: [255, 255, 255], fontSize: 9 },
+      alternateRowStyles: { fillColor: [20, 30, 30] },
+      styles: { lineColor: [26, 47, 47], lineWidth: 0.1 }
+    });
+    doc.setTextColor(160, 176, 176); doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.text('Generated by MaintainIQ - coastlinemm.com.au', 14, 285);
+    doc.save('MaintainIQ-Availability-' + dateRange.start + '-to-' + dateRange.end + '.pdf');
   };
 
   const exportExcel = async () => {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'MaintainIQ';
-
-    const blue = '1E6FA8';
-    const lightBlue = 'D6EAF8';
-    const white = 'FFFFFF';
-    const dark = '1A1A1A';
-    const border = 'BBCFDD';
-
-    const colHeader = (cell) => {
-      cell.font = { bold: true, color: { argb: white }, size: 9, name: 'Calibri' };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: blue } };
-      cell.alignment = { vertical: 'middle', horizontal: 'center' };
-      cell.border = { bottom: { style: 'thin', color: { argb: white } } };
-    };
-
-    const dataCell = (cell, isAlt) => {
-      cell.font = { color: { argb: dark }, size: 9, name: 'Calibri' };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isAlt ? lightBlue : white } };
-      cell.alignment = { vertical: 'middle', indent: 1 };
-      cell.border = { bottom: { style: 'hair', color: { argb: border } } };
-    };
-
-    const numCell = (cell, isAlt, color) => {
-      cell.font = { bold: true, color: { argb: color || blue }, size: 9, name: 'Calibri' };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isAlt ? lightBlue : white } };
-      cell.alignment = { vertical: 'middle', horizontal: 'right' };
-      cell.border = { bottom: { style: 'hair', color: { argb: border } } };
-    };
-
-    const sectionTitle = (ws, row, text, numCols) => {
-      ws.mergeCells(row.number, 1, row.number, numCols);
-      row.getCell(1).value = text;
-      row.getCell(1).font = { bold: true, color: { argb: white }, size: 11, name: 'Calibri' };
-      row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2E86C1' } };
-      row.getCell(1).alignment = { vertical: 'middle', indent: 1 };
-    };
-
+    const blue = '1E6FA8'; const lightBlue = 'D6EAF8'; const white = 'FFFFFF'; const dark = '1A1A1A'; const border = 'BBCFDD';
+    const colHeader = (cell) => { cell.font = { bold: true, color: { argb: white }, size: 9, name: 'Calibri' }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: blue } }; cell.alignment = { vertical: 'middle', horizontal: 'center' }; cell.border = { bottom: { style: 'thin', color: { argb: white } } }; };
+    const dataCell = (cell, isAlt) => { cell.font = { color: { argb: dark }, size: 9, name: 'Calibri' }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isAlt ? lightBlue : white } }; cell.alignment = { vertical: 'middle', indent: 1 }; cell.border = { bottom: { style: 'hair', color: { argb: border } } }; };
+    const numCell = (cell, isAlt, color) => { cell.font = { bold: true, color: { argb: color || blue }, size: 9, name: 'Calibri' }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isAlt ? lightBlue : white } }; cell.alignment = { vertical: 'middle', horizontal: 'right' }; cell.border = { bottom: { style: 'hair', color: { argb: border } } }; };
     const addHeader = (ws, title, numCols) => {
       ws.addRow([]);
-      const r1 = ws.addRow(['MAINTAINIQ  —  ' + title]);
-      r1.height = 35;
+      const r1 = ws.addRow(['MAINTAINIQ  —  ' + title]); r1.height = 35;
       ws.mergeCells(r1.number, 1, r1.number, numCols);
       r1.getCell(1).font = { bold: true, color: { argb: white }, size: 18, name: 'Calibri' };
       r1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: blue } };
       r1.getCell(1).alignment = { vertical: 'middle', indent: 1 };
-      const r2 = ws.addRow(['Coastline Machine Management  |  ' + dateRange.start + ' to ' + dateRange.end + '  |  Generated: ' + new Date().toLocaleDateString('en-AU')]);
-      r2.height = 20;
+      const r2 = ws.addRow(['Coastline Machine Management  |  ' + dateRange.start + ' to ' + dateRange.end + '  |  Generated: ' + new Date().toLocaleDateString('en-AU')]); r2.height = 20;
       ws.mergeCells(r2.number, 1, r2.number, numCols);
       r2.getCell(1).font = { italic: true, color: { argb: white }, size: 9, name: 'Calibri' };
       r2.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2E86C1' } };
@@ -147,106 +186,44 @@ function Reports({ companyId }) {
       ws.addRow([]).height = 6;
     };
 
-    const addStatRow = (ws, values) => {
-      const sv = ws.addRow(values);
-      sv.height = 30;
-      ['A','B','C'].forEach((col, idx) => {
-        const colors = [dark, blue, 'CC4400'];
-        sv.getCell(col).font = { bold: true, color: { argb: colors[idx] }, size: 20, name: 'Calibri' };
-        sv.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightBlue } };
-        sv.getCell(col).alignment = { vertical: 'middle', horizontal: 'center' };
-      });
-    };
+    // AVAILABILITY SHEET
+    const availData = getAvailabilityData();
+    const av = wb.addWorksheet('Machine Availability', { properties: { tabColor: { argb: '00C264' } } });
+    av.views = [{ showGridLines: false }];
+    addHeader(av, 'MACHINE AVAILABILITY', 5);
+    const avh = av.addRow(['Machine', 'Run Hours', 'Target Hours', 'Utilisation %', 'Prestarts']); avh.height = 22;
+    ['A','B','C','D','E'].forEach(c => colHeader(avh.getCell(c)));
+    availData.forEach((a, i) => {
+      const r = av.addRow([a.asset, parseFloat(a.totalRunHours), parseFloat(a.targetHours), parseFloat(a.utilisation), a.prestartCount]); r.height = 18;
+      dataCell(r.getCell('A'), i % 2 !== 0); numCell(r.getCell('B'), i % 2 !== 0, blue);
+      numCell(r.getCell('C'), i % 2 !== 0, dark);
+      const utilColor = parseFloat(a.utilisation) >= 80 ? '00C264' : parseFloat(a.utilisation) >= 50 ? 'FFC800' : 'E94560';
+      numCell(r.getCell('D'), i % 2 !== 0, utilColor); numCell(r.getCell('E'), i % 2 !== 0, dark);
+    });
+    av.columns = [{ width: 24 }, { width: 14 }, { width: 14 }, { width: 16 }, { width: 12 }];
 
-    // SUMMARY SHEET
+    // DOWNTIME SHEETS (existing)
     const ss = wb.addWorksheet('Summary', { properties: { tabColor: { argb: blue } } });
     ss.views = [{ showGridLines: false }];
     addHeader(ss, 'SUMMARY REPORT', 4);
-
-    const sh = ss.addRow(['TOTAL EVENTS', 'HOURS LOST', 'TOTAL COST ($)']);
-    sh.height = 22;
+    const sh = ss.addRow(['TOTAL EVENTS', 'HOURS LOST', 'TOTAL COST ($)']); sh.height = 22;
     ['A','B','C'].forEach(c => colHeader(sh.getCell(c)));
-    addStatRow(ss, [filteredData.length, parseFloat(filteredHours.toFixed(1)), parseFloat(filteredCost.toFixed(2))]);
-
-    ss.addRow([]).height = 8;
-    const ar = ss.addRow(['ASSET BREAKDOWN']);
-    ar.height = 22;
-    sectionTitle(ss, ar, 'ASSET BREAKDOWN', 4);
-
-    const ah = ss.addRow(['Asset', 'Events', 'Hours', 'Cost ($)']);
-    ah.height = 20;
-    ['A','B','C','D'].forEach(c => colHeader(ah.getCell(c)));
-    getAssetTotals().forEach((a, i) => {
-      const r = ss.addRow([a.asset, filteredData.filter(d => d.asset === a.asset).length, parseFloat(a.hours), parseFloat(a.cost)]);
-      r.height = 18;
-      dataCell(r.getCell('A'), i % 2 !== 0); numCell(r.getCell('B'), i % 2 !== 0, dark);
-      numCell(r.getCell('C'), i % 2 !== 0, blue); numCell(r.getCell('D'), i % 2 !== 0, 'CC4400');
-    });
-
-    ss.addRow([]).height = 8;
-    const cr = ss.addRow(['CATEGORY BREAKDOWN']);
-    cr.height = 22;
-    sectionTitle(ss, cr, 'CATEGORY BREAKDOWN', 4);
-
-    const ch = ss.addRow(['Category', 'Hours Lost']);
-    ch.height = 20;
-    ['A','B'].forEach(c => colHeader(ch.getCell(c)));
-    getCategoryTotals().forEach((c, i) => {
-      const r = ss.addRow([c.category, parseFloat(c.hours)]);
-      r.height = 18;
-      dataCell(r.getCell('A'), i % 2 !== 0); numCell(r.getCell('B'), i % 2 !== 0, blue);
-    });
+    const sv = ss.addRow([filteredData.length, parseFloat(filteredHours.toFixed(1)), parseFloat(filteredCost.toFixed(2))]); sv.height = 30;
+    ['A','B','C'].forEach((col, idx) => { const colors = [dark, blue, 'CC4400']; sv.getCell(col).font = { bold: true, color: { argb: colors[idx] }, size: 20, name: 'Calibri' }; sv.getCell(col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: lightBlue } }; sv.getCell(col).alignment = { vertical: 'middle', horizontal: 'center' }; });
     ss.columns = [{ width: 28 }, { width: 14 }, { width: 14 }, { width: 16 }];
 
-    // ALL EVENTS SHEET
     const es = wb.addWorksheet('All Events', { properties: { tabColor: { argb: '2E86C1' } } });
     es.views = [{ showGridLines: false }];
     addHeader(es, 'ALL DOWNTIME EVENTS', 9);
-    const eh = es.addRow(['Asset', 'Date', 'Start', 'End', 'Hours', 'Cost ($)', 'Category', 'Description', 'Reported By']);
-    eh.height = 22;
+    const eh = es.addRow(['Asset', 'Date', 'Start', 'End', 'Hours', 'Cost ($)', 'Category', 'Description', 'Reported By']); eh.height = 22;
     ['A','B','C','D','E','F','G','H','I'].forEach(c => colHeader(eh.getCell(c)));
     filteredData.forEach((d, i) => {
-      const r = es.addRow([d.asset, d.date, d.start_time, d.end_time, parseFloat(d.hours || 0), parseFloat(d.cost || 0), d.category, d.description, d.reported_by]);
-      r.height = 18;
-      dataCell(r.getCell('A'), i % 2 !== 0); dataCell(r.getCell('B'), i % 2 !== 0);
-      dataCell(r.getCell('C'), i % 2 !== 0); dataCell(r.getCell('D'), i % 2 !== 0);
+      const r = es.addRow([d.asset, d.date, d.start_time, d.end_time, parseFloat(d.hours || 0), parseFloat(d.cost || 0), d.category, d.description, d.reported_by]); r.height = 18;
+      dataCell(r.getCell('A'), i % 2 !== 0); dataCell(r.getCell('B'), i % 2 !== 0); dataCell(r.getCell('C'), i % 2 !== 0); dataCell(r.getCell('D'), i % 2 !== 0);
       numCell(r.getCell('E'), i % 2 !== 0, blue); numCell(r.getCell('F'), i % 2 !== 0, 'CC4400');
       dataCell(r.getCell('G'), i % 2 !== 0); dataCell(r.getCell('H'), i % 2 !== 0); dataCell(r.getCell('I'), i % 2 !== 0);
     });
     es.columns = [{ width: 16 }, { width: 12 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 12 }, { width: 16 }, { width: 42 }, { width: 16 }];
-
-    // INDIVIDUAL ASSET SHEETS
-    const uniqueAssets = [...new Set(filteredData.map(d => d.asset))];
-    uniqueAssets.forEach(assetName => {
-      const assetEvents = filteredData.filter(d => d.asset === assetName);
-      const assetHours = assetEvents.reduce((sum, d) => sum + parseFloat(d.hours || 0), 0);
-      const assetCost = assetEvents.reduce((sum, d) => sum + parseFloat(d.cost || 0), 0);
-      const as = wb.addWorksheet(assetName.substring(0, 31), { properties: { tabColor: { argb: blue } } });
-      as.views = [{ showGridLines: false }];
-      addHeader(as, assetName.toUpperCase(), 8);
-
-      const ash = as.addRow(['TOTAL EVENTS', 'HOURS DOWN', 'TOTAL COST ($)']);
-      ash.height = 22;
-      ['A','B','C'].forEach(c => colHeader(ash.getCell(c)));
-      addStatRow(as, [assetEvents.length, parseFloat(assetHours.toFixed(1)), parseFloat(assetCost.toFixed(2))]);
-
-      as.addRow([]).height = 8;
-      const aeh = as.addRow(['DOWNTIME EVENTS']);
-      aeh.height = 22;
-      sectionTitle(as, aeh, 'DOWNTIME EVENTS', 8);
-
-      const ach = as.addRow(['Date', 'Start', 'End', 'Hours', 'Cost ($)', 'Category', 'Description', 'Reported By']);
-      ach.height = 22;
-      ['A','B','C','D','E','F','G','H'].forEach(c => colHeader(ach.getCell(c)));
-      assetEvents.forEach((d, i) => {
-        const r = as.addRow([d.date, d.start_time, d.end_time, parseFloat(d.hours || 0), parseFloat(d.cost || 0), d.category, d.description, d.reported_by]);
-        r.height = 18;
-        dataCell(r.getCell('A'), i % 2 !== 0); dataCell(r.getCell('B'), i % 2 !== 0); dataCell(r.getCell('C'), i % 2 !== 0);
-        numCell(r.getCell('D'), i % 2 !== 0, blue); numCell(r.getCell('E'), i % 2 !== 0, 'CC4400');
-        dataCell(r.getCell('F'), i % 2 !== 0); dataCell(r.getCell('G'), i % 2 !== 0); dataCell(r.getCell('H'), i % 2 !== 0);
-      });
-      as.columns = [{ width: 12 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 12 }, { width: 16 }, { width: 42 }, { width: 16 }];
-    });
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -255,12 +232,16 @@ function Reports({ companyId }) {
 
   if (loading) return <p style={{color:'#a0b0b0', padding:'20px'}}>Loading report data...</p>;
 
+  const availabilityData = getAvailabilityData();
+  const avgUtilisation = availabilityData.length > 0 ? (availabilityData.reduce((sum, a) => sum + parseFloat(a.utilisation), 0) / availabilityData.length).toFixed(1) : 0;
+
   return (
     <div className="reports">
       <div className="page-header">
         <h2>Reports & Analysis</h2>
       </div>
 
+      {/* Summary Cards */}
       <div className="report-summary">
         <div className="report-card">
           <h4>Total Downtime Hours</h4>
@@ -278,105 +259,152 @@ function Reports({ companyId }) {
           <span className="report-sub">Registered machines</span>
         </div>
         <div className="report-card">
-          <h4>Worst Asset</h4>
-          <p className="report-number" style={{fontSize:'16px'}}>{getAssetTotals()[0]?.asset || 'N/A'}</p>
-          <span className="report-sub">Most downtime hours</span>
+          <h4>Avg Utilisation</h4>
+          <p className="report-number" style={{color: getUtilColour(parseFloat(avgUtilisation))}}>{avgUtilisation}%</p>
+          <span className="report-sub">Fleet average</span>
         </div>
       </div>
 
+      {/* Date Range + Export */}
       <div className="weekly-report">
         <div className="weekly-header">
-          <h3>Downtime Report</h3>
+          <h3>Report Period</h3>
           <div className="week-selector">
-            <button className="btn-primary" onClick={exportPDF}>Export PDF</button>
+            <button className="btn-primary" onClick={activeTab === 'availability' ? exportAvailabilityPDF : exportDowntimePDF}>Export PDF</button>
             <button className="btn-excel" onClick={exportExcel}>Export Excel</button>
           </div>
         </div>
-
         <div className="date-range-selector">
-          <div className="date-field">
-            <label>From</label>
-            <input type="date" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} />
-          </div>
-          <div className="date-field">
-            <label>To</label>
-            <input type="date" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} />
-          </div>
+          <div className="date-field"><label>From</label><input type="date" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} /></div>
+          <div className="date-field"><label>To</label><input type="date" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} /></div>
           <div className="date-shortcuts">
             <button className="week-btn" onClick={() => { const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 7); setDateRange({ start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] }); }}>Last 7 Days</button>
             <button className="week-btn" onClick={() => { const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 30); setDateRange({ start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] }); }}>Last 30 Days</button>
             <button className="week-btn" onClick={() => { const now = new Date(); const start = new Date(now.getFullYear(), now.getMonth(), 1); setDateRange({ start: start.toISOString().split('T')[0], end: now.toISOString().split('T')[0] }); }}>This Month</button>
           </div>
         </div>
+      </div>
 
-        <div className="weekly-stats">
-          <div className="weekly-stat">
-            <span className="weekly-stat-label">Events</span>
-            <span className="weekly-stat-value">{filteredData.length}</span>
-          </div>
-          <div className="weekly-stat">
-            <span className="weekly-stat-label">Hours Lost</span>
-            <span className="weekly-stat-value">{filteredHours.toFixed(1)}h</span>
-          </div>
-          <div className="weekly-stat">
-            <span className="weekly-stat-label">Total Cost</span>
-            <span className="weekly-stat-value" style={{color:'#ff6b00'}}>${filteredCost.toLocaleString('en-AU', {minimumFractionDigits:2})}</span>
-          </div>
-        </div>
+      {/* Tabs */}
+      <div style={{display:'flex', gap:'10px', marginTop:'20px', borderBottom:'1px solid #1a2f2f', paddingBottom:'0'}}>
+        {['downtime', 'availability'].map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            style={{padding:'10px 20px', backgroundColor: activeTab === tab ? '#00c2e0' : 'transparent', color: activeTab === tab ? '#0a0f0f' : '#a0b0b0', border:'none', borderRadius:'4px 4px 0 0', cursor:'pointer', fontWeight: activeTab === tab ? 'bold' : 'normal', fontSize:'14px', textTransform:'capitalize'}}>
+            {tab === 'downtime' ? 'Downtime' : 'Machine Availability'}
+          </button>
+        ))}
+      </div>
 
-        {filteredData.length === 0 ? (
-          <p style={{color:'#a0b0b0', marginTop:'15px'}}>No downtime events recorded for this period</p>
-        ) : (
-          <table className="data-table" style={{marginTop:'15px'}}>
-            <thead>
-              <tr>
-                <th>Asset</th><th>Date</th><th>Category</th><th>Hours</th><th>Cost</th><th>Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.map(d => (
-                <tr key={d.id}>
-                  <td>{d.asset}</td>
-                  <td>{d.date}</td>
-                  <td><span className="category-badge">{d.category}</span></td>
-                  <td><span className="hours-badge">{d.hours}h</span></td>
-                  <td><span className="cost-badge">${parseFloat(d.cost || 0).toLocaleString('en-AU', {minimumFractionDigits:2})}</span></td>
-                  <td>{d.description}</td>
-                </tr>
+      {/* DOWNTIME TAB */}
+      {activeTab === 'downtime' && (
+        <div>
+          <div className="weekly-stats" style={{marginTop:'15px'}}>
+            <div className="weekly-stat"><span className="weekly-stat-label">Events</span><span className="weekly-stat-value">{filteredData.length}</span></div>
+            <div className="weekly-stat"><span className="weekly-stat-label">Hours Lost</span><span className="weekly-stat-value">{filteredHours.toFixed(1)}h</span></div>
+            <div className="weekly-stat"><span className="weekly-stat-label">Total Cost</span><span className="weekly-stat-value" style={{color:'#ff6b00'}}>${filteredCost.toLocaleString('en-AU', {minimumFractionDigits:2})}</span></div>
+          </div>
+          {filteredData.length === 0 ? <p style={{color:'#a0b0b0', marginTop:'15px'}}>No downtime events for this period</p> : (
+            <table className="data-table" style={{marginTop:'15px'}}>
+              <thead><tr><th>Asset</th><th>Date</th><th>Category</th><th>Hours</th><th>Cost</th><th>Description</th></tr></thead>
+              <tbody>
+                {filteredData.map(d => (
+                  <tr key={d.id}>
+                    <td>{d.asset}</td><td>{d.date}</td>
+                    <td><span className="category-badge">{d.category}</span></td>
+                    <td><span className="hours-badge">{d.hours}h</span></td>
+                    <td><span className="cost-badge">${parseFloat(d.cost || 0).toLocaleString('en-AU', {minimumFractionDigits:2})}</span></td>
+                    <td>{d.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div className="charts-grid" style={{marginTop:'30px'}}>
+            <div className="chart-card">
+              <h3>Downtime by Fault Category</h3>
+              {getCategoryTotals().length === 0 ? <p style={{color:'#a0b0b0'}}>No data yet</p> : getCategoryTotals().map((item, index) => (
+                <div key={item.category} className="bar-row">
+                  <span className="bar-label">{item.category}</span>
+                  <div className="bar-track"><div className="bar-fill" style={{ width: (parseFloat(item.hours) / maxHours) * 100 + '%', backgroundColor: barColors[index % barColors.length] }} /></div>
+                  <span className="bar-value">{item.hours}h</span>
+                </div>
               ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+            </div>
+            <div className="chart-card">
+              <h3>Downtime Cost by Asset</h3>
+              {getAssetTotals().length === 0 ? <p style={{color:'#a0b0b0'}}>No data yet</p> : getAssetTotals().map((item, index) => (
+                <div key={item.asset} className="bar-row">
+                  <span className="bar-label">{item.asset}</span>
+                  <div className="bar-track"><div className="bar-fill" style={{ width: (parseFloat(item.hours) / maxHours) * 100 + '%', backgroundColor: barColors[index % barColors.length] }} /></div>
+                  <span className="bar-value">${parseFloat(item.cost).toLocaleString('en-AU', {minimumFractionDigits:0})}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
-      <div className="charts-grid" style={{marginTop:'30px'}}>
-        <div className="chart-card">
-          <h3>Downtime by Fault Category</h3>
-          {getCategoryTotals().length === 0 ? <p style={{color:'#a0b0b0'}}>No downtime data yet</p> : (
-            getCategoryTotals().map((item, index) => (
-              <div key={item.category} className="bar-row">
-                <span className="bar-label">{item.category}</span>
-                <div className="bar-track"><div className="bar-fill" style={{ width: (parseFloat(item.hours) / maxHours) * 100 + '%', backgroundColor: barColors[index % barColors.length] }} /></div>
-                <span className="bar-value">{item.hours}h</span>
+      {/* MACHINE AVAILABILITY TAB */}
+      {activeTab === 'availability' && (
+        <div style={{marginTop:'15px'}}>
+          <div className="weekly-stats">
+            <div className="weekly-stat"><span className="weekly-stat-label">Fleet Avg Utilisation</span><span className="weekly-stat-value" style={{color: getUtilColour(parseFloat(avgUtilisation))}}>{avgUtilisation}%</span></div>
+            <div className="weekly-stat"><span className="weekly-stat-label">Machines Tracked</span><span className="weekly-stat-value">{availabilityData.filter(a => a.prestartCount > 0).length}</span></div>
+            <div className="weekly-stat"><span className="weekly-stat-label">Total Prestarts</span><span className="weekly-stat-value">{availabilityData.reduce((sum, a) => sum + a.prestartCount, 0)}</span></div>
+          </div>
+
+          {/* Period breakdown */}
+          <div className="charts-grid" style={{marginTop:'20px'}}>
+            {['daily', 'weekly', 'monthly'].map(period => (
+              <div key={period} className="chart-card">
+                <h3 style={{textTransform:'capitalize'}}>{period === 'daily' ? "Today's" : period === 'weekly' ? 'Last 7 Days' : 'This Month'} Utilisation</h3>
+                {getUtilisationByPeriod(period).filter(a => parseFloat(a.totalRunHours) > 0).length === 0
+                  ? <p style={{color:'#a0b0b0', fontSize:'13px'}}>No prestart data for this period</p>
+                  : getUtilisationByPeriod(period).map(a => (
+                    <div key={a.asset} className="bar-row">
+                      <span className="bar-label">{a.asset}</span>
+                      <div className="bar-track"><div className="bar-fill" style={{ width: Math.min(100, parseFloat(a.utilisation)) + '%', backgroundColor: getUtilColour(parseFloat(a.utilisation)) }} /></div>
+                      <span className="bar-value" style={{color: getUtilColour(parseFloat(a.utilisation))}}>{a.utilisation}%</span>
+                    </div>
+                  ))
+                }
               </div>
-            ))
-          )}
+            ))}
+          </div>
+
+          {/* Detailed table */}
+          <div style={{marginTop:'20px'}}>
+            <h3 style={{marginBottom:'12px', color:'#fff'}}>Machine Utilisation Detail</h3>
+            {availabilityData.length === 0 ? <p style={{color:'#a0b0b0'}}>No assets registered yet</p> : (
+              <table className="data-table">
+                <thead><tr><th>Machine</th><th>Run Hours</th><th>Target Hours</th><th>Utilisation</th><th>Prestarts</th><th>Target/Day</th></tr></thead>
+                <tbody>
+                  {availabilityData.map(a => (
+                    <tr key={a.asset}>
+                      <td>{a.asset}</td>
+                      <td>{a.totalRunHours}h</td>
+                      <td>{a.targetHours}h</td>
+                      <td>
+                        <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                          <div style={{width:'80px', height:'8px', backgroundColor:'#1a2f2f', borderRadius:'4px'}}>
+                            <div style={{width: Math.min(100, parseFloat(a.utilisation)) + '%', height:'100%', backgroundColor: getUtilColour(parseFloat(a.utilisation)), borderRadius:'4px'}} />
+                          </div>
+                          <span style={{color: getUtilColour(parseFloat(a.utilisation)), fontWeight:'bold'}}>{a.utilisation}%</span>
+                        </div>
+                      </td>
+                      <td>{a.prestartCount}</td>
+                      <td>{a.targetPerDay}h</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-        <div className="chart-card">
-          <h3>Downtime Cost by Asset</h3>
-          {getAssetTotals().length === 0 ? <p style={{color:'#a0b0b0'}}>No downtime data yet</p> : (
-            getAssetTotals().map((item, index) => (
-              <div key={item.asset} className="bar-row">
-                <span className="bar-label">{item.asset}</span>
-                <div className="bar-track"><div className="bar-fill" style={{ width: (parseFloat(item.hours) / maxHours) * 100 + '%', backgroundColor: barColors[index % barColors.length] }} /></div>
-                <span className="bar-value">${parseFloat(item.cost).toLocaleString('en-AU', {minimumFractionDigits:0})}</span>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
 export default Reports;
+```
