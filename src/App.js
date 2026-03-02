@@ -24,10 +24,25 @@ function App() {
   const [prestartAsset, setPrestartAsset] = useState(null);
 
   useEffect(() => {
-    // Check for ?asset= in URL (QR code scan)
+    // Handle QR code URL: /asset/{id} path format
+    const path = window.location.pathname;
+    const pathMatch = path.match(/^\/asset\/(.+)/);
+    if (pathMatch) {
+      const assetId = pathMatch[1];
+      setViewingAssetId(assetId);
+      setCurrentPage('assetpage');
+      // Clean up the URL so it doesn't confuse on refresh
+      window.history.replaceState({}, '', '/');
+    }
+
+    // Also support legacy ?asset= query param just in case
     const params = new URLSearchParams(window.location.search);
     const assetParam = params.get('asset');
-    if (assetParam) { setViewingAssetId(assetParam); setCurrentPage('assetpage'); }
+    if (assetParam) {
+      setViewingAssetId(assetParam);
+      setCurrentPage('assetpage');
+      window.history.replaceState({}, '', '/');
+    }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -68,8 +83,7 @@ function App() {
       case 'downtime': return <Downtime userRole={userRole} />;
       case 'maintenance': return <Maintenance userRole={userRole} />;
       case 'prestart': return <Prestart userRole={userRole} preloadAsset={prestartAsset} onClearPreload={() => setPrestartAsset(null)} />;
-      case 'scanner': return <Scanner userRole={userRole} onAssetFound={(assetId) => { setViewingAssetId(assetId); setCurrentPage('prestart-from-scan'); }} />;
-      case 'prestart-from-scan': return <Prestart userRole={userRole} preloadAssetId={viewingAssetId} onClearPreload={() => setViewingAssetId(null)} />;
+      case 'scanner': return <Scanner userRole={userRole} onAssetFound={(assetId) => { setViewingAssetId(assetId); setCurrentPage('assetpage'); }} />;
       case 'assetpage': return (
         <div>
           <button onClick={() => { setCurrentPage('assets'); setViewingAssetId(null); }}
