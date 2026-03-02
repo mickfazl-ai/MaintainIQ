@@ -12,6 +12,7 @@ import Signup from './Signup';
 import Prestart from './Prestart';
 import Scanner from './Scanner';
 import AssetPage from './MachineProfile';
+import MasterAdmin from './MasterAdmin';
 import { supabase } from './supabase';
 
 function App() {
@@ -25,14 +26,12 @@ function App() {
   const [prestartAsset, setPrestartAsset] = useState(null);
 
   useEffect(() => {
-    // Handle QR code URL: /asset/{id}
     const path = window.location.pathname;
     const pathMatch = path.match(/^\/asset\/(.+)/);
     if (pathMatch) {
       sessionStorage.setItem('pendingAssetId', pathMatch[1]);
       window.history.replaceState({}, '', '/');
     }
-
     const params = new URLSearchParams(window.location.search);
     const assetParam = params.get('asset');
     if (assetParam) {
@@ -56,15 +55,38 @@ function App() {
   }, []);
 
   const fetchUserRole = async (email) => {
-    const { data, error } = await supabase.from('user_roles').select('*').eq('email', email).single();
-    if (error) setUserRole({ role: 'technician', name: email });
-    else setUserRole(data);
+    const { data: roleData, error } = await supabase
+      .from('user_roles').select('*').eq('email', email).single();
+
+    if (error) {
+      setUserRole({ role: 'technician', name: email });
+      setLoading(false);
+      return;
+    }
+
+    // Master admin — no company needed
+    if (roleData.role === 'master') {
+      setUserRole({ ...roleData, company_features: {} });
+      setCurrentPage('master');
+      setLoading(false);
+      return;
+    }
+
+    // Fetch company features for regular users
+    let companyFeatures = {};
+    if (roleData.company_id) {
+      const { data: company } = await supabase
+        .from('companies').select('features, status').eq('id', roleData.company_id).single();
+      if (company?.features) companyFeatures = company.features;
+    }
+
+    setUserRole({ ...roleData, company_features: companyFeatures });
     setLoading(false);
   };
 
-  // After login, check for pending QR asset — go straight to prestart
+  // After login, check for pending QR asset
   useEffect(() => {
-    if (userRole) {
+    if (userRole && userRole.role !== 'master') {
       const pendingAssetId = sessionStorage.getItem('pendingAssetId');
       if (pendingAssetId) {
         sessionStorage.removeItem('pendingAssetId');
@@ -83,48 +105,32 @@ function App() {
   };
 
   const renderPage = () => {
-    switch(currentPage) {
-      case 'dashboard': return <Dashboard companyId={userRole?.company_id} />;
-      case 'assets': return <Assets userRole={userRole} onViewAsset={handleViewAsset} />;
-      case 'downtime': return <Downtime userRole={userRole} />;
-      case 'maintenance': return <Maintenance userRole={userRole} />;
-      case 'prestart': return <Prestart userRole={userRole} preloadAsset={prestartAsset} onClearPreload={() => setPrestartAsset(null)} />;
-      case 'scanner': return (
-        <Scanner
-          userRole={userRole}
-          onAssetFound={(assetId) => {
-            setPrestartAssetId(assetId);
-            setCurrentPage('prestart-from-scan');
-          }}
-        />
-      );
-      case 'prestart-from-scan': return (
-        <Prestart
-          userRole={userRole}
-          preloadAssetId={prestartAssetId}
-          onClearPreload={() => { setPrestartAssetId(null); setCurrentPage('scanner'); }}
-        />
-      );
-      case 'assetpage': return (
+    if (userRole?.role === 'master') return <MasterAdmin />;
+
+    switch (currentPage) {
+      case 'dashboard':    return <Dashboard companyId={userRole?.company_id} />;
+      case 'assets':       return <Assets userRole={userRole} onViewAsset={handleViewAsset} />;
+      case 'downtime':     return <Downtime userRole={userRole} />;
+      case 'maintenance':  return <Maintenance userRole={userRole} />;
+      case 'prestart':     return <Prestart userRole={userRole} preloadAsset={prestartAsset} onClearPreload={() => setPrestartAsset(null)} />;
+      case 'scanner':      return <Scanner userRole={userRole} onAssetFound={(assetId) => { setPrestartAssetId(assetId); setCurrentPage('prestart-from-scan'); }} />;
+      case 'prestart-from-scan': return <Prestart userRole={userRole} preloadAssetId={prestartAssetId} onClearPreload={() => { setPrestartAssetId(null); setCurrentPage('scanner'); }} />;
+      case 'assetpage':    return (
         <div>
           <button onClick={() => { setCurrentPage('assets'); setViewingAssetId(null); }}
-            style={{marginBottom:'15px', backgroundColor:'transparent', color:'#a0b0b0', border:'1px solid #1a2f2f', padding:'6px 14px', borderRadius:'4px', cursor:'pointer'}}>
+            style={{ marginBottom: '15px', backgroundColor: 'transparent', color: '#a0b0b0', border: '1px solid #1a2f2f', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer' }}>
             ← Back to Assets
           </button>
           <AssetPage assetId={viewingAssetId} userRole={userRole} onStartPrestart={handleStartPrestartFromAsset} />
         </div>
       );
-      case 'reports':
-        if (userRole?.role === 'technician') return <div style={{padding:'20px'}}><h2>Access Denied</h2></div>;
-        return <Reports companyId={userRole?.company_id} />;
-      case 'users':
-        if (userRole?.role !== 'admin') return <div style={{padding:'20px'}}><h2>Access Denied</h2></div>;
-        return <Users companyId={userRole?.company_id} userRole={userRole} />;
-      default: return <Dashboard companyId={userRole?.company_id} />;
+      case 'reports':      return userRole?.role === 'technician' ? <div style={{ padding: '20px' }}><h2>Access Denied</h2></div> : <Reports companyId={userRole?.company_id} />;
+      case 'users':        return userRole?.role !== 'admin' ? <div style={{ padding: '20px' }}><h2>Access Denied</h2></div> : <Users companyId={userRole?.company_id} userRole={userRole} />;
+      default:             return <Dashboard companyId={userRole?.company_id} />;
     }
   };
 
-  if (loading) return <div style={{color:'white', padding:'50px', textAlign:'center', backgroundColor:'#0a0f0f', height:'100vh'}}>Loading...</div>;
+  if (loading) return <div style={{ color: 'white', padding: '50px', textAlign: 'center', backgroundColor: '#0a0f0f', height: '100vh' }}>Loading...</div>;
 
   if (!session) {
     return showSignup

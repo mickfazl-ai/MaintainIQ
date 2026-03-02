@@ -8,14 +8,32 @@ function Login({ onShowSignup }) {
   const [error, setError] = useState('');
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Please enter your email and password');
-      return;
-    }
+    if (!email || !password) { setError('Please enter your email and password'); return; }
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setError(error.message);
+
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (authError) { setError(authError.message); setLoading(false); return; }
+
+    // Check if company is approved (skip check for master admin)
+    const { data: roleData } = await supabase.from('user_roles').select('role, company_id').eq('email', email).single();
+
+    if (roleData && roleData.role !== 'master' && roleData.company_id) {
+      const { data: company } = await supabase.from('companies').select('status').eq('id', roleData.company_id).single();
+      if (company?.status === 'pending') {
+        await supabase.auth.signOut();
+        setError('Your account is pending approval. You will be notified once activated.');
+        setLoading(false);
+        return;
+      }
+      if (company?.status === 'suspended') {
+        await supabase.auth.signOut();
+        setError('Your account has been suspended. Please contact support.');
+        setLoading(false);
+        return;
+      }
+    }
+
     setLoading(false);
   };
 
@@ -27,21 +45,21 @@ function Login({ onShowSignup }) {
         <div className="login-form">
           <div className="login-field">
             <label>Email</label>
-            <input type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} />
+            <input type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()} />
           </div>
           <div className="login-field">
             <label>Password</label>
-            <input type="password" placeholder="password" value={password} onChange={e => setPassword(e.target.value)} />
+            <input type="password" placeholder="password" value={password} onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()} />
           </div>
           {error && <p className="login-error">{error}</p>}
           <button className="btn-login" onClick={handleLogin} disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
-          <p style={{textAlign:'center', marginTop:'20px', color:'#a0b0b0', fontSize:'14px'}}>
+          <p style={{ textAlign: 'center', marginTop: '20px', color: '#a0b0b0', fontSize: '14px' }}>
             Don't have an account?{' '}
-            <span style={{color:'#00c2e0', cursor:'pointer'}} onClick={onShowSignup}>
-              Sign up free
-            </span>
+            <span style={{ color: '#00c2e0', cursor: 'pointer' }} onClick={onShowSignup}>Sign up free</span>
           </p>
         </div>
       </div>
