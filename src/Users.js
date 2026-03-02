@@ -133,6 +133,7 @@ function Users({ companyId, userRole }) {
               value={newUser.role}
               onChange={e => setNewUser({...newUser, role: e.target.value})}
             >
+              <option value="operator">Operator</option>
               <option value="technician">Technician</option>
               <option value="supervisor">Supervisor</option>
               <option value="admin">Admin</option>

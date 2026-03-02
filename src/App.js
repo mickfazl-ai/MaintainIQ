@@ -10,6 +10,7 @@ import Users from './Users';
 import Login from './Login';
 import Signup from './Signup';
 import Prestart from './Prestart';
+import Scanner from './Scanner';
 import AssetPage from './MachineProfile';
 import { supabase } from './supabase';
 
@@ -67,6 +68,8 @@ function App() {
       case 'downtime': return <Downtime userRole={userRole} />;
       case 'maintenance': return <Maintenance userRole={userRole} />;
       case 'prestart': return <Prestart userRole={userRole} preloadAsset={prestartAsset} onClearPreload={() => setPrestartAsset(null)} />;
+      case 'scanner': return <Scanner userRole={userRole} onAssetFound={(assetId) => { setViewingAssetId(assetId); setCurrentPage('prestart-from-scan'); }} />;
+      case 'prestart-from-scan': return <Prestart userRole={userRole} preloadAssetId={viewingAssetId} onClearPreload={() => setViewingAssetId(null)} />;
       case 'assetpage': return (
         <div>
           <button onClick={() => { setCurrentPage('assets'); setViewingAssetId(null); }}
