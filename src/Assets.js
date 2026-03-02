@@ -1,165 +1,169 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
-import QRCode from 'qrcode.react';
-import QRCodeGen from 'qrcode';
+import { QRCodeCanvas } from 'qrcode.react';
 
 function QRPrintModal({ asset, onClose }) {
-  const [qrDataUrl, setQrDataUrl] = useState('');
+  const hiddenQrRef = useRef(null);
   const qrValue = `https://maintain-iq.vercel.app/asset/${asset.id}`;
-
-  useEffect(() => {
-    QRCodeGen.toDataURL(qrValue, {
-      width: 300,
-      margin: 2,
-      color: { dark: '#000000', light: '#ffffff' }
-    }).then(url => setQrDataUrl(url)).catch(console.error);
-  }, [qrValue]);
 
   const handlePrint = () => {
-    if (!qrDataUrl) {
-      alert('QR code not ready, please try again.');
+    // Read from the hidden canvas that's already rendered in the DOM
+    const canvas = hiddenQrRef.current?.querySelector('canvas');
+    if (!canvas) {
+      alert('QR code not ready, please wait a moment and try again.');
       return;
     }
+    const qrDataUrl = canvas.toDataURL('image/png');
 
     const win = window.open('', '_blank');
-    win.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>QR Label - ${asset.asset_number}</title>
-          <style>
-            @page { size: 85.6mm 54mm; margin: 0; }
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            html, body {
-              width: 85.6mm;
-              height: 54mm;
-              background: #000000;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            .card {
-              width: 85.6mm;
-              height: 54mm;
-              background: #000000;
-              display: flex;
-              align-items: center;
-              padding: 5mm;
-              gap: 4mm;
-            }
-            .qr-wrap {
-              flex-shrink: 0;
-              width: 38mm;
-              height: 38mm;
-              background: #ffffff;
-              border-radius: 2mm;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              padding: 2mm;
-            }
-            .qr-wrap img { width: 100%; height: 100%; display: block; }
-            .info {
-              flex: 1;
-              display: flex;
-              flex-direction: column;
-              justify-content: space-between;
-              height: 38mm;
-            }
-            .top { display: flex; flex-direction: column; gap: 1mm; }
-            .company { font-size: 6.5pt; color: #777777; letter-spacing: 0.3px; font-family: Arial, sans-serif; }
-            .asset-number {
-              font-size: 20pt;
-              font-weight: 900;
-              color: #00c2e0;
-              letter-spacing: 1px;
-              line-height: 1;
-              font-family: Arial, sans-serif;
-            }
-            .asset-name { font-size: 10pt; color: #ffffff; font-weight: 700; font-family: Arial, sans-serif; }
-            .asset-meta { font-size: 7pt; color: #888888; font-family: Arial, sans-serif; }
-            .bottom { display: flex; justify-content: flex-end; align-items: flex-end; }
-            .branding { font-size: 10pt; font-weight: 900; color: #ffffff; letter-spacing: 2px; font-family: Arial, sans-serif; }
-            .branding .iq { color: #00c2e0; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="qr-wrap">
-              <img src="${qrDataUrl}" />
-            </div>
-            <div class="info">
-              <div class="top">
-                <div class="company">COMPANY: ${asset.company_id?.substring(0, 8).toUpperCase() || 'N/A'}</div>
-                <div class="asset-number">${asset.asset_number || 'AST-0000'}</div>
-                <div class="asset-name">${asset.name}</div>
-                <div class="asset-meta">${asset.type} · ${asset.location}</div>
-              </div>
-              <div class="bottom">
-                <div class="branding">MAINTAIN<span class="iq">IQ</span></div>
-              </div>
-            </div>
-          </div>
-          <script>window.onload = function() { window.print(); }<\/script>
-        </body>
-      </html>
-    `);
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <title>QR Label - ${asset.asset_number}</title>
+  <style>
+    @page { size: 85.6mm 54mm; margin: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 85.6mm;
+      height: 54mm;
+      background: #000000 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+    .card {
+      width: 85.6mm;
+      height: 54mm;
+      background: #000000 !important;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      padding: 5mm;
+      gap: 4mm;
+    }
+    .qr-block {
+      flex-shrink: 0;
+      width: 36mm;
+      height: 36mm;
+      background: #ffffff;
+      padding: 1.5mm;
+      border-radius: 1.5mm;
+    }
+    .qr-block img {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .text-block {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 36mm;
+    }
+    .label-company {
+      font-family: Arial, sans-serif;
+      font-size: 6pt;
+      color: #777777;
+      letter-spacing: 0.5px;
+    }
+    .label-number {
+      font-family: Arial, sans-serif;
+      font-size: 22pt;
+      font-weight: 900;
+      color: #00c2e0;
+      line-height: 1;
+      letter-spacing: 1px;
+    }
+    .label-name {
+      font-family: Arial, sans-serif;
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .label-meta {
+      font-family: Arial, sans-serif;
+      font-size: 6.5pt;
+      color: #888888;
+    }
+    .label-brand {
+      font-family: Arial, sans-serif;
+      font-size: 9pt;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: 2px;
+      text-align: right;
+    }
+    .label-brand .iq { color: #00c2e0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="qr-block">
+      <img src="${qrDataUrl}" />
+    </div>
+    <div class="text-block">
+      <div>
+        <div class="label-company">COMPANY: ${(asset.company_id || '').substring(0, 8).toUpperCase()}</div>
+        <div class="label-number">${asset.asset_number || 'AST-0000'}</div>
+        <div class="label-name">${asset.name}</div>
+        <div class="label-meta">${asset.type} · ${asset.location}</div>
+      </div>
+      <div class="label-brand">MAINTAIN<span class="iq">IQ</span></div>
+    </div>
+  </div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body>
+</html>`);
     win.document.close();
   };
-
-  const qrValue = `https://maintain-iq.vercel.app/asset/${asset.id}`;
 
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center',
+      background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center',
       justifyContent: 'center', zIndex: 9999
     }}>
       <div style={{
         background: '#0a1a1a', border: '1px solid #1a3a3a', borderRadius: '12px',
-        padding: '28px', minWidth: '360px', maxWidth: '440px'
+        padding: '28px', width: '400px'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h3 style={{ color: '#fff', margin: 0 }}>QR Label Preview</h3>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer' }}>✕</button>
         </div>
 
-        {/* Preview Card */}
+        {/* Hidden high-res canvas for print extraction */}
+        <div ref={hiddenQrRef} style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+          <QRCodeCanvas value={qrValue} size={300} level="H" />
+        </div>
+
+        {/* Visual Preview Card */}
         <div style={{
           background: '#000', borderRadius: '10px', padding: '14px 16px',
           display: 'flex', alignItems: 'center', gap: '14px',
-          width: '100%', minHeight: '110px', marginBottom: '20px'
+          marginBottom: '20px'
         }}>
-          {/* QR Code */}
           <div style={{
-            background: '#fff', borderRadius: '6px', padding: '6px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, width: '100px', height: '100px'
+            background: '#fff', borderRadius: '6px', padding: '5px',
+            flexShrink: 0, width: '90px', height: '90px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
-            {qrDataUrl
-              ? <img src={qrDataUrl} alt="QR Code" style={{ width: '100%', height: '100%' }} />
-              : <div style={{ color: '#999', fontSize: '10px' }}>Loading...</div>
-            }
+            <QRCodeCanvas value={qrValue} size={80} level="H" />
           </div>
-
-          {/* Info */}
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', flex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, height: '90px' }}>
             <div>
-              <div style={{ fontSize: '9px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                COMPANY: {asset.company_id?.substring(0, 8).toUpperCase()}
+              <div style={{ fontSize: '9px', color: '#666', letterSpacing: '0.5px' }}>
+                COMPANY: {(asset.company_id || '').substring(0, 8).toUpperCase()}
               </div>
-              <div style={{ fontSize: '18px', fontWeight: 900, color: '#00c2e0', letterSpacing: '1px', lineHeight: 1.1, margin: '2px 0' }}>
+              <div style={{ fontSize: '20px', fontWeight: 900, color: '#00c2e0', letterSpacing: '1px', lineHeight: 1.1 }}>
                 {asset.asset_number || 'AST-0000'}
               </div>
-              <div style={{ fontSize: '11px', color: '#fff', fontWeight: 600 }}>{asset.name}</div>
-              <div style={{ fontSize: '9px', color: '#666', marginTop: '2px' }}>
-                {asset.type} · {asset.location}
-              </div>
+              <div style={{ fontSize: '11px', color: '#fff', fontWeight: 700 }}>{asset.name}</div>
+              <div style={{ fontSize: '9px', color: '#666' }}>{asset.type} · {asset.location}</div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '8px' }}>
-              <div style={{ fontSize: '8px', color: '#444' }}>Scan to view asset</div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#fff', letterSpacing: '1px' }}>
-                MAINTAIN<span style={{ color: '#00c2e0' }}>IQ</span>
-              </div>
+            <div style={{ fontSize: '10px', fontWeight: 900, color: '#fff', letterSpacing: '2px', textAlign: 'right' }}>
+              MAINTAIN<span style={{ color: '#00c2e0' }}>IQ</span>
             </div>
           </div>
         </div>
@@ -316,7 +320,6 @@ function Assets({ userRole, onViewAsset }) {
                       color: '#00c2e0', padding: '4px 10px', borderRadius: '6px',
                       cursor: 'pointer', fontSize: '12px'
                     }}
-                    title="Print QR Label"
                   >
                     🏷️ QR
                   </button>
