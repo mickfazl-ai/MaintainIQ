@@ -18,8 +18,12 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole }) {
 
   const handleNav = (id) => { setCurrentPage(id); setMenuOpen(false); };
 
+  // Master sees all nav items + a Master Admin tab
   const visibleItems = isMaster
-    ? [] // master uses their own panel
+    ? [
+        ...menuItems,
+        { id: 'master', label: '⚙️ Master Admin', roles: ['master'] }
+      ]
     : menuItems.filter(item =>
         item.roles.includes(userRole?.role || 'operator') &&
         (features[item.feature] !== false)
@@ -27,7 +31,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole }) {
 
   return (
     <div className="navbar">
-      <div className="navbar-brand" onClick={() => handleNav(isMaster ? 'master' : 'dashboard')} style={{ cursor: 'pointer' }}>
+      <div className="navbar-brand" onClick={() => handleNav('dashboard')} style={{ cursor: 'pointer' }}>
         <span className="brand-white">MAINTAIN</span><span className="brand-cyan">IQ</span>
       </div>
       <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)}>
@@ -35,17 +39,16 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole }) {
       </button>
       <nav className={menuOpen ? 'nav-open' : ''}>
         <ul>
-          {isMaster ? (
-            <li className={currentPage === 'master' ? 'active' : ''} onClick={() => handleNav('master')}>
-              ⚙️ Master Admin
+          {visibleItems.map(item => (
+            <li
+              key={item.id}
+              className={currentPage === item.id ? 'active' : ''}
+              onClick={() => handleNav(item.id)}
+              style={item.id === 'master' ? { color: '#ff6b00' } : {}}
+            >
+              {item.label}
             </li>
-          ) : (
-            visibleItems.map(item => (
-              <li key={item.id} className={currentPage === item.id ? 'active' : ''} onClick={() => handleNav(item.id)}>
-                {item.label}
-              </li>
-            ))
-          )}
+          ))}
         </ul>
         <div className="navbar-user">
           <span className="logged-in-as">{userRole?.name || session?.user?.email}</span>
