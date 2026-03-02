@@ -24,23 +24,21 @@ function App() {
   const [prestartAsset, setPrestartAsset] = useState(null);
 
   useEffect(() => {
-    // Handle QR code URL: /asset/{id} path format
+    // Check for /asset/{id} in URL path (QR code scan)
     const path = window.location.pathname;
     const pathMatch = path.match(/^\/asset\/(.+)/);
     if (pathMatch) {
       const assetId = pathMatch[1];
-      setViewingAssetId(assetId);
-      setCurrentPage('assetpage');
-      // Clean up the URL so it doesn't confuse on refresh
+      // Save to sessionStorage so it survives the login redirect
+      sessionStorage.setItem('pendingAssetId', assetId);
       window.history.replaceState({}, '', '/');
     }
 
-    // Also support legacy ?asset= query param just in case
+    // Also support legacy ?asset= query param
     const params = new URLSearchParams(window.location.search);
     const assetParam = params.get('asset');
     if (assetParam) {
-      setViewingAssetId(assetParam);
-      setCurrentPage('assetpage');
+      sessionStorage.setItem('pendingAssetId', assetParam);
       window.history.replaceState({}, '', '/');
     }
 
@@ -65,6 +63,18 @@ function App() {
     else setUserRole(data);
     setLoading(false);
   };
+
+  // After login + userRole loaded, check for a pending QR asset
+  useEffect(() => {
+    if (userRole) {
+      const pendingAssetId = sessionStorage.getItem('pendingAssetId');
+      if (pendingAssetId) {
+        sessionStorage.removeItem('pendingAssetId');
+        setViewingAssetId(pendingAssetId);
+        setCurrentPage('assetpage');
+      }
+    }
+  }, [userRole]);
 
   const handleLogout = async () => { await supabase.auth.signOut(); };
 
