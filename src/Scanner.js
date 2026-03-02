@@ -38,7 +38,6 @@ function Scanner({ userRole, onAssetFound }) {
   const handleQrResult = (decodedText) => {
     setError('');
     try {
-      // Handle /asset/{id} path format
       const url = new URL(decodedText);
       const parts = url.pathname.split('/');
       const assetIndex = parts.indexOf('asset');
@@ -48,7 +47,6 @@ function Scanner({ userRole, onAssetFound }) {
       }
       setError('QR code not recognised. Try manual entry.');
     } catch {
-      // Not a URL - try matching asset directly
       const found = assets.find(a =>
         a.id === decodedText ||
         a.asset_number?.toLowerCase() === decodedText.toLowerCase()
@@ -92,7 +90,7 @@ function Scanner({ userRole, onAssetFound }) {
         <div style={{ marginBottom: '20px' }}>
           <div id="qr-reader" style={{ borderRadius: '8px', overflow: 'hidden', width: '100%' }} />
           <button
-            onClick={() => { try { } catch {} setScanning(false); }}
+            onClick={() => { try {} catch {} setScanning(false); }}
             style={{ width: '100%', marginTop: '10px', padding: '10px', backgroundColor: 'transparent', color: '#a0b0b0', border: '1px solid #1a2f2f', borderRadius: '4px', cursor: 'pointer' }}
           >
             Cancel

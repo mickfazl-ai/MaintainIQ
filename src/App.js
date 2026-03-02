@@ -21,20 +21,18 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [showSignup, setShowSignup] = useState(false);
   const [viewingAssetId, setViewingAssetId] = useState(null);
+  const [prestartAssetId, setPrestartAssetId] = useState(null);
   const [prestartAsset, setPrestartAsset] = useState(null);
 
   useEffect(() => {
-    // Check for /asset/{id} in URL path (QR code scan)
+    // Handle QR code URL: /asset/{id}
     const path = window.location.pathname;
     const pathMatch = path.match(/^\/asset\/(.+)/);
     if (pathMatch) {
-      const assetId = pathMatch[1];
-      // Save to sessionStorage so it survives the login redirect
-      sessionStorage.setItem('pendingAssetId', assetId);
+      sessionStorage.setItem('pendingAssetId', pathMatch[1]);
       window.history.replaceState({}, '', '/');
     }
 
-    // Also support legacy ?asset= query param
     const params = new URLSearchParams(window.location.search);
     const assetParam = params.get('asset');
     if (assetParam) {
@@ -64,22 +62,20 @@ function App() {
     setLoading(false);
   };
 
-  // After login + userRole loaded, check for a pending QR asset
+  // After login, check for pending QR asset — go straight to prestart
   useEffect(() => {
     if (userRole) {
       const pendingAssetId = sessionStorage.getItem('pendingAssetId');
       if (pendingAssetId) {
         sessionStorage.removeItem('pendingAssetId');
-        setViewingAssetId(pendingAssetId);
-        setCurrentPage('assetpage');
+        setPrestartAssetId(pendingAssetId);
+        setCurrentPage('prestart-from-scan');
       }
     }
   }, [userRole]);
 
   const handleLogout = async () => { await supabase.auth.signOut(); };
-
   const handleViewAsset = (assetId) => { setViewingAssetId(assetId); setCurrentPage('assetpage'); };
-
   const handleStartPrestartFromAsset = (assetName) => {
     setPrestartAsset(assetName);
     setCurrentPage('prestart');
@@ -93,7 +89,22 @@ function App() {
       case 'downtime': return <Downtime userRole={userRole} />;
       case 'maintenance': return <Maintenance userRole={userRole} />;
       case 'prestart': return <Prestart userRole={userRole} preloadAsset={prestartAsset} onClearPreload={() => setPrestartAsset(null)} />;
-      case 'scanner': return <Scanner userRole={userRole} onAssetFound={(assetId) => { setViewingAssetId(assetId); setCurrentPage('assetpage'); }} />;
+      case 'scanner': return (
+        <Scanner
+          userRole={userRole}
+          onAssetFound={(assetId) => {
+            setPrestartAssetId(assetId);
+            setCurrentPage('prestart-from-scan');
+          }}
+        />
+      );
+      case 'prestart-from-scan': return (
+        <Prestart
+          userRole={userRole}
+          preloadAssetId={prestartAssetId}
+          onClearPreload={() => { setPrestartAssetId(null); setCurrentPage('scanner'); }}
+        />
+      );
       case 'assetpage': return (
         <div>
           <button onClick={() => { setCurrentPage('assets'); setViewingAssetId(null); }}

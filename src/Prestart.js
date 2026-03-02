@@ -3,11 +3,11 @@ import { supabase } from './supabase';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-function Prestart({ userRole }) {
+function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
   const [templates, setTemplates] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [assets, setAssets] = useState([]);
-  const [view, setView] = useState('list'); // list | fill | builder | history
+  const [view, setView] = useState('list');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const sigCanvas = useRef(null);
@@ -15,10 +15,16 @@ function Prestart({ userRole }) {
   const [signatureData, setSignatureData] = useState('');
 
   const [form, setForm] = useState({
-    asset: '', operator_name: '', site_area: '', hrs_start: '', date: new Date().toISOString().split('T')[0], notes: '', responses: {}
+    asset: '',
+    asset_id: '',
+    operator_name: '',
+    site_area: '',
+    hrs_start: '',
+    date: new Date().toISOString().split('T')[0],
+    notes: '',
+    responses: {}
   });
 
-  // Builder state
   const [builder, setBuilder] = useState({ name: '', description: '', sections: [] });
 
   useEffect(() => {
@@ -28,6 +34,37 @@ function Prestart({ userRole }) {
       fetchAssets();
     }
   }, [userRole]);
+
+  // Prefill from asset name (from MachineProfile)
+  useEffect(() => {
+    if (preloadAsset) {
+      setForm(prev => ({ ...prev, asset: preloadAsset }));
+    }
+  }, [preloadAsset]);
+
+  // Prefill from asset ID (from Scanner / QR code)
+  useEffect(() => {
+    if (preloadAssetId && assets.length > 0) {
+      const found = assets.find(a => a.id === preloadAssetId);
+      if (found) {
+        setForm(prev => ({
+          ...prev,
+          asset: found.name,
+          asset_id: found.id,
+          site_area: found.location || '',
+          operator_name: userRole?.name || '',
+          date: new Date().toISOString().split('T')[0],
+        }));
+        // Auto-select first template and go straight to fill
+        if (templates.length === 1) {
+          setSelectedTemplate(templates[0]);
+          setView('fill');
+        } else if (templates.length > 1) {
+          setView('select-template');
+        }
+      }
+    }
+  }, [preloadAssetId, assets, templates]);
 
   const fetchTemplates = async () => {
     const { data } = await supabase.from('form_templates').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false });
@@ -41,7 +78,7 @@ function Prestart({ userRole }) {
   };
 
   const fetchAssets = async () => {
-    const { data } = await supabase.from('assets').select('name').eq('company_id', userRole.company_id);
+    const { data } = await supabase.from('assets').select('id, name, location').eq('company_id', userRole.company_id);
     setAssets(data || []);
   };
 
@@ -98,59 +135,59 @@ function Prestart({ userRole }) {
   };
 
   const handleSubmit = async () => {
-  if (!form.asset || !form.operator_name) { alert('Please select an asset and enter operator name'); return; }
-  const defects_found = Object.values(form.responses).some(r => r.status === 'Defect');
-  const { data: submission, error } = await supabase.from('form_submissions').insert([{
-    company_id: userRole.company_id,
-    template_id: selectedTemplate.id,
-    asset: form.asset,
-    operator_name: form.operator_name,
-    site_area: form.site_area,
-    hrs_start: form.hrs_start,
-    date: form.date,
-    notes: form.notes,
-    responses: form.responses,
-    operator_signature: signatureData,
-    defects_found
-  }]).select().single();
-  if (error) { alert('Error: ' + error.message); return; }
+    if (!form.asset || !form.operator_name) { alert('Please select an asset and enter operator name'); return; }
+    const defects_found = Object.values(form.responses).some(r => r.status === 'Defect');
+    const { data: submission, error } = await supabase.from('form_submissions').insert([{
+      company_id: userRole.company_id,
+      template_id: selectedTemplate.id,
+      asset: form.asset,
+      operator_name: form.operator_name,
+      site_area: form.site_area,
+      hrs_start: form.hrs_start,
+      date: form.date,
+      notes: form.notes,
+      responses: form.responses,
+      operator_signature: signatureData,
+      defects_found
+    }]).select().single();
+    if (error) { alert('Error: ' + error.message); return; }
 
-  // Auto-create work orders for each defect found
-  if (defects_found && submission) {
-    const defectItems = [];
-    selectedTemplate.sections.forEach((section, si) => {
-      section.items.forEach(item => {
-        const key = `${si}_${item}`;
-        const resp = form.responses[key];
-        if (resp?.status === 'Defect') {
-          defectItems.push(`${item}${resp.comment ? ': ' + resp.comment : ''}`);
-        }
+    if (defects_found && submission) {
+      const defectItems = [];
+      selectedTemplate.sections.forEach((section, si) => {
+        section.items.forEach(item => {
+          const key = `${si}_${item}`;
+          const resp = form.responses[key];
+          if (resp?.status === 'Defect') {
+            defectItems.push(`${item}${resp.comment ? ': ' + resp.comment : ''}`);
+          }
+        });
       });
-    });
-    if (defectItems.length > 0) {
-      await supabase.from('work_orders').insert([{
-        company_id: userRole.company_id,
-        asset: form.asset,
-        defect_description: defectItems.join('\n'),
-        priority: 'High',
-        status: 'Open',
-        source: 'prestart',
-        prestart_id: submission.id,
-        comments: `Auto-generated from prestart by ${form.operator_name} on ${form.date}`
-      }]);
+      if (defectItems.length > 0) {
+        await supabase.from('work_orders').insert([{
+          company_id: userRole.company_id,
+          asset: form.asset,
+          defect_description: defectItems.join('\n'),
+          priority: 'High',
+          status: 'Open',
+          source: 'prestart',
+          prestart_id: submission.id,
+          comments: `Auto-generated from prestart by ${form.operator_name} on ${form.date}`
+        }]);
+      }
     }
-  }
 
-  fetchSubmissions();
-  setView('list');
-  setForm({ asset: '', operator_name: '', site_area: '', hrs_start: '', date: new Date().toISOString().split('T')[0], notes: '', responses: {} });
-  setSignatureData('');
-  if (defects_found) {
-    alert('Prestart submitted. ⚠️ Defects found — a Work Order has been automatically created!');
-  } else {
-    alert('Prestart submitted successfully! ✓');
-  }
-};
+    fetchSubmissions();
+    setView('list');
+    setForm({ asset: '', asset_id: '', operator_name: '', site_area: '', hrs_start: '', date: new Date().toISOString().split('T')[0], notes: '', responses: {} });
+    setSignatureData('');
+    if (onClearPreload) onClearPreload();
+    if (defects_found) {
+      alert('Prestart submitted. ⚠️ Defects found — a Work Order has been automatically created!');
+    } else {
+      alert('Prestart submitted successfully! ✓');
+    }
+  };
 
   const exportPDF = (submission) => {
     const doc = new jsPDF();
@@ -195,25 +232,86 @@ function Prestart({ userRole }) {
 
   if (loading) return <p style={{color:'#a0b0b0', padding:'20px'}}>Loading...</p>;
 
+  // TEMPLATE SELECTION (when scanned and multiple templates exist)
+  if (view === 'select-template') return (
+    <div className="prestart">
+      <div className="page-header">
+        <h2>Select Checklist</h2>
+        <button className="btn-primary" onClick={() => { setView('list'); if (onClearPreload) onClearPreload(); }}>← Back</button>
+      </div>
+      <p style={{color:'#a0b0b0', marginBottom:'20px'}}>Asset: <strong style={{color:'#00c2e0'}}>{form.asset}</strong> — select a checklist to begin:</p>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:'15px'}}>
+        {templates.map(t => (
+          <div key={t.id} className="form-card" style={{cursor:'pointer'}} onClick={() => { setSelectedTemplate(t); setView('fill'); }}>
+            <h3 style={{color:'#00c2e0', marginBottom:'8px'}}>{t.name}</h3>
+            <p style={{color:'#a0b0b0', fontSize:'13px', marginBottom:'12px'}}>{t.description}</p>
+            <button className="btn-primary" style={{width:'100%'}}>Start →</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   // FILL FORM VIEW
   if (view === 'fill' && selectedTemplate) return (
     <div className="prestart">
       <div className="page-header">
         <h2>{selectedTemplate.name}</h2>
-        <button className="btn-primary" onClick={() => setView('list')}>← Back</button>
+        <button className="btn-primary" onClick={() => { setView('list'); if (onClearPreload) onClearPreload(); }}>← Back</button>
       </div>
+
+      {/* Pre-filled fields — all editable */}
       <div className="form-card">
+        <h3 style={{color:'#00c2e0', marginBottom:'15px'}}>Prestart Details</h3>
         <div className="form-grid">
-          <select value={form.asset} onChange={e => setForm({...form, asset: e.target.value})}>
-            <option value="">Select Asset</option>
-            {assets.map(a => <option key={a.name} value={a.name}>{a.name}</option>)}
-          </select>
-          <input placeholder="Operator Name" value={form.operator_name} onChange={e => setForm({...form, operator_name: e.target.value})} />
-          <input placeholder="Site Area" value={form.site_area} onChange={e => setForm({...form, site_area: e.target.value})} />
-          <input type="number" placeholder="Hours Start" value={form.hrs_start} onChange={e => setForm({...form, hrs_start: e.target.value})} />
-          <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+          <div>
+            <label style={{color:'#a0b0b0', fontSize:'12px', display:'block', marginBottom:'4px'}}>Asset</label>
+            <select value={form.asset} onChange={e => setForm({...form, asset: e.target.value})}
+              style={{width:'100%', padding:'10px', backgroundColor:'#0a0f0f', color: form.asset ? '#00c2e0' : 'white', border:'1px solid #1a2f2f', borderRadius:'4px', fontWeight: form.asset ? 'bold' : 'normal'}}>
+              <option value="">Select Asset</option>
+              {assets.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{color:'#a0b0b0', fontSize:'12px', display:'block', marginBottom:'4px'}}>Operator Name</label>
+            <input
+              placeholder="Operator Name"
+              value={form.operator_name}
+              onChange={e => setForm({...form, operator_name: e.target.value})}
+              style={{width:'100%', padding:'10px', backgroundColor:'#0a0f0f', color:'white', border:'1px solid #1a2f2f', borderRadius:'4px'}}
+            />
+          </div>
+          <div>
+            <label style={{color:'#a0b0b0', fontSize:'12px', display:'block', marginBottom:'4px'}}>Site / Location</label>
+            <input
+              placeholder="Site Area"
+              value={form.site_area}
+              onChange={e => setForm({...form, site_area: e.target.value})}
+              style={{width:'100%', padding:'10px', backgroundColor:'#0a0f0f', color:'white', border:'1px solid #1a2f2f', borderRadius:'4px'}}
+            />
+          </div>
+          <div>
+            <label style={{color:'#a0b0b0', fontSize:'12px', display:'block', marginBottom:'4px'}}>Hours Start</label>
+            <input
+              type="number"
+              placeholder="Hours Start"
+              value={form.hrs_start}
+              onChange={e => setForm({...form, hrs_start: e.target.value})}
+              style={{width:'100%', padding:'10px', backgroundColor:'#0a0f0f', color:'white', border:'1px solid #1a2f2f', borderRadius:'4px'}}
+            />
+          </div>
+          <div>
+            <label style={{color:'#a0b0b0', fontSize:'12px', display:'block', marginBottom:'4px'}}>Date</label>
+            <input
+              type="date"
+              value={form.date}
+              onChange={e => setForm({...form, date: e.target.value})}
+              style={{width:'100%', padding:'10px', backgroundColor:'#0a0f0f', color:'white', border:'1px solid #1a2f2f', borderRadius:'4px'}}
+            />
+          </div>
         </div>
       </div>
+
       {selectedTemplate.sections.map((section, si) => (
         <div key={si} className="form-card" style={{marginTop:'15px'}}>
           <h3 style={{color:'#00c2e0', marginBottom:'15px'}}>{section.title}</h3>
@@ -243,6 +341,7 @@ function Prestart({ userRole }) {
           </table>
         </div>
       ))}
+
       <div className="form-card" style={{marginTop:'15px'}}>
         <h3 style={{marginBottom:'10px'}}>Comments / Additional Notes</h3>
         <textarea placeholder="Any general defects or notes..." value={form.notes} onChange={e => setForm({...form, notes: e.target.value})}
