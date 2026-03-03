@@ -7,19 +7,19 @@ const WORKER_URL = 'https://mechiq-ai.mickfazl.workers.dev';
 
 // Extract text from PDF using pdfjs-dist
 async function extractPDFText(file) {
-  const pdfjsLib = await import('pdfjs-dist');
-  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, useWorkerFetch: false, isEvalSupported: false, useSystemFonts: true }).promise;
   let fullText = '';
-  const maxPages = Math.min(pdf.numPages, 30); // limit to first 30 pages
+  const maxPages = Math.min(pdf.numPages, 30);
   for (let i = 1; i <= maxPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     const pageText = content.items.map(item => item.str).join(' ');
     fullText += pageText + '\n';
   }
-  return fullText.slice(0, 15000); // limit to 15k chars
+  return fullText.slice(0, 15000);
 }
 
 // ─── AI GENERATOR MODAL ───────────────────────────────────────────────────────
