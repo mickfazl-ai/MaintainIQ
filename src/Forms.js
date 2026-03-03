@@ -7,8 +7,8 @@ const WORKER_URL = 'https://mechiq-ai.mickfazl.workers.dev';
 
 // Extract text from PDF using pdfjs-dist
 async function extractPDFText(file) {
-  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf');
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/legacy/build/pdf.worker.min.js`;
+  const pdfjsLib = await import('pdfjs-dist');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   let fullText = '';
