@@ -10,6 +10,8 @@ const INPUT_TYPES = [
   { id: 'photo', label: '📷 Photo', icon: '📷' },
   { id: 'temperature', label: '🌡️ Temperature', icon: '🌡️' },
   { id: 'fluid', label: '💧 Fluid Qty', icon: '💧' },
+  { id: 'pressure', label: '🔵 Pressure', icon: '🔵' },
+  { id: 'measurement', label: '📏 Measurement', icon: '📏' },
   { id: 'number', label: '🔢 Number', icon: '🔢' },
   { id: 'text', label: '📝 Text', icon: '📝' },
 ];
@@ -137,6 +139,36 @@ function ItemInput({ item, value, onChange, companyId }) {
     </div>
   );
 
+  if (type === 'pressure') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <input type="number" placeholder="0" step="0.1" value={value?.pressure || ''} onChange={e => onChange({ pressure: e.target.value, unit: value?.unit || 'bar' })}
+        style={{ ...inputBase, width: '80px' }} />
+      <select value={value?.unit || 'bar'} onChange={e => onChange({ pressure: value?.pressure || '', unit: e.target.value })}
+        style={{ ...inputBase }}>
+        <option value="bar">bar</option>
+        <option value="psi">psi</option>
+        <option value="kPa">kPa</option>
+        <option value="MPa">MPa</option>
+      </select>
+      {value?.pressure && <span style={{ color: '#00c2e0', fontSize: '12px', fontWeight: 700 }}>{value.pressure} {value.unit || 'bar'}</span>}
+    </div>
+  );
+
+  if (type === 'measurement') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <input type="number" placeholder="0.0" step="0.1" value={value?.measurement || ''} onChange={e => onChange({ measurement: e.target.value, unit: value?.unit || 'mm' })}
+        style={{ ...inputBase, width: '80px' }} />
+      <select value={value?.unit || 'mm'} onChange={e => onChange({ measurement: value?.measurement || '', unit: e.target.value })}
+        style={{ ...inputBase }}>
+        <option value="mm">mm</option>
+        <option value="cm">cm</option>
+        <option value="m">m</option>
+        <option value="in">in</option>
+      </select>
+      {value?.measurement && <span style={{ color: '#00c2e0', fontSize: '12px', fontWeight: 700 }}>{value.measurement} {value.unit || 'mm'}</span>}
+    </div>
+  );
+
   if (type === 'number') return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       <input type="number" placeholder="0" value={value?.num || ''} onChange={e => onChange({ num: e.target.value, unit: value?.unit || '' })}
@@ -161,6 +193,8 @@ function formatItemValue(type, value) {
   if (type === 'photo') return value.photo_url ? 'Photo taken' : '-';
   if (type === 'temperature') return value.temp ? `${value.temp}${value.unit || '°C'}` : '-';
   if (type === 'fluid') return value.qty ? `${value.qty} ${value.unit || 'L'}` : '-';
+  if (type === 'pressure') return value.pressure ? `${value.pressure} ${value.unit || 'bar'}` : '-';
+  if (type === 'measurement') return value.measurement ? `${value.measurement} ${value.unit || 'mm'}` : '-';
   if (type === 'number') return value.num ? `${value.num}${value.unit ? ' ' + value.unit : ''}` : '-';
   if (type === 'text') return value.text || '-';
   return '-';
@@ -185,7 +219,7 @@ function AIGeneratorModal({ mode, onClose, onGenerated }) {
   });
 
   const buildPrompt = () => {
-    const typeInfo = `Each item should have a "type" field: "check" (OK/Defect/NA), "photo" (photo upload), "temperature" (temp reading), "fluid" (fluid qty), "number" (numeric input), or "text" (free text). Choose the most appropriate type for each item.`;
+    const typeInfo = `Each item should have a "type" field: "check" (OK/Defect/NA), "photo" (photo upload), "temperature" (temp reading), "fluid" (fluid qty), "pressure" (pressure reading in bar/psi/kPa), "measurement" (dimension in mm/cm/m), "number" (numeric input), or "text" (free text). Choose the most appropriate type for each item.`;
     if (mode === 'prestart') {
       return `You are a heavy equipment maintenance expert. Generate a prestart checklist template.
 Return ONLY valid JSON, no markdown:
@@ -452,7 +486,7 @@ function PrestartTab({ userRole }) {
       </div>
       {aiPreview && <div style={{ backgroundColor: '#0a2a1a', border: '1px solid #00c264', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}><p style={{ color: '#00c264', margin: 0, fontSize: '13px' }}>✨ AI generated — review and edit before saving.</p></div>}
       <div style={{ backgroundColor: '#0a1a2a', border: '1px solid #1a3a4a', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
-        <p style={{ color: '#00c2e0', margin: 0, fontSize: '12px' }}>💡 Input types: <strong>✓ Check</strong> · <strong>📷 Photo</strong> · <strong>🌡️ Temperature</strong> · <strong>💧 Fluid Qty</strong> · <strong>🔢 Number</strong> · <strong>📝 Text</strong></p>
+        <p style={{ color: '#00c2e0', margin: 0, fontSize: '12px' }}>💡 Input types: <strong>✓ Check</strong> · <strong>📷 Photo</strong> · <strong>🌡️ Temperature</strong> · <strong>💧 Fluid</strong> · <strong>🔵 Pressure</strong> · <strong>📏 Measurement</strong> · <strong>🔢 Number</strong> · <strong>📝 Text</strong></p>
       </div>
       <div className="form-card">
         <input placeholder="Form Name" value={builder.name} onChange={e => setBuilder({ ...builder, name: e.target.value })} style={{ width: '100%', marginBottom: '10px', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
@@ -701,7 +735,7 @@ function ServiceSheetsTab({ userRole }) {
       </div>
       {aiPreview && <div style={{ backgroundColor: '#0a2a1a', border: '1px solid #00c264', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}><p style={{ color: '#00c264', margin: 0, fontSize: '13px' }}>✨ AI generated — review and edit before saving.</p></div>}
       <div style={{ backgroundColor: '#0a1a2a', border: '1px solid #1a3a4a', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
-        <p style={{ color: '#00c2e0', margin: 0, fontSize: '12px' }}>💡 Input types: <strong>✓ Check</strong> · <strong>📷 Photo</strong> · <strong>🌡️ Temperature</strong> · <strong>💧 Fluid Qty</strong> · <strong>🔢 Number</strong> · <strong>📝 Text</strong></p>
+        <p style={{ color: '#00c2e0', margin: 0, fontSize: '12px' }}>💡 Input types: <strong>✓ Check</strong> · <strong>📷 Photo</strong> · <strong>🌡️ Temperature</strong> · <strong>💧 Fluid</strong> · <strong>🔵 Pressure</strong> · <strong>📏 Measurement</strong> · <strong>🔢 Number</strong> · <strong>📝 Text</strong></p>
       </div>
       <div className="form-card">
         <input placeholder="Template Name" value={builder.name} onChange={e => setBuilder({ ...builder, name: e.target.value })} style={{ width: '100%', marginBottom: '10px', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
