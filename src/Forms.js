@@ -101,11 +101,11 @@ Generate relevant service sections like Pre-Service Checks, Fluid Changes, Filte
         }
       }
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages })
-      });
+      const response = await fetch('/api/generate', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages })
+});
 
       const data = await response.json();
       const text = data.content?.map(i => i.text || '').join('');
