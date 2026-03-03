@@ -93,7 +93,7 @@ Generate relevant service sections like Pre-Service Checks, Fluid Changes, Filte
         }];
       }
 
-      const response = await fetch('/api/generate', {
+      const response = await fetch('https://mechiq-ai.mickfazl.workers.dev', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
