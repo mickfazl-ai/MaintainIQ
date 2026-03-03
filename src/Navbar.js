@@ -9,9 +9,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
   const features = viewingCompany?.features || userRole?.company_features || {};
   const isMaster = userRole?.role === 'master';
 
-  useEffect(() => {
-    if (isMaster) fetchCompanies();
-  }, [isMaster]);
+  useEffect(() => { if (isMaster) fetchCompanies(); }, [isMaster]);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -30,8 +28,8 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
     { id: 'dashboard',   label: 'Dashboard',   roles: ['admin','supervisor','technician','operator'], feature: 'dashboard' },
     { id: 'assets',      label: 'Assets',       roles: ['admin','supervisor'],                         feature: 'assets' },
     { id: 'maintenance', label: 'Maintenance',  roles: ['admin','supervisor','technician'],             feature: 'maintenance' },
-    { id: 'prestart',    label: 'Prestarts',    roles: ['admin','supervisor','technician','operator'],  feature: 'prestart' },
-    { id: 'scanner',     label: '📷 Scanner',   roles: ['technician','operator'],                       feature: 'scanner' },
+    { id: 'forms',       label: 'Forms',        roles: ['admin','supervisor','technician','operator'],  feature: 'prestart' },
+    { id: 'scanner',     label: 'Scanner',      roles: ['technician','operator'],                       feature: 'scanner' },
     { id: 'reports',     label: 'Reports',      roles: ['admin','supervisor'],                          feature: 'reports' },
     { id: 'users',       label: 'Users',        roles: ['admin'],                                       feature: 'users' },
   ];
@@ -39,7 +37,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
   const handleNav = (id) => { setCurrentPage(id); setMenuOpen(false); };
 
   const visibleItems = isMaster && !viewingCompany
-    ? [...menuItems, { id: 'master', label: '⚙️ Master Admin', roles: ['master'] }]
+    ? [...menuItems, { id: 'master', label: 'Master Admin', roles: ['master'] }]
     : menuItems.filter(item =>
         item.roles.includes(viewingCompany ? 'admin' : (userRole?.role || 'operator')) &&
         (features[item.feature] !== false)
@@ -53,11 +51,11 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           fontSize: '13px', fontWeight: 700
         }}>
-          <span>👁️ Viewing as: <strong>{viewingCompany.name}</strong> (Admin)</span>
+          <span>Viewing as: <strong>{viewingCompany.name}</strong> (Admin)</span>
           <button onClick={onExitCompany} style={{
             backgroundColor: '#000', color: '#ff6b00', border: 'none',
             padding: '4px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 700, fontSize: '12px'
-          }}>✕ Exit Company View</button>
+          }}>Exit Company View</button>
         </div>
       )}
 
@@ -66,7 +64,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
           <span className="brand-white">MECH</span><span className="brand-cyan"> IQ</span>
         </div>
         <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)}>
-          {menuOpen ? '✕' : '☰'}
+          {menuOpen ? 'X' : '='}
         </button>
         <nav className={menuOpen ? 'nav-open' : ''}>
           <ul>
@@ -85,7 +83,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
                   padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px',
                   fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px'
                 }}>
-                  🏢 {viewingCompany ? viewingCompany.name : 'View Company'} ▾
+                  {viewingCompany ? viewingCompany.name : 'View Company'} v
                 </button>
                 {dropdownOpen && (
                   <div style={{
@@ -96,7 +94,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
                     {viewingCompany && (
                       <div onClick={() => { onExitCompany(); setDropdownOpen(false); }}
                         style={{ padding: '10px 14px', color: '#ff6b00', fontSize: '12px', fontWeight: 700, cursor: 'pointer', borderBottom: '1px solid #1a2f2f', backgroundColor: '#1a0a00' }}>
-                        ✕ Exit Company View
+                        Exit Company View
                       </div>
                     )}
                     {companies.length === 0
