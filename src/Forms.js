@@ -5,7 +5,49 @@ import autoTable from 'jspdf-autotable';
 
 const WORKER_URL = 'https://mechiq-ai.mickfazl.workers.dev';
 
-// Extract text from PDF using pdfjs-dist
+const INPUT_TYPES = [
+  { id: 'check', label: '✓ OK/Defect/NA', icon: '✓' },
+  { id: 'photo', label: '📷 Photo', icon: '📷' },
+  { id: 'temperature', label: '🌡️ Temperature', icon: '🌡️' },
+  { id: 'fluid', label: '💧 Fluid Qty', icon: '💧' },
+  { id: 'number', label: '🔢 Number', icon: '🔢' },
+  { id: 'text', label: '📝 Text', icon: '📝' },
+];
+
+// Compress image before upload
+async function compressImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxW = 1200;
+        const scale = Math.min(1, maxW / img.width);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.7);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Upload photo to Supabase storage
+async function uploadPhoto(file, companyId) {
+  const compressed = await compressImage(file);
+  const ext = 'jpg';
+  const filename = `${companyId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const { data, error } = await supabase.storage.from('form-photos').upload(filename, compressed, { contentType: 'image/jpeg' });
+  if (error) throw new Error('Photo upload failed: ' + error.message);
+  const { data: urlData } = supabase.storage.from('form-photos').getPublicUrl(filename);
+  return urlData.publicUrl;
+}
+
+// Extract text from PDF
 async function extractPDFText(file) {
   const pdfjsLib = await import('pdfjs-dist');
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -16,10 +58,112 @@ async function extractPDFText(file) {
   for (let i = 1; i <= maxPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const pageText = content.items.map(item => item.str).join(' ');
-    fullText += pageText + '\n';
+    fullText += content.items.map(item => item.str).join(' ') + '\n';
   }
   return fullText.slice(0, 15000);
+}
+
+// ─── ITEM INPUT RENDERER (used when filling out a form) ──────────────────────
+function ItemInput({ item, value, onChange, companyId }) {
+  const type = item.type || 'check';
+  const [uploading, setUploading] = useState(false);
+
+  const handlePhoto = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadPhoto(file, companyId);
+      onChange({ photo_url: url });
+    } catch (err) {
+      alert(err.message);
+    }
+    setUploading(false);
+  };
+
+  const inputBase = { backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', padding: '5px 10px', borderRadius: '4px' };
+
+  if (type === 'check') return (
+    <select value={value?.status || ''} onChange={e => onChange({ status: e.target.value })}
+      style={{ ...inputBase, backgroundColor: value?.status === 'OK' ? '#0a2a1a' : value?.status === 'Defect' ? '#2a0a0a' : '#0a0f0f', color: value?.status === 'OK' ? '#00c264' : value?.status === 'Defect' ? '#e94560' : 'white' }}>
+      <option value="">Select</option>
+      <option value="OK">✓ OK</option>
+      <option value="Defect">✗ Defect</option>
+      <option value="NA">N/A</option>
+    </select>
+  );
+
+  if (type === 'photo') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {value?.photo_url ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src={value.photo_url} alt="uploaded" style={{ width: '60px', height: '45px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #1a2f2f' }} />
+          <button onClick={() => onChange({})} style={{ ...inputBase, padding: '3px 8px', color: '#e94560', cursor: 'pointer' }}>✕</button>
+        </div>
+      ) : (
+        <label style={{ backgroundColor: '#0a2a2a', border: '1px solid #00c2e040', color: '#00c2e0', padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
+          {uploading ? 'Uploading...' : '📷 Take/Upload Photo'}
+          <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: 'none' }} />
+        </label>
+      )}
+    </div>
+  );
+
+  if (type === 'temperature') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <input type="number" placeholder="0" value={value?.temp || ''} onChange={e => onChange({ temp: e.target.value, unit: value?.unit || '°C' })}
+        style={{ ...inputBase, width: '80px' }} />
+      <select value={value?.unit || '°C'} onChange={e => onChange({ temp: value?.temp || '', unit: e.target.value })}
+        style={{ ...inputBase }}>
+        <option value="°C">°C</option>
+        <option value="°F">°F</option>
+      </select>
+      {value?.temp && <span style={{ color: parseFloat(value.temp) > 100 ? '#e94560' : '#00c264', fontSize: '12px', fontWeight: 700 }}>{value.temp}{value.unit || '°C'}</span>}
+    </div>
+  );
+
+  if (type === 'fluid') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <input type="number" placeholder="0.0" step="0.1" value={value?.qty || ''} onChange={e => onChange({ qty: e.target.value, unit: value?.unit || 'L' })}
+        style={{ ...inputBase, width: '80px' }} />
+      <select value={value?.unit || 'L'} onChange={e => onChange({ qty: value?.qty || '', unit: e.target.value })}
+        style={{ ...inputBase }}>
+        <option value="L">L</option>
+        <option value="mL">mL</option>
+        <option value="gal">gal</option>
+        <option value="qt">qt</option>
+      </select>
+      {value?.qty && <span style={{ color: '#00c2e0', fontSize: '12px', fontWeight: 700 }}>{value.qty} {value.unit || 'L'}</span>}
+    </div>
+  );
+
+  if (type === 'number') return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <input type="number" placeholder="0" value={value?.num || ''} onChange={e => onChange({ num: e.target.value, unit: value?.unit || '' })}
+        style={{ ...inputBase, width: '100px' }} />
+      <input type="text" placeholder="unit (optional)" value={value?.unit || ''} onChange={e => onChange({ num: value?.num || '', unit: e.target.value })}
+        style={{ ...inputBase, width: '90px', fontSize: '12px' }} />
+    </div>
+  );
+
+  if (type === 'text') return (
+    <input type="text" placeholder="Enter value..." value={value?.text || ''} onChange={e => onChange({ text: e.target.value })}
+      style={{ ...inputBase, width: '200px' }} />
+  );
+
+  return null;
+}
+
+// ─── ITEM VALUE DISPLAY (for history/PDF) ────────────────────────────────────
+function formatItemValue(type, value) {
+  if (!value) return '-';
+  if (type === 'check') return value.status || '-';
+  if (type === 'photo') return value.photo_url ? 'Photo taken' : '-';
+  if (type === 'temperature') return value.temp ? `${value.temp}${value.unit || '°C'}` : '-';
+  if (type === 'fluid') return value.qty ? `${value.qty} ${value.unit || 'L'}` : '-';
+  if (type === 'number') return value.num ? `${value.num}${value.unit ? ' ' + value.unit : ''}` : '-';
+  if (type === 'text') return value.text || '-';
+  return '-';
 }
 
 // ─── AI GENERATOR MODAL ───────────────────────────────────────────────────────
@@ -41,123 +185,78 @@ function AIGeneratorModal({ mode, onClose, onGenerated }) {
   });
 
   const buildPrompt = () => {
+    const typeInfo = `Each item should have a "type" field: "check" (OK/Defect/NA), "photo" (photo upload), "temperature" (temp reading), "fluid" (fluid qty), "number" (numeric input), or "text" (free text). Choose the most appropriate type for each item.`;
     if (mode === 'prestart') {
-      return `You are a heavy equipment maintenance expert. Based on the provided input, generate a prestart checklist template.
-
-Return ONLY valid JSON in this exact format, no other text, no markdown:
+      return `You are a heavy equipment maintenance expert. Generate a prestart checklist template.
+Return ONLY valid JSON, no markdown:
 {
-  "name": "Template name here",
+  "name": "Template name",
   "description": "Brief description",
   "sections": [
     {
       "title": "Section Name",
-      "items": ["Item 1", "Item 2", "Item 3"]
+      "items": [
+        { "label": "Item name", "type": "check" }
+      ]
     }
   ]
 }
-
-Generate relevant sections like Fluid Levels, Inspection Items, Safety Checks, Controls etc. Each section should have 4-10 specific checklist items relevant to the machine.`;
+${typeInfo}`;
     } else {
-      return `You are a heavy equipment service expert. Based on the provided input, generate a service sheet template.
-
-Return ONLY valid JSON in this exact format, no other text, no markdown:
+      return `You are a heavy equipment service expert. Generate a service sheet template.
+Return ONLY valid JSON, no markdown:
 {
-  "name": "Template name here",
+  "name": "Template name",
   "description": "Brief description",
   "service_type": "e.g. 250hr Service",
   "sections": [
     {
       "title": "Section Name",
       "items": [
-        { "label": "Check item name", "type": "check" }
+        { "label": "Item name", "type": "check" }
       ]
     }
   ],
-  "parts_template": ["Common Part 1", "Common Part 2"],
-  "labour_items": ["Task 1", "Task 2"]
+  "parts_template": ["Part 1"],
+  "labour_items": ["Task 1"]
 }
-
-Generate relevant service sections like Pre-Service Checks, Fluid Changes, Filter Replacements, Inspection Items etc.`;
+${typeInfo}`;
     }
   };
 
   const handleGenerate = async () => {
     if (inputType === 'text' && !textInput.trim()) { setError('Please describe the machine or service'); return; }
     if (inputType !== 'text' && !file) { setError('Please select a file'); return; }
-    setLoading(true);
-    setError('');
-
+    setLoading(true); setError('');
     try {
       let messages;
-
       if (inputType === 'text' || inputType === 'excel') {
-        const prompt = buildPrompt() + '\n\nInput: ' + (textInput || ('Spreadsheet file: ' + file?.name));
-        messages = [{ role: 'user', content: prompt }];
-
+        messages = [{ role: 'user', content: buildPrompt() + '\n\nInput: ' + (textInput || file?.name) }];
       } else if (inputType === 'pdf') {
         setLoadingMsg('Extracting text from PDF...');
         const pdfText = await extractPDFText(file);
-        if (!pdfText.trim()) throw new Error('Could not extract text from PDF. Try the Text option instead.');
+        if (!pdfText.trim()) throw new Error('Could not extract text. Try Text option instead.');
         setLoadingMsg('Generating with AI...');
-        const prompt = buildPrompt() + '\n\nDocument content:\n' + pdfText;
-        messages = [{ role: 'user', content: prompt }];
-
+        messages = [{ role: 'user', content: buildPrompt() + '\n\nDocument:\n' + pdfText }];
       } else if (inputType === 'image') {
         setLoadingMsg('Processing image...');
         const base64 = await toBase64(file);
-        messages = [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
-            { type: 'text', text: buildPrompt() }
-          ]
-        }];
+        messages = [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } }, { type: 'text', text: buildPrompt() }] }];
       }
-
       setLoadingMsg('Generating with AI...');
-      const response = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 2000,
-          messages
-        })
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'Request failed with status ' + response.status);
-      }
-
+      const response = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2000, messages }) });
+      if (!response.ok) { const e = await response.json().catch(() => ({})); throw new Error(e.error || 'Status ' + response.status); }
       const data = await response.json();
       if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      if (!data.content || !data.content.length) throw new Error('No content returned from AI');
-
+      if (!data.content?.length) throw new Error('No content from AI');
       const text = data.content.map(i => i.text || '').join('');
-      if (!text) throw new Error('Empty response from AI');
-
-      const clean = text
-        .replace(/^```json\s*/i, '')
-        .replace(/^```\s*/i, '')
-        .replace(/\s*```$/i, '')
-        .trim();
-
-      const parsed = JSON.parse(clean);
-      onGenerated(parsed);
-
-    } catch (err) {
-      setError('Error: ' + err.message);
-    }
-    setLoading(false);
-    setLoadingMsg('');
+      const clean = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+      onGenerated(JSON.parse(clean));
+    } catch (err) { setError('Error: ' + err.message); }
+    setLoading(false); setLoadingMsg('');
   };
 
-  const inputStyle = {
-    width: '100%', padding: '10px 14px', backgroundColor: '#0a0f0f', color: 'white',
-    border: '1px solid #1a2f2f', borderRadius: '6px', fontSize: '14px',
-    fontFamily: 'Barlow, sans-serif', boxSizing: 'border-box'
-  };
+  const inputStyle = { width: '100%', padding: '10px 14px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '6px', fontSize: '14px', fontFamily: 'Barlow, sans-serif', boxSizing: 'border-box' };
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
@@ -169,14 +268,8 @@ Generate relevant service sections like Pre-Service Checks, Fluid Changes, Filte
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer' }}>✕</button>
         </div>
-
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '20px' }}>
-          {[
-            { id: 'text', label: '✏️', sub: 'Text' },
-            { id: 'pdf', label: '📄', sub: 'PDF' },
-            { id: 'image', label: '🖼️', sub: 'JPG/PNG' },
-            { id: 'excel', label: '📊', sub: 'Excel/CSV' },
-          ].map(t => (
+          {[{ id: 'text', label: '✏️', sub: 'Text' }, { id: 'pdf', label: '📄', sub: 'PDF' }, { id: 'image', label: '🖼️', sub: 'JPG/PNG' }, { id: 'excel', label: '📊', sub: 'Excel/CSV' }].map(t => (
             <button key={t.id} onClick={() => { setInputType(t.id); setFile(null); setError(''); }}
               style={{ padding: '10px 6px', backgroundColor: inputType === t.id ? '#0a2a2a' : '#0a0f0f', border: `1px solid ${inputType === t.id ? '#00c2e0' : '#1a2f2f'}`, borderRadius: '8px', cursor: 'pointer', textAlign: 'center' }}>
               <div style={{ fontSize: '18px' }}>{t.label}</div>
@@ -184,54 +277,35 @@ Generate relevant service sections like Pre-Service Checks, Fluid Changes, Filte
             </button>
           ))}
         </div>
-
-        {inputType === 'text' && (
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Describe the machine or service type</label>
-            <textarea value={textInput} onChange={e => setTextInput(e.target.value)}
-              placeholder={mode === 'prestart' ? 'e.g. CAT 320 excavator daily prestart checklist...' : 'e.g. 250 hour service for Komatsu PC200 excavator...'}
-              style={{ ...inputStyle, minHeight: '100px', resize: 'vertical' }} />
-          </div>
-        )}
-
-        {inputType === 'pdf' && (
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Upload machine manual or service document (PDF)</label>
-            <input type="file" accept=".pdf" onChange={e => setFile(e.target.files[0])} style={{ ...inputStyle, padding: '8px' }} />
-            {file && <p style={{ color: '#00c264', fontSize: '12px', marginTop: '6px' }}>✓ {file.name} ({(file.size / 1024 / 1024).toFixed(1)}MB)</p>}
-            <p style={{ color: '#a0b0b0', fontSize: '11px', marginTop: '6px' }}>Text is extracted from the PDF — any size supported</p>
-          </div>
-        )}
-
-        {inputType === 'image' && (
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Upload image of existing form or machine</label>
-            <input type="file" accept="image/*" onChange={e => setFile(e.target.files[0])} style={{ ...inputStyle, padding: '8px' }} />
-            {file && <p style={{ color: '#00c264', fontSize: '12px', marginTop: '6px' }}>✓ {file.name}</p>}
-          </div>
-        )}
-
-        {inputType === 'excel' && (
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Describe what's in the spreadsheet</label>
-            <input type="file" accept=".xlsx,.xls,.csv" onChange={e => setFile(e.target.files[0])} style={{ ...inputStyle, padding: '8px', marginBottom: '8px' }} />
-            {file && <p style={{ color: '#00c264', fontSize: '12px', marginBottom: '8px' }}>✓ {file.name}</p>}
-            <textarea value={textInput} onChange={e => setTextInput(e.target.value)}
-              placeholder="Describe the machine and service type..."
-              style={{ ...inputStyle, minHeight: '70px', resize: 'vertical' }} />
-          </div>
-        )}
-
+        {inputType === 'text' && <div style={{ marginBottom: '16px' }}><label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Describe the machine or service</label><textarea value={textInput} onChange={e => setTextInput(e.target.value)} placeholder={mode === 'prestart' ? 'e.g. CAT 320 excavator daily prestart...' : 'e.g. 250hr service Komatsu PC200...'} style={{ ...inputStyle, minHeight: '100px', resize: 'vertical' }} /></div>}
+        {inputType === 'pdf' && <div style={{ marginBottom: '16px' }}><label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Upload PDF manual or service document</label><input type="file" accept=".pdf" onChange={e => setFile(e.target.files[0])} style={{ ...inputStyle, padding: '8px' }} />{file && <p style={{ color: '#00c264', fontSize: '12px', marginTop: '6px' }}>✓ {file.name} ({(file.size / 1024 / 1024).toFixed(1)}MB)</p>}<p style={{ color: '#a0b0b0', fontSize: '11px', marginTop: '6px' }}>Text extracted — any size supported</p></div>}
+        {inputType === 'image' && <div style={{ marginBottom: '16px' }}><label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Upload image of existing form</label><input type="file" accept="image/*" onChange={e => setFile(e.target.files[0])} style={{ ...inputStyle, padding: '8px' }} />{file && <p style={{ color: '#00c264', fontSize: '12px', marginTop: '6px' }}>✓ {file.name}</p>}</div>}
+        {inputType === 'excel' && <div style={{ marginBottom: '16px' }}><label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Upload spreadsheet + describe machine</label><input type="file" accept=".xlsx,.xls,.csv" onChange={e => setFile(e.target.files[0])} style={{ ...inputStyle, padding: '8px', marginBottom: '8px' }} />{file && <p style={{ color: '#00c264', fontSize: '12px', marginBottom: '8px' }}>✓ {file.name}</p>}<textarea value={textInput} onChange={e => setTextInput(e.target.value)} placeholder="Describe the machine..." style={{ ...inputStyle, minHeight: '70px', resize: 'vertical' }} /></div>}
         {error && <p style={{ color: '#e94560', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
-
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={onClose} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid #1a2f2f', color: '#a0b0b0', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleGenerate} disabled={loading}
-            style={{ flex: 2, padding: '12px', background: loading ? '#1a2f2f' : 'linear-gradient(135deg, #00c2e0, #0090a8)', border: 'none', color: loading ? '#a0b0b0' : '#000', borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '14px' }}>
+          <button onClick={handleGenerate} disabled={loading} style={{ flex: 2, padding: '12px', background: loading ? '#1a2f2f' : 'linear-gradient(135deg, #00c2e0, #0090a8)', border: 'none', color: loading ? '#a0b0b0' : '#000', borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '14px' }}>
             {loading ? (loadingMsg || '✨ Generating...') : '✨ Generate with AI'}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── FORM BUILDER ITEM ROW ────────────────────────────────────────────────────
+function BuilderItem({ item, si, ii, onUpdate, onRemove }) {
+  const type = item.type || 'check';
+  return (
+    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center', backgroundColor: '#0a0f0f', padding: '8px 10px', borderRadius: '6px', border: '1px solid #1a2f2f' }}>
+      <span style={{ fontSize: '16px', minWidth: '20px' }}>{INPUT_TYPES.find(t => t.id === type)?.icon || '✓'}</span>
+      <input placeholder={`Item ${ii + 1}`} value={item.label || ''} onChange={e => onUpdate(si, ii, { ...item, label: e.target.value })}
+        style={{ flex: 1, padding: '7px 10px', backgroundColor: '#060c0c', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px', fontSize: '13px' }} />
+      <select value={type} onChange={e => onUpdate(si, ii, { ...item, type: e.target.value })}
+        style={{ padding: '7px 8px', backgroundColor: '#060c0c', color: '#00c2e0', border: '1px solid #1a2f2f', borderRadius: '4px', fontSize: '12px' }}>
+        {INPUT_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+      </select>
+      <button onClick={() => onRemove(si, ii)} style={{ backgroundColor: 'transparent', border: '1px solid #2a1a1a', color: '#e94560', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>✕</button>
     </div>
   );
 }
@@ -253,22 +327,17 @@ function PrestartTab({ userRole }) {
   const [builder, setBuilder] = useState({ name: '', description: '', sections: [] });
 
   useEffect(() => { if (userRole?.company_id) { fetchTemplates(); fetchSubmissions(); fetchAssets(); } }, [userRole]);
-
   const fetchTemplates = async () => { const { data } = await supabase.from('form_templates').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false }); setTemplates(data || []); setLoading(false); };
   const fetchSubmissions = async () => { const { data } = await supabase.from('form_submissions').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false }); setSubmissions(data || []); };
   const fetchAssets = async () => { const { data } = await supabase.from('assets').select('id, name, location').eq('company_id', userRole.company_id); setAssets(data || []); };
 
   const handleAIGenerated = (result) => {
-    setAiPreview(result);
-    setShowAI(false);
-    setBuilder({ name: result.name || '', description: result.description || '', sections: result.sections || [] });
+    setAiPreview(result); setShowAI(false);
+    setBuilder({ name: result.name || '', description: result.description || '', sections: (result.sections || []).map(s => ({ ...s, items: s.items.map(item => typeof item === 'string' ? { label: item, type: 'check' } : item) })) });
     setView('builder');
   };
 
-  const handleResponse = (si, item, field, value) => {
-    const key = `${si}_${item}`;
-    setForm(prev => ({ ...prev, responses: { ...prev.responses, [key]: { ...prev.responses[key], [field]: value } } }));
-  };
+  const handleResponse = (key, value) => setForm(prev => ({ ...prev, responses: { ...prev.responses, [key]: value } }));
 
   const startSigning = () => {
     setIsSigning(true);
@@ -287,45 +356,32 @@ function PrestartTab({ userRole }) {
 
   const handleSubmit = async () => {
     if (!form.asset || !form.operator_name) { alert('Please select an asset and enter operator name'); return; }
-    const defects_found = Object.values(form.responses).some(r => r.status === 'Defect');
-    const { data: submission, error } = await supabase.from('form_submissions').insert([{
-      company_id: userRole.company_id, template_id: selectedTemplate.id,
-      asset: form.asset, operator_name: form.operator_name, site_area: form.site_area,
-      hrs_start: form.hrs_start, date: form.date, notes: form.notes,
-      responses: form.responses, operator_signature: signatureData, defects_found
-    }]).select().single();
+    const defects_found = Object.entries(form.responses).some(([k, v]) => v?.status === 'Defect');
+    const { data: submission, error } = await supabase.from('form_submissions').insert([{ company_id: userRole.company_id, template_id: selectedTemplate.id, asset: form.asset, operator_name: form.operator_name, site_area: form.site_area, hrs_start: form.hrs_start, date: form.date, notes: form.notes, responses: form.responses, operator_signature: signatureData, defects_found }]).select().single();
     if (error) { alert('Error: ' + error.message); return; }
     if (defects_found && submission) {
       const defectItems = [];
-      selectedTemplate.sections.forEach((section, si) => {
-        section.items.forEach(item => {
-          const key = `${si}_${item}`; const resp = form.responses[key];
-          if (resp?.status === 'Defect') defectItems.push(`${item}${resp.comment ? ': ' + resp.comment : ''}`);
-        });
-      });
+      selectedTemplate.sections.forEach((section, si) => { section.items.forEach(item => { const key = `${si}_${item.label || item}`; const resp = form.responses[key]; if (resp?.status === 'Defect') defectItems.push(item.label || item); }); });
       if (defectItems.length > 0) await supabase.from('work_orders').insert([{ company_id: userRole.company_id, asset: form.asset, defect_description: defectItems.join('\n'), priority: 'High', status: 'Open', source: 'prestart', prestart_id: submission.id, comments: `Auto-generated from prestart by ${form.operator_name} on ${form.date}` }]);
     }
     fetchSubmissions(); setView('list');
-    setForm({ asset: '', operator_name: '', site_area: '', hrs_start: '', date: new Date().toISOString().split('T')[0], notes: '', responses: {} });
-    setSignatureData('');
-    if (defects_found) alert('Prestart submitted. ⚠️ Defects found — a Work Order has been automatically created!');
-    else alert('Prestart submitted successfully! ✓');
+    setForm({ asset: '', operator_name: '', site_area: '', hrs_start: '', date: new Date().toISOString().split('T')[0], notes: '', responses: {} }); setSignatureData('');
+    if (defects_found) alert('Prestart submitted. ⚠️ Defects found — Work Order created!'); else alert('Prestart submitted! ✓');
   };
 
   const exportPDF = (submission) => {
-    const doc = new jsPDF();
-    doc.setFillColor(13, 21, 21); doc.rect(0, 0, 210, 297, 'F');
+    const doc = new jsPDF(); doc.setFillColor(13, 21, 21); doc.rect(0, 0, 210, 297, 'F');
     doc.setTextColor(0, 194, 224); doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.text('MECH IQ — PRESTART CHECKLIST', 14, 20);
     doc.setTextColor(160, 176, 176); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
     doc.text(`Asset: ${submission.asset}   Operator: ${submission.operator_name}   Date: ${submission.date}`, 14, 30);
-    doc.text(`Site: ${submission.site_area || '-'}   Hrs Start: ${submission.hrs_start || '-'}`, 14, 36);
+    doc.text(`Site: ${submission.site_area || '-'}   Hrs: ${submission.hrs_start || '-'}`, 14, 36);
     const template = templates.find(t => t.id === submission.template_id);
     let y = 45;
     if (template) {
-      template.sections.forEach(section => {
+      template.sections.forEach((section, si) => {
         doc.setTextColor(0, 194, 224); doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text(section.title.toUpperCase(), 14, y); y += 6;
-        const rows = section.items.map(item => { const key = `${template.sections.indexOf(section)}_${item}`; const r = submission.responses[key] || {}; return [item, r.status || '-', r.comment || '']; });
-        autoTable(doc, { startY: y, head: [['Item', 'Status', 'Comment']], body: rows, theme: 'plain', headStyles: { fillColor: [26, 47, 47], textColor: [160, 176, 176], fontSize: 8 }, bodyStyles: { fillColor: [13, 21, 21], textColor: [255, 255, 255], fontSize: 8 }, styles: { lineColor: [26, 47, 47], lineWidth: 0.1 } });
+        const rows = section.items.map(item => { const label = item.label || item; const key = `${si}_${label}`; const v = submission.responses?.[key]; return [label, INPUT_TYPES.find(t => t.id === (item.type || 'check'))?.icon || '', formatItemValue(item.type || 'check', v)]; });
+        autoTable(doc, { startY: y, head: [['Item', 'Type', 'Value']], body: rows, theme: 'plain', headStyles: { fillColor: [26, 47, 47], textColor: [160, 176, 176], fontSize: 8 }, bodyStyles: { fillColor: [13, 21, 21], textColor: [255, 255, 255], fontSize: 8 }, styles: { lineColor: [26, 47, 47], lineWidth: 0.1 } });
         y = doc.lastAutoTable.finalY + 8;
       });
     }
@@ -339,12 +395,11 @@ function PrestartTab({ userRole }) {
     if (!error) { fetchTemplates(); setView('list'); setBuilder({ name: '', description: '', sections: [] }); setAiPreview(null); }
   };
 
-  const addSection = () => setBuilder(prev => ({ ...prev, sections: [...prev.sections, { title: '', items: [''] }] }));
-  const addItem = (si) => setBuilder(prev => { const s = [...prev.sections]; s[si].items.push(''); return { ...prev, sections: s }; });
-  const updateSection = (si, val) => setBuilder(prev => { const s = [...prev.sections]; s[si].title = val; return { ...prev, sections: s }; });
-  const updateItem = (si, ii, val) => setBuilder(prev => { const s = [...prev.sections]; s[si].items[ii] = val; return { ...prev, sections: s }; });
-  const removeItem = (si, ii) => setBuilder(prev => { const s = [...prev.sections]; s[si].items.splice(ii, 1); return { ...prev, sections: s }; });
-  const removeSection = (si) => setBuilder(prev => { const s = [...prev.sections]; s.splice(si, 1); return { ...prev, sections: s }; });
+  const updateItem = (si, ii, newItem) => setBuilder(prev => { const s = prev.sections.map((sec, i) => i === si ? { ...sec, items: sec.items.map((item, j) => j === ii ? newItem : item) } : sec); return { ...prev, sections: s }; });
+  const removeItem = (si, ii) => setBuilder(prev => { const s = prev.sections.map((sec, i) => i === si ? { ...sec, items: sec.items.filter((_, j) => j !== ii) } : sec); return { ...prev, sections: s }; });
+  const addItem = (si) => setBuilder(prev => { const s = prev.sections.map((sec, i) => i === si ? { ...sec, items: [...sec.items, { label: '', type: 'check' }] } : sec); return { ...prev, sections: s }; });
+  const updateSectionTitle = (si, val) => setBuilder(prev => { const s = prev.sections.map((sec, i) => i === si ? { ...sec, title: val } : sec); return { ...prev, sections: s }; });
+  const removeSection = (si) => setBuilder(prev => ({ ...prev, sections: prev.sections.filter((_, i) => i !== si) }));
 
   if (loading) return <p style={{ color: '#a0b0b0', padding: '20px' }}>Loading...</p>;
 
@@ -355,10 +410,7 @@ function PrestartTab({ userRole }) {
       <div className="form-card">
         <h3 style={{ color: '#00c2e0', marginBottom: '15px' }}>Prestart Details</h3>
         <div className="form-grid">
-          <div><label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Asset</label>
-            <select value={form.asset} onChange={e => setForm({ ...form, asset: e.target.value })} style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: form.asset ? '#00c2e0' : 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }}>
-              <option value="">Select Asset</option>{assets.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
-            </select></div>
+          <div><label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Asset</label><select value={form.asset} onChange={e => setForm({ ...form, asset: e.target.value })} style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }}><option value="">Select Asset</option>{assets.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}</select></div>
           <div><label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Operator Name</label><input placeholder="Operator Name" value={form.operator_name} onChange={e => setForm({ ...form, operator_name: e.target.value })} style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} /></div>
           <div><label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Site / Location</label><input placeholder="Site Area" value={form.site_area} onChange={e => setForm({ ...form, site_area: e.target.value })} style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} /></div>
           <div><label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Hours Start</label><input type="number" placeholder="Hours" value={form.hrs_start} onChange={e => setForm({ ...form, hrs_start: e.target.value })} style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} /></div>
@@ -368,8 +420,11 @@ function PrestartTab({ userRole }) {
       {selectedTemplate.sections.map((section, si) => (
         <div key={si} className="form-card" style={{ marginTop: '15px' }}>
           <h3 style={{ color: '#00c2e0', marginBottom: '15px' }}>{section.title}</h3>
-          <table className="data-table"><thead><tr><th>Item</th><th>Status</th><th>Comment</th></tr></thead>
-            <tbody>{section.items.map((item, ii) => { const key = `${si}_${item}`; const resp = form.responses[key] || {}; return (<tr key={ii}><td>{item}</td><td><select value={resp.status || ''} onChange={e => handleResponse(si, item, 'status', e.target.value)} style={{ backgroundColor: resp.status === 'OK' ? '#0a2a1a' : resp.status === 'Defect' ? '#2a0a0a' : '#0a0f0f', color: resp.status === 'OK' ? '#00c264' : resp.status === 'Defect' ? '#e94560' : 'white', border: '1px solid #1a2f2f', padding: '5px 10px', borderRadius: '4px' }}><option value="">Select</option><option value="OK">✓ OK</option><option value="Defect">✗ Defect</option><option value="NA">N/A</option></select></td><td><input placeholder="Comment..." value={resp.comment || ''} onChange={e => handleResponse(si, item, 'comment', e.target.value)} style={{ backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', padding: '5px 10px', borderRadius: '4px', width: '100%' }} /></td></tr>); })}</tbody>
+          <table className="data-table"><thead><tr><th>Item</th><th>Type</th><th>Value</th></tr></thead>
+            <tbody>{section.items.map((item, ii) => {
+              const label = item.label || item; const type = item.type || 'check'; const key = `${si}_${label}`;
+              return (<tr key={ii}><td>{label}</td><td style={{ color: '#a0b0b0', fontSize: '12px' }}>{INPUT_TYPES.find(t => t.id === type)?.icon} {type}</td><td><ItemInput item={item} value={form.responses[key] || {}} onChange={val => handleResponse(key, val)} companyId={userRole.company_id} /></td></tr>);
+            })}</tbody>
           </table>
         </div>
       ))}
@@ -395,27 +450,25 @@ function PrestartTab({ userRole }) {
           <button className="btn-primary" onClick={() => { setView('list'); setAiPreview(null); }}>← Back</button>
         </div>
       </div>
-      {aiPreview && <div style={{ backgroundColor: '#0a2a1a', border: '1px solid #00c264', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}><p style={{ color: '#00c264', margin: 0, fontSize: '13px' }}>✨ AI generated this template. Review and edit before saving.</p></div>}
+      {aiPreview && <div style={{ backgroundColor: '#0a2a1a', border: '1px solid #00c264', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}><p style={{ color: '#00c264', margin: 0, fontSize: '13px' }}>✨ AI generated — review and edit before saving.</p></div>}
+      <div style={{ backgroundColor: '#0a1a2a', border: '1px solid #1a3a4a', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
+        <p style={{ color: '#00c2e0', margin: 0, fontSize: '12px' }}>💡 Input types: <strong>✓ Check</strong> · <strong>📷 Photo</strong> · <strong>🌡️ Temperature</strong> · <strong>💧 Fluid Qty</strong> · <strong>🔢 Number</strong> · <strong>📝 Text</strong></p>
+      </div>
       <div className="form-card">
         <input placeholder="Form Name" value={builder.name} onChange={e => setBuilder({ ...builder, name: e.target.value })} style={{ width: '100%', marginBottom: '10px', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
         <input placeholder="Description (optional)" value={builder.description} onChange={e => setBuilder({ ...builder, description: e.target.value })} style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
       </div>
       {builder.sections.map((section, si) => (
         <div key={si} className="form-card" style={{ marginTop: '15px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <input placeholder="Section Title" value={section.title} onChange={e => updateSection(si, e.target.value)} style={{ flex: 1, marginRight: '10px', padding: '8px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
-            <button onClick={() => removeSection(si)} className="btn-delete">Remove</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <input placeholder="Section Title" value={section.title} onChange={e => updateSectionTitle(si, e.target.value)} style={{ flex: 1, marginRight: '10px', padding: '8px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
+            <button onClick={() => removeSection(si)} className="btn-delete">Remove Section</button>
           </div>
-          {section.items.map((item, ii) => (
-            <div key={ii} style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
-              <input placeholder={`Item ${ii + 1}`} value={item} onChange={e => updateItem(si, ii, e.target.value)} style={{ flex: 1, padding: '8px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
-              <button onClick={() => removeItem(si, ii)} className="btn-delete">✕</button>
-            </div>
-          ))}
-          <button onClick={() => addItem(si)} style={{ backgroundColor: 'transparent', color: '#00c2e0', border: '1px dashed #00c2e0', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', marginTop: '5px' }}>+ Add Item</button>
+          {section.items.map((item, ii) => <BuilderItem key={ii} item={item} si={si} ii={ii} onUpdate={updateItem} onRemove={removeItem} />)}
+          <button onClick={() => addItem(si)} style={{ backgroundColor: 'transparent', color: '#00c2e0', border: '1px dashed #00c2e0', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', marginTop: '5px', width: '100%' }}>+ Add Item</button>
         </div>
       ))}
-      <button onClick={addSection} style={{ marginTop: '15px', backgroundColor: 'transparent', color: '#00c2e0', border: '1px dashed #00c2e0', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer', width: '100%' }}>+ Add Section</button>
+      <button onClick={() => setBuilder(prev => ({ ...prev, sections: [...prev.sections, { title: '', items: [] }] }))} style={{ marginTop: '15px', backgroundColor: 'transparent', color: '#00c2e0', border: '1px dashed #00c2e0', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer', width: '100%' }}>+ Add Section</button>
       <button className="btn-primary" style={{ marginTop: '15px', width: '100%', padding: '14px' }} onClick={saveTemplate}>Save Template</button>
     </div>
   );
@@ -439,18 +492,13 @@ function PrestartTab({ userRole }) {
         <h2>Prestart Checklists</h2>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button className="btn-primary" onClick={() => setView('history')}>History</button>
-          {userRole?.role !== 'technician' && (
-            <>
-              <button className="btn-primary" style={{ background: 'linear-gradient(135deg, #00c2e0, #0090a8)', color: '#000' }} onClick={() => setShowAI(true)}>✨ Generate with AI</button>
-              <button className="btn-primary" onClick={() => setView('builder')}>+ Build Form</button>
-            </>
-          )}
+          {userRole?.role !== 'technician' && (<><button className="btn-primary" style={{ background: 'linear-gradient(135deg, #00c2e0, #0090a8)', color: '#000' }} onClick={() => setShowAI(true)}>✨ Generate with AI</button><button className="btn-primary" onClick={() => setView('builder')}>+ Build Form</button></>)}
         </div>
       </div>
       {templates.length === 0 ? (
         <div className="form-card" style={{ textAlign: 'center', padding: '40px' }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
-          <p style={{ color: '#a0b0b0', marginBottom: '20px' }}>No prestart templates yet. Use AI to generate one or build manually.</p>
+          <p style={{ color: '#a0b0b0', marginBottom: '20px' }}>No prestart templates yet.</p>
           {userRole?.role !== 'technician' && <button className="btn-primary" style={{ background: 'linear-gradient(135deg, #00c2e0, #0090a8)', color: '#000', padding: '12px 24px' }} onClick={() => setShowAI(true)}>✨ Generate with AI</button>}
         </div>
       ) : (
@@ -492,22 +540,17 @@ function ServiceSheetsTab({ userRole }) {
   const [form, setForm] = useState({ asset: '', technician: '', date: new Date().toISOString().split('T')[0], odometer: '', service_type: '', notes: '', responses: {}, parts: [{ name: '', qty: '', cost: '' }], labour: [{ description: '', hours: '' }] });
 
   useEffect(() => { if (userRole?.company_id) { fetchTemplates(); fetchSubmissions(); fetchAssets(); } }, [userRole]);
-
   const fetchTemplates = async () => { const { data } = await supabase.from('service_sheet_templates').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false }); setTemplates(data || []); setLoading(false); };
   const fetchSubmissions = async () => { const { data } = await supabase.from('service_sheet_submissions').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false }); setSubmissions(data || []); };
   const fetchAssets = async () => { const { data } = await supabase.from('assets').select('id, name, location').eq('company_id', userRole.company_id); setAssets(data || []); };
 
   const handleAIGenerated = (result) => {
-    setAiPreview(result);
-    setShowAI(false);
-    setBuilder({ name: result.name || '', description: result.description || '', service_type: result.service_type || '', sections: result.sections || [], parts_template: result.parts_template || [], labour_items: result.labour_items || [] });
+    setAiPreview(result); setShowAI(false);
+    setBuilder({ name: result.name || '', description: result.description || '', service_type: result.service_type || '', sections: (result.sections || []).map(s => ({ ...s, items: s.items.map(item => typeof item === 'string' ? { label: item, type: 'check' } : item) })), parts_template: result.parts_template || [], labour_items: result.labour_items || [] });
     setView('builder');
   };
 
-  const handleResponse = (si, label, value) => {
-    const key = `${si}_${label}`;
-    setForm(prev => ({ ...prev, responses: { ...prev.responses, [key]: value } }));
-  };
+  const handleResponse = (key, value) => setForm(prev => ({ ...prev, responses: { ...prev.responses, [key]: value } }));
 
   const startSigning = () => {
     setIsSigning(true);
@@ -532,14 +575,12 @@ function ServiceSheetsTab({ userRole }) {
     const { error } = await supabase.from('service_sheet_submissions').insert([{ company_id: userRole.company_id, template_id: selectedTemplate.id, asset: form.asset, technician: form.technician, date: form.date, odometer: form.odometer, service_type: form.service_type || selectedTemplate.service_type, notes: form.notes, responses: form.responses, parts: form.parts, labour: form.labour, operator_signature: signatureData, total_parts_cost: totalPartsValue, total_labour_hours: totalLabourHours }]);
     if (error) { alert('Error: ' + error.message); return; }
     fetchSubmissions(); setView('list');
-    setForm({ asset: '', technician: '', date: new Date().toISOString().split('T')[0], odometer: '', service_type: '', notes: '', responses: {}, parts: [{ name: '', qty: '', cost: '' }], labour: [{ description: '', hours: '' }] });
-    setSignatureData('');
-    alert('Service sheet submitted successfully! ✓');
+    setForm({ asset: '', technician: '', date: new Date().toISOString().split('T')[0], odometer: '', service_type: '', notes: '', responses: {}, parts: [{ name: '', qty: '', cost: '' }], labour: [{ description: '', hours: '' }] }); setSignatureData('');
+    alert('Service sheet submitted! ✓');
   };
 
   const exportServicePDF = (submission) => {
-    const doc = new jsPDF();
-    doc.setFillColor(13, 21, 21); doc.rect(0, 0, 210, 297, 'F');
+    const doc = new jsPDF(); doc.setFillColor(13, 21, 21); doc.rect(0, 0, 210, 297, 'F');
     doc.setTextColor(0, 194, 224); doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.text('MECH IQ — SERVICE SHEET', 14, 20);
     doc.setTextColor(160, 176, 176); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
     doc.text(`Asset: ${submission.asset}   Technician: ${submission.technician}   Date: ${submission.date}`, 14, 30);
@@ -549,8 +590,8 @@ function ServiceSheetsTab({ userRole }) {
     if (template?.sections) {
       template.sections.forEach((section, si) => {
         doc.setTextColor(0, 194, 224); doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text(section.title.toUpperCase(), 14, y); y += 6;
-        const rows = section.items.map(item => { const label = item.label || item; const key = `${si}_${label}`; return [label, submission.responses?.[key] || '-']; });
-        autoTable(doc, { startY: y, head: [['Item', 'Status']], body: rows, theme: 'plain', headStyles: { fillColor: [26, 47, 47], textColor: [160, 176, 176], fontSize: 8 }, bodyStyles: { fillColor: [13, 21, 21], textColor: [255, 255, 255], fontSize: 8 }, styles: { lineColor: [26, 47, 47], lineWidth: 0.1 } });
+        const rows = section.items.map(item => { const label = item.label || item; const key = `${si}_${label}`; const v = submission.responses?.[key]; return [label, formatItemValue(item.type || 'check', v)]; });
+        autoTable(doc, { startY: y, head: [['Item', 'Value']], body: rows, theme: 'plain', headStyles: { fillColor: [26, 47, 47], textColor: [160, 176, 176], fontSize: 8 }, bodyStyles: { fillColor: [13, 21, 21], textColor: [255, 255, 255], fontSize: 8 }, styles: { lineColor: [26, 47, 47], lineWidth: 0.1 } });
         y = doc.lastAutoTable.finalY + 8;
       });
     }
@@ -574,6 +615,10 @@ function ServiceSheetsTab({ userRole }) {
     else alert('Error: ' + error.message);
   };
 
+  const updateItem = (si, ii, newItem) => setBuilder(prev => { const s = prev.sections.map((sec, i) => i === si ? { ...sec, items: sec.items.map((item, j) => j === ii ? newItem : item) } : sec); return { ...prev, sections: s }; });
+  const removeItem = (si, ii) => setBuilder(prev => { const s = prev.sections.map((sec, i) => i === si ? { ...sec, items: sec.items.filter((_, j) => j !== ii) } : sec); return { ...prev, sections: s }; });
+  const addItem = (si) => setBuilder(prev => { const s = prev.sections.map((sec, i) => i === si ? { ...sec, items: [...sec.items, { label: '', type: 'check' }] } : sec); return { ...prev, sections: s }; });
+
   const inputStyle = { width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px', fontFamily: 'Barlow, sans-serif', fontSize: '14px', boxSizing: 'border-box' };
 
   if (loading) return <p style={{ color: '#a0b0b0', padding: '20px' }}>Loading...</p>;
@@ -595,8 +640,11 @@ function ServiceSheetsTab({ userRole }) {
       {selectedTemplate.sections?.map((section, si) => (
         <div key={si} className="form-card" style={{ marginTop: '15px' }}>
           <h3 style={{ color: '#00c2e0', marginBottom: '15px' }}>{section.title}</h3>
-          <table className="data-table"><thead><tr><th>Item</th><th>Status</th></tr></thead>
-            <tbody>{section.items.map((item, ii) => { const label = item.label || item; const key = `${si}_${label}`; const resp = form.responses[key] || ''; return (<tr key={ii}><td>{label}</td><td><select value={resp} onChange={e => handleResponse(si, label, e.target.value)} style={{ backgroundColor: resp === 'OK' ? '#0a2a1a' : resp === 'Defect' ? '#2a0a0a' : '#0a0f0f', color: resp === 'OK' ? '#00c264' : resp === 'Defect' ? '#e94560' : 'white', border: '1px solid #1a2f2f', padding: '5px 10px', borderRadius: '4px' }}><option value="">Select</option><option value="OK">✓ OK</option><option value="Defect">✗ Defect</option><option value="Done">✓ Done</option><option value="NA">N/A</option></select></td></tr>); })}</tbody>
+          <table className="data-table"><thead><tr><th>Item</th><th>Type</th><th>Value</th></tr></thead>
+            <tbody>{section.items.map((item, ii) => {
+              const label = item.label || item; const type = item.type || 'check'; const key = `${si}_${label}`;
+              return (<tr key={ii}><td>{label}</td><td style={{ color: '#a0b0b0', fontSize: '12px' }}>{INPUT_TYPES.find(t => t.id === type)?.icon} {type}</td><td><ItemInput item={item} value={form.responses[key] || {}} onChange={val => handleResponse(key, val)} companyId={userRole.company_id} /></td></tr>);
+            })}</tbody>
           </table>
         </div>
       ))}
@@ -651,7 +699,10 @@ function ServiceSheetsTab({ userRole }) {
           <button className="btn-primary" onClick={() => { setView('list'); setAiPreview(null); }}>← Back</button>
         </div>
       </div>
-      {aiPreview && <div style={{ backgroundColor: '#0a2a1a', border: '1px solid #00c264', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}><p style={{ color: '#00c264', margin: 0, fontSize: '13px' }}>✨ AI generated this template. Review and edit before saving.</p></div>}
+      {aiPreview && <div style={{ backgroundColor: '#0a2a1a', border: '1px solid #00c264', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}><p style={{ color: '#00c264', margin: 0, fontSize: '13px' }}>✨ AI generated — review and edit before saving.</p></div>}
+      <div style={{ backgroundColor: '#0a1a2a', border: '1px solid #1a3a4a', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
+        <p style={{ color: '#00c2e0', margin: 0, fontSize: '12px' }}>💡 Input types: <strong>✓ Check</strong> · <strong>📷 Photo</strong> · <strong>🌡️ Temperature</strong> · <strong>💧 Fluid Qty</strong> · <strong>🔢 Number</strong> · <strong>📝 Text</strong></p>
+      </div>
       <div className="form-card">
         <input placeholder="Template Name" value={builder.name} onChange={e => setBuilder({ ...builder, name: e.target.value })} style={{ width: '100%', marginBottom: '10px', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
         <input placeholder="Description" value={builder.description} onChange={e => setBuilder({ ...builder, description: e.target.value })} style={{ width: '100%', marginBottom: '10px', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
@@ -659,20 +710,12 @@ function ServiceSheetsTab({ userRole }) {
       </div>
       {builder.sections.map((section, si) => (
         <div key={si} className="form-card" style={{ marginTop: '15px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <input placeholder="Section Title" value={section.title} onChange={e => { const s = [...builder.sections]; s[si].title = e.target.value; setBuilder({ ...builder, sections: s }); }} style={{ flex: 1, marginRight: '10px', padding: '8px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <input placeholder="Section Title" value={section.title} onChange={e => { const s = builder.sections.map((sec, i) => i === si ? { ...sec, title: e.target.value } : sec); setBuilder({ ...builder, sections: s }); }} style={{ flex: 1, marginRight: '10px', padding: '8px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
             <button onClick={() => setBuilder({ ...builder, sections: builder.sections.filter((_, i) => i !== si) })} className="btn-delete">Remove</button>
           </div>
-          {section.items.map((item, ii) => {
-            const label = item.label || item;
-            return (
-              <div key={ii} style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
-                <input placeholder={`Item ${ii + 1}`} value={label} onChange={e => { const s = [...builder.sections]; s[si].items[ii] = { label: e.target.value, type: 'check' }; setBuilder({ ...builder, sections: s }); }} style={{ flex: 1, padding: '8px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
-                <button onClick={() => { const s = [...builder.sections]; s[si].items.splice(ii, 1); setBuilder({ ...builder, sections: s }); }} className="btn-delete">✕</button>
-              </div>
-            );
-          })}
-          <button onClick={() => { const s = [...builder.sections]; s[si].items.push({ label: '', type: 'check' }); setBuilder({ ...builder, sections: s }); }} style={{ backgroundColor: 'transparent', color: '#00c2e0', border: '1px dashed #00c2e0', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', marginTop: '5px' }}>+ Add Item</button>
+          {section.items.map((item, ii) => <BuilderItem key={ii} item={item} si={si} ii={ii} onUpdate={updateItem} onRemove={removeItem} />)}
+          <button onClick={() => addItem(si)} style={{ backgroundColor: 'transparent', color: '#00c2e0', border: '1px dashed #00c2e0', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', marginTop: '5px', width: '100%' }}>+ Add Item</button>
         </div>
       ))}
       <button onClick={() => setBuilder({ ...builder, sections: [...builder.sections, { title: '', items: [] }] })} style={{ marginTop: '15px', backgroundColor: 'transparent', color: '#00c2e0', border: '1px dashed #00c2e0', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer', width: '100%' }}>+ Add Section</button>
@@ -699,18 +742,13 @@ function ServiceSheetsTab({ userRole }) {
         <h2>Service Sheets</h2>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button className="btn-primary" onClick={() => setView('history')}>History</button>
-          {userRole?.role !== 'technician' && (
-            <>
-              <button className="btn-primary" style={{ background: 'linear-gradient(135deg, #00c2e0, #0090a8)', color: '#000' }} onClick={() => setShowAI(true)}>✨ Generate with AI</button>
-              <button className="btn-primary" onClick={() => setView('builder')}>+ Build Form</button>
-            </>
-          )}
+          {userRole?.role !== 'technician' && (<><button className="btn-primary" style={{ background: 'linear-gradient(135deg, #00c2e0, #0090a8)', color: '#000' }} onClick={() => setShowAI(true)}>✨ Generate with AI</button><button className="btn-primary" onClick={() => setView('builder')}>+ Build Form</button></>)}
         </div>
       </div>
       {templates.length === 0 ? (
         <div className="form-card" style={{ textAlign: 'center', padding: '40px' }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔧</div>
-          <p style={{ color: '#a0b0b0', marginBottom: '20px' }}>No service sheet templates yet. Upload a manual or describe your machine to generate one with AI.</p>
+          <p style={{ color: '#a0b0b0', marginBottom: '20px' }}>No service sheet templates yet.</p>
           {userRole?.role !== 'technician' && <button className="btn-primary" style={{ background: 'linear-gradient(135deg, #00c2e0, #0090a8)', color: '#000', padding: '12px 24px' }} onClick={() => setShowAI(true)}>✨ Generate with AI</button>}
         </div>
       ) : (
@@ -739,7 +777,6 @@ function ServiceSheetsTab({ userRole }) {
 // ─── MAIN FORMS COMPONENT ─────────────────────────────────────────────────────
 function Forms({ userRole }) {
   const [activeTab, setActiveTab] = useState('prestarts');
-
   return (
     <div>
       <div style={{ display: 'flex', gap: '0', borderBottom: '2px solid #1a2f2f', marginBottom: '24px' }}>
