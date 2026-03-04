@@ -7,7 +7,7 @@ const WORKER_URL = 'https://mechiq-ai.mickfazl.workers.dev';
 
 const INPUT_TYPES = [
   { id: 'check', label: '✓ OK/Defect/NA', icon: '✓' },
-  { id: 'photo', label: '📷 Photo', icon: '📷' },
+  { id: 'photo', label: <span style={{fontSize:"16px"}}>: '📷 #128247;</span>Photo', icon: '&#x1F4F7;' },
   { id: 'temperature', label: '🌡️ Temperature', icon: '🌡️' },
   { id: 'fluid', label: '💧 Fluid Qty', icon: '💧' },
   { id: 'pressure', label: '🔵 Pressure', icon: '🔵' },
@@ -104,7 +104,7 @@ function ItemInput({ item, value, onChange, companyId }) {
         </div>
       ) : (
         <label style={{ backgroundColor: '#0a2a2a', border: '1px solid #00c2e040', color: '#00c2e0', padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
-          {uploading ? 'Uploading...' : '📷 Take/Upload Photo'}
+          {uploading ? 'Uploading...' : <span style={{fontSize:"16px"}}>: '📷 #128247;</span>Take/Upload Photo'}
           <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: 'none' }} />
         </label>
       )}
@@ -469,10 +469,10 @@ function PrestartTab({ userRole }) {
       {selectedTemplate.sections.map((section, si) => (
         <div key={si} className="form-card" style={{ marginTop: '15px' }}>
           <h3 style={{ color: '#00c2e0', marginBottom: '15px' }}>{section.title}</h3>
-          <table className="data-table"><thead><tr><th>Item</th><th>Type</th><th>Value</th><th>Comment</th><th>📷</th></tr></thead>
+          <table className="data-table"><thead><tr><th>Item</th><th>Type</th><th>Value</th><th>Comment</th><th>Photo</th></tr></thead>
             <tbody>{section.items.map((item, ii) => {
               const label = item.label || item; const type = item.type || 'check'; const key = `${si}_${label}`;
-              return (<tr key={ii}><td>{label}</td><td style={{ color: '#a0b0b0', fontSize: '12px' }}>{INPUT_TYPES.find(t => t.id === type)?.icon} {type}</td><td><ItemInput item={item} value={form.responses[key] || {}} onChange={val => handleResponse(key, { ...form.responses[key], ...val })} companyId={userRole.company_id} /></td><td><input placeholder="Comment..." value={form.responses[key]?.comment || ''} onChange={e => handleResponse(key, { ...form.responses[key], comment: e.target.value })} style={{ backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', padding: '5px 8px', borderRadius: '4px', width: '140px', fontSize: '12px' }} /></td><td><label style={{ cursor: 'pointer', fontSize: '18px' }}>{form.responses[key]?.photo_url ? <img src={form.responses[key].photo_url} alt="" style={{ width: '36px', height: '28px', objectFit: 'cover', borderRadius: '3px', border: '1px solid #00c2e0' }} /> : '📷'}<input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={async e => { const file = e.target.files[0]; if (!file) return; try { const url = await uploadPhoto(file, userRole.company_id); handleResponse(key, { ...form.responses[key], photo_url: url }); } catch(err) { alert(err.message); } }} /></label></td></tr>);
+              return (<tr key={ii}><td>{label}</td><td style={{ color: '#a0b0b0', fontSize: '12px' }}>{INPUT_TYPES.find(t => t.id === type)?.icon} {type}</td><td><ItemInput item={item} value={form.responses[key] || {}} onChange={val => handleResponse(key, { ...form.responses[key], ...val })} companyId={userRole.company_id} /></td><td><input placeholder="Comment..." value={form.responses[key]?.comment || ''} onChange={e => handleResponse(key, { ...form.responses[key], comment: e.target.value })} style={{ backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', padding: '5px 8px', borderRadius: '4px', width: '140px', fontSize: '12px' }} /></td><td><label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{form.responses[key]?.photo_url ? <img src={form.responses[key].photo_url} alt="" style={{ width: '36px', height: '28px', objectFit: 'cover', borderRadius: '3px', border: '1px solid #00c2e0' }} /> : (<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00c2e0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>)}<input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={async e => { const file = e.target.files[0]; if (!file) return; try { const url = await uploadPhoto(file, userRole.company_id); handleResponse(key, { ...form.responses[key], photo_url: url }); } catch(err) { alert(err.message); } }} /></label></td></tr>);
             })}</tbody>
           </table>
         {!isSigning ? <button className="btn-primary" onClick={startSigning}>Sign Here</button> : (
@@ -699,10 +699,10 @@ function ServiceSheetsTab({ userRole }) {
       {selectedTemplate.sections?.map((section, si) => (
         <div key={si} className="form-card" style={{ marginTop: '15px' }}>
           <h3 style={{ color: '#00c2e0', marginBottom: '15px' }}>{section.title}</h3>
-          <table className="data-table"><thead><tr><th>Item</th><th>Type</th><th>Value</th><th>Comment</th><th>📷</th></tr></thead>
+          <table className="data-table"><thead><tr><th>Item</th><th>Type</th><th>Value</th><th>Comment</th><th>Photo</th></tr></thead>
             <tbody>{section.items.map((item, ii) => {
               const label = item.label || item; const type = item.type || 'check'; const key = `${si}_${label}`;
-              return (<tr key={ii}><td>{label}</td><td style={{ color: '#a0b0b0', fontSize: '12px' }}>{INPUT_TYPES.find(t => t.id === type)?.icon} {type}</td><td><ItemInput item={item} value={form.responses[key] || {}} onChange={val => handleResponse(key, { ...form.responses[key], ...val })} companyId={userRole.company_id} /></td><td><input placeholder="Comment..." value={form.responses[key]?.comment || ''} onChange={e => handleResponse(key, { ...form.responses[key], comment: e.target.value })} style={{ backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', padding: '5px 8px', borderRadius: '4px', width: '140px', fontSize: '12px' }} /></td><td><label style={{ cursor: 'pointer', fontSize: '18px' }}>{form.responses[key]?.photo_url ? <img src={form.responses[key].photo_url} alt="" style={{ width: '36px', height: '28px', objectFit: 'cover', borderRadius: '3px', border: '1px solid #00c2e0' }} /> : '📷'}<input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={async e => { const file = e.target.files[0]; if (!file) return; try { const url = await uploadPhoto(file, userRole.company_id); handleResponse(key, { ...form.responses[key], photo_url: url }); } catch(err) { alert(err.message); } }} /></label></td></tr>);
+              return (<tr key={ii}><td>{label}</td><td style={{ color: '#a0b0b0', fontSize: '12px' }}>{INPUT_TYPES.find(t => t.id === type)?.icon} {type}</td><td><ItemInput item={item} value={form.responses[key] || {}} onChange={val => handleResponse(key, { ...form.responses[key], ...val })} companyId={userRole.company_id} /></td><td><input placeholder="Comment..." value={form.responses[key]?.comment || ''} onChange={e => handleResponse(key, { ...form.responses[key], comment: e.target.value })} style={{ backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', padding: '5px 8px', borderRadius: '4px', width: '140px', fontSize: '12px' }} /></td><td><label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{form.responses[key]?.photo_url ? <img src={form.responses[key].photo_url} alt="" style={{ width: '36px', height: '28px', objectFit: 'cover', borderRadius: '3px', border: '1px solid #00c2e0' }} /> : (<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00c2e0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>)}<input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={async e => { const file = e.target.files[0]; if (!file) return; try { const url = await uploadPhoto(file, userRole.company_id); handleResponse(key, { ...form.responses[key], photo_url: url }); } catch(err) { alert(err.message); } }} /></label></td></tr>);
             })}</tbody>
           </table>
         </div>
