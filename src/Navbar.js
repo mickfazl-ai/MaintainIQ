@@ -39,7 +39,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
   const handleNav = (id) => { setCurrentPage(id); setMenuOpen(false); };
 
   const visibleItems = isMaster && !viewingCompany
-    ? [...menuItems, { id: 'master', label: 'Master Admin', roles: ['master'] }]
+    ? [...menuItems.filter(item => item.roles.includes('admin')), { id: 'master', label: 'Master Admin', roles: ['master'] }]
     : menuItems.filter(item =>
         item.roles.includes(viewingCompany ? 'admin' : (userRole?.role || 'operator')) &&
         (features[item.feature] !== false)
