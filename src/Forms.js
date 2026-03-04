@@ -104,7 +104,7 @@ function ItemInput({ item, value, onChange, companyId }) {
         </div>
       ) : (
         <label style={{ backgroundColor: '#0a2a2a', border: '1px solid #00c2e040', color: '#00c2e0', padding: '5px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
-          {uploading ? 'Uploading...' : <span style={{fontSize:"16px"}}>: '📷 #128247;</span>Take/Upload Photo'}
+          {uploading ? 'Uploading...' : '📷 Take/Upload Photo'}
           <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: 'none' }} />
         </label>
       )}
