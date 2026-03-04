@@ -8,6 +8,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
   const dropdownRef = useRef(null);
   const features = viewingCompany?.features || userRole?.company_features || {};
   const isMaster = userRole?.role === 'master';
+  const effectiveRole = viewingCompany ? 'admin' : (userRole?.role || 'operator');
 
   useEffect(() => { if (isMaster) fetchCompanies(); }, [isMaster]);
 
@@ -25,24 +26,27 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
   };
 
   const menuItems = [
-    { id: 'dashboard',    label: 'Dashboard',    roles: ['admin','supervisor','technician','operator'], feature: 'dashboard' },
-    { id: 'assets',       label: 'Assets',        roles: ['admin','supervisor'],                         feature: 'assets' },
-    { id: 'maintenance',  label: 'Maintenance',   roles: ['admin','supervisor','technician'],             feature: 'maintenance' },
-    { id: 'forms',        label: 'Forms',         roles: ['admin','supervisor','technician','operator'],  feature: 'prestart' },
-    { id: 'scanner',      label: 'Scanner',       roles: ['technician','operator'],                       feature: 'scanner' },
-    { id: 'reports',      label: 'Reports',       roles: ['admin','supervisor'],                          feature: 'reports' },
-    { id: 'depreciation', label: 'Depreciation',  roles: ['admin','supervisor'],                          feature: 'depreciation' },
-    { id: 'export',       label: 'Data Export',   roles: ['admin'],                                       feature: 'export' },
-    { id: 'users',        label: 'Users',         roles: ['admin'],                                       feature: 'users' },
+    { id: 'dashboard',    label: 'Dashboard',   roles: ['admin','supervisor','technician','operator'], feature: null },
+    { id: 'assets',       label: 'Assets',       roles: ['admin','supervisor'],                         feature: 'assets' },
+    { id: 'maintenance',  label: 'Maintenance',  roles: ['admin','supervisor','technician'],             feature: 'maintenance' },
+    { id: 'forms',        label: 'Forms',        roles: ['admin','supervisor','technician','operator'],  feature: 'prestart' },
+    { id: 'scanner',      label: 'Scanner',      roles: ['technician','operator'],                       feature: 'scanner' },
+    { id: 'reports',      label: 'Reports',      roles: ['admin','supervisor'],                          feature: 'reports' },
+    { id: 'depreciation', label: 'Depreciation', roles: ['admin','supervisor'],                          feature: null },
+    { id: 'export',       label: 'Data Export',  roles: ['admin'],                                       feature: null },
+    { id: 'users',        label: 'Users',        roles: ['admin'],                                       feature: null },
   ];
 
-  const handleNav = (id) => { setCurrentPage(id); setMenuOpen(false); };
+  const handleNav = (id) => {
+    setCurrentPage(id);
+    setMenuOpen(false);
+  };
 
-  const visibleItems = isMaster && !viewingCompany
-    ? [...menuItems.filter(item => item.roles.includes('admin')), { id: 'master', label: 'Master Admin', roles: ['master'] }]
+  const visibleItems = (isMaster && !viewingCompany)
+    ? [...menuItems.filter(i => i.roles.includes('admin')), { id: 'master', label: 'Master Admin', roles: ['master'], feature: null }]
     : menuItems.filter(item =>
-        item.roles.includes(viewingCompany ? 'admin' : (userRole?.role || 'operator')) &&
-        (features[item.feature] !== false)
+        item.roles.includes(effectiveRole) &&
+        (item.feature === null || features[item.feature] !== false)
       );
 
   return (
@@ -69,22 +73,13 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
         >
           <span style={{
             fontFamily: "'Barlow Condensed', sans-serif",
-            fontSize: '34px',
-            fontWeight: 800,
-            letterSpacing: '2px',
-            color: '#ffffff',
-            WebkitTextStroke: '1.5px #000000',
-            textTransform: 'uppercase',
+            fontSize: '34px', fontWeight: 800, letterSpacing: '2px',
+            color: '#ffffff', WebkitTextStroke: '1.5px #000000', textTransform: 'uppercase',
           }}>MECH</span>
           <span style={{
             fontFamily: "'Barlow Condensed', sans-serif",
-            fontSize: '34px',
-            fontWeight: 800,
-            letterSpacing: '2px',
-            color: '#00ABE4',
-            WebkitTextStroke: '1.5px #000000',
-            textTransform: 'uppercase',
-            marginLeft: '8px',
+            fontSize: '34px', fontWeight: 800, letterSpacing: '2px',
+            color: '#00ABE4', WebkitTextStroke: '1.5px #000000', textTransform: 'uppercase', marginLeft: '8px',
           }}>IQ</span>
         </div>
 
@@ -95,12 +90,17 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
         <nav className={menuOpen ? 'nav-open' : ''}>
           <ul>
             {visibleItems.map(item => (
-              <li key={item.id} className={currentPage === item.id ? 'active' : ''} onClick={() => handleNav(item.id)}
-                style={item.id === 'master' ? { color: '#00ABE4', fontWeight: 700 } : {}}>
+              <li
+                key={item.id}
+                className={currentPage === item.id ? 'active' : ''}
+                onClick={() => handleNav(item.id)}
+                style={item.id === 'master' ? { color: '#00ABE4', fontWeight: 700 } : {}}
+              >
                 {item.label}
               </li>
             ))}
           </ul>
+
           <div className="navbar-user">
             {isMaster && (
               <div ref={dropdownRef} style={{ position: 'relative', marginRight: '12px' }}>
@@ -118,15 +118,18 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
                     zIndex: 1000, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', overflow: 'hidden'
                   }}>
                     {viewingCompany && (
-                      <div onClick={() => { onExitCompany(); setDropdownOpen(false); }}
-                        style={{ padding: '10px 14px', color: '#0077cc', fontSize: '12px', fontWeight: 700, cursor: 'pointer', borderBottom: '1px solid #E9F1FA', backgroundColor: '#E9F1FA' }}>
+                      <div
+                        onClick={() => { onExitCompany(); setDropdownOpen(false); }}
+                        style={{ padding: '10px 14px', color: '#0077cc', fontSize: '12px', fontWeight: 700, cursor: 'pointer', borderBottom: '1px solid #E9F1FA', backgroundColor: '#E9F1FA' }}
+                      >
                         Exit Company View
                       </div>
                     )}
                     {companies.length === 0
                       ? <div style={{ padding: '12px 14px', color: '#7a92a8', fontSize: '12px' }}>No active companies</div>
                       : companies.map(c => (
-                        <div key={c.id}
+                        <div
+                          key={c.id}
                           onClick={() => { onSelectCompany(c); setDropdownOpen(false); setMenuOpen(false); }}
                           style={{
                             padding: '10px 14px', cursor: 'pointer', fontSize: '13px',
@@ -150,10 +153,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
               backgroundColor: isMaster ? '#00ABE4' : '#E9F1FA',
               color: isMaster ? '#fff' : '#1a2b3c',
               border: '1px solid #00ABE4',
-              padding: '3px 10px',
-              borderRadius: '20px',
-              fontSize: '11px',
-              fontWeight: 600,
+              padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
             }}>
               {isMaster ? 'master' : (userRole?.role || 'operator')}
             </span>
@@ -162,17 +162,13 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
         </nav>
       </div>
 
-      {/* Terms of Service footer — visible to all logged-in users */}
       <div style={{
-        textAlign: 'center',
-        padding: '5px 0',
-        fontSize: '11px',
-        background: '#060b0b',
-        borderBottom: '1px solid #1a2f2f',
+        textAlign: 'center', padding: '5px 0', fontSize: '11px',
+        background: '#060b0b', borderBottom: '1px solid #1a2f2f',
       }}>
         <span
           onClick={() => handleNav('terms')}
-          style={{ color: '#4a6a6a', cursor: 'pointer', transition: 'color 0.15s' }}
+          style={{ color: '#4a6a6a', cursor: 'pointer' }}
           onMouseEnter={e => e.target.style.color = '#00c2e0'}
           onMouseLeave={e => e.target.style.color = '#4a6a6a'}
         >
