@@ -13,6 +13,7 @@ import Forms from './Forms';
 import Scanner from './Scanner';
 import AssetPage from './MachineProfile';
 import MasterAdmin from './MasterAdmin';
+import Depreciation from './Depreciation';
 import { supabase } from './supabase';
 
 function App() {
@@ -129,6 +130,7 @@ function App() {
       case 'maintenance': return <Maintenance userRole={effectiveUserRole} />;
       case 'forms':       return <Forms userRole={effectiveUserRole} prestartAsset={prestartAsset} prestartAssetId={prestartAssetId} onClearPreload={() => { setPrestartAsset(null); setPrestartAssetId(null); }} />;
       case 'scanner':     return <Scanner userRole={effectiveUserRole} onAssetFound={(assetId) => { setPrestartAssetId(assetId); setCurrentPage('forms'); }} />;
+      case 'depreciation': return <Depreciation userRole={effectiveUserRole} />;
       case 'assetpage':   return (
         <div>
           <button onClick={() => { setCurrentPage('assets'); setViewingAssetId(null); }}

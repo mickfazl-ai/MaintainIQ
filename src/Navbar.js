@@ -31,6 +31,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
     { id: 'forms',       label: 'Forms',        roles: ['admin','supervisor','technician','operator'],  feature: 'prestart' },
     { id: 'scanner',     label: 'Scanner',      roles: ['technician','operator'],                       feature: 'scanner' },
     { id: 'reports',     label: 'Reports',      roles: ['admin','supervisor'],                          feature: 'reports' },
+    { id: 'depreciation', label: 'Depreciation', roles: ['admin', 'supervisor'], feature: 'depreciation' },
     { id: 'users',       label: 'Users',        roles: ['admin'],                                       feature: 'users' },
   ];
 
