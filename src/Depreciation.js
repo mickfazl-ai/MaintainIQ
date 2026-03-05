@@ -298,7 +298,7 @@ Provide 4-5 sentences covering:
 2. Current depreciation trajectory and book vs market value gap
 3. Key risk factors at this usage level and age
 4. One specific action item for the fleet manager
-Max 180 words.\`;
+Max 180 words.`;
 
     try {
       const { data: { session } } = await (await import("./supabase")).supabase.auth.getSession();
