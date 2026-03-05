@@ -87,7 +87,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
             fontFamily: "'Barlow', sans-serif",
             fontSize: '9px', fontWeight: 500, letterSpacing: '2px',
             color: '#7a92a8', textTransform: 'uppercase', marginTop: '1px',
-          }}>Asset Software</span>
+          }}>Asset Maintenance Software</span>
         </div>
 
         <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)}>
