@@ -66,6 +66,10 @@ export default function Depreciation({ userRole }) {
   const [aiPredicting, setAiPredicting] = useState(false);
   const [aiPredictError, setAiPredictError] = useState(null);
   const [calculated, setCalculated] = useState(false);
+  const [history, setHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('depreciationHistory') || '[]'); } catch { return []; }
+  });
+  const [showHistory, setShowHistory] = useState(false);
 
   const handleChange = (field, value) => {
     setInputs(prev => ({ ...prev, [field]: value }));
@@ -151,8 +155,32 @@ export default function Depreciation({ userRole }) {
     }
 
 
-    setResults({ currentValue: Math.round(currentValue), marketValue: Math.round(marketValue), totalDepreciation: Math.round(totalDepreciation), costPerUnit, yearsRemaining, utilizationPct, recommendation, projection, annualTable, usefulLife });
+    const newResults = { currentValue: Math.round(currentValue), marketValue: Math.round(marketValue), totalDepreciation: Math.round(totalDepreciation), costPerUnit, yearsRemaining, utilizationPct, recommendation, projection, annualTable, usefulLife };
+    setResults(newResults);
     setCalculated(true);
+    // Save to history
+    const entry = {
+      id: Date.now(),
+      date: new Date().toLocaleString('en-AU'),
+      assetName: inputs.assetName,
+      purchaseYear: inputs.purchaseYear,
+      yearPurchased: inputs.yearPurchased,
+      assetConditionType: inputs.assetConditionType,
+      purchasePrice: inputs.purchasePrice,
+      currentUsage: inputs.currentUsage,
+      annualUsage: inputs.annualUsage,
+      usageUnit: inputs.usageUnit,
+      condition: inputs.condition,
+      salvageValue: inputs.salvageValue,
+      expectedLifeUsage: inputs.expectedLifeUsage,
+      depreciationMethod: inputs.depreciationMethod,
+      results: newResults,
+    };
+    setHistory(prev => {
+      const updated = [entry, ...prev].slice(0, 20);
+      try { localStorage.setItem('depreciationHistory', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
   };
 
   const fetchAiPredict = async () => {
@@ -256,6 +284,145 @@ Give 3-4 sentences covering: market trend for this model, key risk factors, and 
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const deleteHistoryEntry = (id) => {
+    setHistory(prev => {
+      const updated = prev.filter(e => e.id !== id);
+      try { localStorage.setItem('depreciationHistory', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  };
+
+  const loadFromHistory = (entry) => {
+    setInputs({
+      assetName: entry.assetName,
+      purchaseYear: entry.purchaseYear,
+      yearPurchased: entry.yearPurchased || entry.purchaseYear,
+      assetConditionType: entry.assetConditionType || 'used',
+      purchasePrice: entry.purchasePrice,
+      currentUsage: entry.currentUsage,
+      annualUsage: entry.annualUsage,
+      usageUnit: entry.usageUnit,
+      condition: entry.condition,
+      salvageValue: entry.salvageValue,
+      expectedLifeUsage: entry.expectedLifeUsage,
+      depreciationMethod: entry.depreciationMethod,
+    });
+    setResults(entry.results);
+    setCalculated(true);
+    setShowHistory(false);
+  };
+
+  const exportPDF = (entry) => {
+    const e = entry || { assetName: inputs.assetName, purchaseYear: inputs.purchaseYear, yearPurchased: inputs.yearPurchased, assetConditionType: inputs.assetConditionType, purchasePrice: inputs.purchasePrice, currentUsage: inputs.currentUsage, annualUsage: inputs.annualUsage, usageUnit: inputs.usageUnit, condition: inputs.condition, depreciationMethod: inputs.depreciationMethod, results: results, date: new Date().toLocaleString('en-AU') };
+    if (!e.results) return;
+    const r = e.results;
+    const unit = e.usageUnit === 'kms' ? 'KMs' : 'Hours';
+    const fmt = v => '$' + Number(v).toLocaleString('en-AU', { maximumFractionDigits: 0 });
+
+    const rows = r.annualTable.map(row =>
+      `<tr><td>${row.year}</td><td>${fmt(row.opening)}</td><td style="color:#e94560">${fmt(row.depreciation)}</td><td>${fmt(row.closing)}</td></tr>`
+    ).join('');
+
+    const projRows = r.projection.map(row =>
+      `<tr><td>${row.year}</td><td>${fmt(row.bookValue)}</td><td>${fmt(row.marketValue)}</td><td style="color:#e94560">${fmt(row.depreciation || 0)}</td></tr>`
+    ).join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Depreciation Report — ${e.assetName}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #fff; color: #1a1a1a; padding: 32px; font-size: 13px; }
+  .header { border-bottom: 3px solid #00c2e0; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .brand { font-size: 28px; font-weight: 900; letter-spacing: 2px; }
+  .brand span { color: #00c2e0; }
+  .header-right { text-align: right; color: #666; font-size: 11px; }
+  h2 { font-size: 18px; color: #00c2e0; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.05em; }
+  h3 { font-size: 13px; color: #444; text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 16px; }
+  .stat-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .stat-value { font-size: 18px; font-weight: 700; color: #1a1a1a; }
+  .stat-value.cyan { color: #00c2e0; }
+  .stat-value.green { color: #00c264; }
+  .stat-value.red { color: #e94560; }
+  .stat-value.orange { color: #ff6b00; }
+  .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 20px; }
+  .info-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
+  .info-label { color: #888; font-size: 11px; width: 160px; flex-shrink: 0; }
+  .info-value { font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+  th { background: #0d1515; color: #00c2e0; padding: 8px 10px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 7px 10px; border-bottom: 1px solid #f0f0f0; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .rec { display: inline-block; padding: 4px 14px; border-radius: 20px; font-weight: 700; font-size: 12px; }
+  .rec.Keep { background: #e6f9ef; color: #00c264; }
+  .rec.Monitor { background: #fff3e0; color: #ff6b00; }
+  .rec.Replace { background: #fdecea; color: #e94560; }
+  .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #eee; font-size: 10px; color: #aaa; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">MECH<span>IQ</span></div>
+    <div class="header-right">
+      <div>Asset Depreciation Report</div>
+      <div>Generated: ${e.date}</div>
+      <div>© ${new Date().getFullYear()} Coastline Mechanical</div>
+    </div>
+  </div>
+
+  <h2>${e.assetName || 'Asset'} — Depreciation Report</h2>
+
+  <h3>Asset Details</h3>
+  <div class="info-grid">
+    <div class="info-row"><span class="info-label">Make & Model</span><span class="info-value">${e.assetName}</span></div>
+    <div class="info-row"><span class="info-label">Year of Manufacture</span><span class="info-value">${e.purchaseYear}</span></div>
+    <div class="info-row"><span class="info-label">Year Purchased</span><span class="info-value">${e.yearPurchased || e.purchaseYear}</span></div>
+    <div class="info-row"><span class="info-label">Condition Type</span><span class="info-value">${e.assetConditionType === 'new' ? 'Purchased New' : 'Purchased Used'}</span></div>
+    <div class="info-row"><span class="info-label">Purchase Price</span><span class="info-value">${fmt(e.purchasePrice)}</span></div>
+    <div class="info-row"><span class="info-label">Current ${unit}</span><span class="info-value">${Number(e.currentUsage).toLocaleString()} ${unit}</span></div>
+    <div class="info-row"><span class="info-label">Annual ${unit}</span><span class="info-value">${Number(e.annualUsage).toLocaleString()} ${unit}</span></div>
+    <div class="info-row"><span class="info-label">Condition Rating</span><span class="info-value">${e.condition}</span></div>
+    <div class="info-row"><span class="info-label">Depreciation Method</span><span class="info-value">${e.depreciationMethod?.replace(/_/g, ' ').replace(/\w/g, l => l.toUpperCase())}</span></div>
+    <div class="info-row"><span class="info-label">Recommendation</span><span class="info-value"><span class="rec ${r.recommendation.label}">${r.recommendation.label}</span></span></div>
+  </div>
+
+  <h3>Summary</h3>
+  <div class="stats">
+    <div class="stat"><div class="stat-label">Current Book Value</div><div class="stat-value cyan">${fmt(r.currentValue)}</div></div>
+    <div class="stat"><div class="stat-label">Market Value</div><div class="stat-value green">${fmt(r.marketValue)}</div></div>
+    <div class="stat"><div class="stat-label">Total Depreciation</div><div class="stat-value red">${fmt(r.totalDepreciation)}</div></div>
+    <div class="stat"><div class="stat-label">Cost / ${unit === 'KMs' ? 'KM' : 'Hour'}</div><div class="stat-value orange">$${r.costPerUnit.toFixed(2)}</div></div>
+    <div class="stat"><div class="stat-label">${unit} Remaining</div><div class="stat-value">${Math.round(Math.max(0, parseFloat(e.expectedLifeUsage || 0) - parseFloat(e.currentUsage || 0))).toLocaleString()}</div></div>
+    <div class="stat"><div class="stat-label">Years Remaining</div><div class="stat-value">${r.yearsRemaining.toFixed(1)} yrs</div></div>
+  </div>
+
+  <h3>Annual Depreciation Schedule</h3>
+  <table>
+    <thead><tr><th>Year</th><th>Opening Value</th><th>Depreciation</th><th>Closing Value</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <h3>5-Year Projection</h3>
+  <table>
+    <thead><tr><th>Year</th><th>Book Value</th><th>Market Value</th><th>Annual Depreciation</th></tr></thead>
+    <tbody>${projRows}</tbody>
+  </table>
+
+  <div class="footer">Generated by Mech IQ — mechiq.com.au — Coastline Mechanical — This report is an estimate only and should not be used as formal financial advice.</div>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 500);
   };
 
   const inputStyle = { background: "#060b0b", border: `1px solid ${BORDER}`, borderRadius: 8, color: "#e0eaea", fontFamily: "Barlow, sans-serif", fontSize: 14, padding: "9px 13px", width: "100%", outline: "none", boxSizing: "border-box" };
@@ -392,8 +559,8 @@ Give 3-4 sentences covering: market trend for this model, key risk factors, and 
         )}
       </div>
 
-      {/* CALCULATE BUTTON */}
-      <div style={{ marginBottom: 28 }}>
+      {/* HISTORY + CALCULATE */}
+      <div style={{ marginBottom: 28, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <button
           onClick={calculate}
           disabled={!inputs.purchasePrice || !inputs.currentUsage || !inputs.expectedLifeUsage}
@@ -401,8 +568,52 @@ Give 3-4 sentences covering: market trend for this model, key risk factors, and 
         >
           Calculate Depreciation
         </button>
-        {(!inputs.expectedLifeUsage) && <span style={{ marginLeft: 12, color: "#8fa8a8", fontSize: 12 }}>Use AI Predict to fill Expected Life {unitLabel} first</span>}
+        {(!inputs.expectedLifeUsage) && <span style={{ color: "#8fa8a8", fontSize: 12 }}>Use AI Predict to fill Expected Life {unitLabel} first</span>}
+        <button
+          onClick={() => setShowHistory(h => !h)}
+          style={{ padding: "13px 20px", fontSize: 13, fontWeight: 700, fontFamily: "Barlow, sans-serif", background: "transparent", color: history.length > 0 ? CYAN : "#4a6a6a", border: `1px solid ${history.length > 0 ? CYAN : BORDER}`, borderRadius: 8, cursor: "pointer", letterSpacing: "0.05em" }}
+        >
+          {showHistory ? "Hide History" : `📋 History (${history.length})`}
+        </button>
+        {calculated && results && (
+          <button
+            onClick={() => exportPDF(null)}
+            style={{ padding: "13px 20px", fontSize: 13, fontWeight: 700, fontFamily: "Barlow, sans-serif", background: "transparent", color: GREEN, border: `1px solid ${GREEN}`, borderRadius: 8, cursor: "pointer", letterSpacing: "0.05em" }}
+          >
+            ⬇ Export PDF
+          </button>
+        )}
       </div>
+
+      {/* HISTORY PANEL */}
+      {showHistory && (
+        <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "20px 24px", marginBottom: 20 }}>
+          <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: CYAN, letterSpacing: "0.04em" }}>CALCULATION HISTORY</h3>
+          {history.length === 0 ? (
+            <p style={{ color: "#8fa8a8", fontSize: 13 }}>No calculations saved yet. Run a calculation to save it here.</p>
+          ) : (
+            <div>
+              {history.map(entry => (
+                <div key={entry.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: `1px solid ${BORDER}` }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: "#e0eaea", fontSize: 14, fontWeight: 600 }}>{entry.assetName}</div>
+                    <div style={{ color: "#8fa8a8", fontSize: 12, marginTop: 3 }}>
+                      {entry.purchaseYear} · {entry.condition} · {Number(entry.currentUsage).toLocaleString()} {entry.usageUnit} · Book Value: <span style={{ color: CYAN }}>${Number(entry.results?.currentValue).toLocaleString()}</span> · <span style={{ color: entry.results?.recommendation?.color }}>{entry.results?.recommendation?.label}</span>
+                    </div>
+                    <div style={{ color: "#4a6a6a", fontSize: 11, marginTop: 2 }}>{entry.date}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginLeft: 16 }}>
+                    <button onClick={() => loadFromHistory(entry)} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 700, background: "#0a2a2a", border: `1px solid ${CYAN}`, color: CYAN, borderRadius: 6, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>Load</button>
+                    <button onClick={() => exportPDF(entry)} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 700, background: "#0a1a0a", border: `1px solid ${GREEN}`, color: GREEN, borderRadius: 6, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>PDF</button>
+                    <button onClick={() => deleteHistoryEntry(entry.id)} style={{ padding: "6px 12px", fontSize: 11, fontWeight: 700, background: "#1a0808", border: `1px solid ${RED}44`, color: RED, borderRadius: 6, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>✕</button>
+                  </div>
+                </div>
+              ))}
+              <button onClick={() => { setHistory([]); try { localStorage.removeItem('depreciationHistory'); } catch {} }} style={{ marginTop: 12, padding: "7px 16px", fontSize: 11, fontWeight: 700, background: "transparent", border: `1px solid ${RED}44`, color: RED, borderRadius: 6, cursor: "pointer", fontFamily: "Barlow, sans-serif" }}>Clear All History</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* RESULTS */}
       {results && calculated && (
