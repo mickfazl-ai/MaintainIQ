@@ -119,39 +119,66 @@ export default function Depreciation({ userRole }) {
     if (utilizationPct >= 80 || costPerUnit > (purchase / lifeUsage) * 2) recommendation = { label: "Replace", color: RED };
     else if (utilizationPct >= 60) recommendation = { label: "Monitor", color: ORANGE };
 
-    // 5-year projection
+    // Work out actual usage per year:
+    // Past years: spread currentUsage evenly across years owned
+    // Future years: use predicted annualUsage
+    const yearPurchased = parseInt(inputs.yearPurchased) || parseInt(inputs.purchaseYear);
+    const yearsOwnedActual = Math.max(1, currentYear - yearPurchased);
+    const avgHistoricUsage = currentUsage / yearsOwnedActual; // actual avg per year from purchase to now
+    const perUnitDep = (purchase - salvage) / lifeUsage;
+
+    // Build full annual table from year purchased through end of life
+    const annualTable = [];
+    const totalLifeYears = Math.ceil(lifeUsage / annualUsage) + yearsOwnedActual + 2;
+
+    for (let y = 0; y < totalLifeYears; y++) {
+      const calYear = yearPurchased + y;
+      const isPast = calYear <= currentYear;
+      const usageThisYear = isPast ? avgHistoricUsage : annualUsage;
+      const cumulativeUsageStart = usageThisYear * y;
+      const cumulativeUsageEnd = usageThisYear * (y + 1);
+
+      let openVal, closeVal;
+      if (method === "straight_line") {
+        const depPerYear = (purchase - salvage) / usefulLife;
+        openVal = Math.max(salvage, purchase - depPerYear * y);
+        closeVal = Math.max(salvage, purchase - depPerYear * (y + 1));
+      } else if (method === "declining_balance") {
+        openVal = Math.max(salvage, purchase * Math.pow(1 - annualDepRate, y));
+        closeVal = Math.max(salvage, purchase * Math.pow(1 - annualDepRate, y + 1));
+      } else {
+        // units of production — use actual cumulative usage
+        openVal = Math.max(salvage, purchase - perUnitDep * Math.min(cumulativeUsageStart, lifeUsage));
+        closeVal = Math.max(salvage, purchase - perUnitDep * Math.min(cumulativeUsageEnd, lifeUsage));
+      }
+
+      const dep = Math.max(0, openVal - closeVal);
+      if (dep < 0.5 && y > 0) break;
+
+      annualTable.push({
+        year: calYear,
+        opening: Math.round(openVal),
+        depreciation: Math.round(dep),
+        closing: Math.round(closeVal),
+        usageThisYear: Math.round(usageThisYear),
+        cumulativeUsage: Math.round(cumulativeUsageEnd),
+        isPast,
+      });
+    }
+
+    // 5-year projection from now
     const projection = [];
     for (let y = 0; y <= 5; y++) {
       const yr = currentYear + y;
+      const totalYearsFromPurchase = (yr - yearPurchased);
+      const futureUsage = currentUsage + annualUsage * y;
       let val = purchase;
-      const totalYears = yearsOwned + y;
-      if (method === "straight_line") val = Math.max(salvage, purchase - annualDepRate * totalYears);
-      else if (method === "declining_balance") val = Math.max(salvage, purchase * Math.pow(1 - annualDepRate, totalYears));
-      else { const perUnit = (purchase - salvage) / lifeUsage; val = Math.max(salvage, purchase - perUnit * (currentUsage + annualUsage * y)); }
+      if (method === "straight_line") val = Math.max(salvage, purchase - (purchase - salvage) / usefulLife * totalYearsFromPurchase);
+      else if (method === "declining_balance") val = Math.max(salvage, purchase * Math.pow(1 - annualDepRate, totalYearsFromPurchase));
+      else val = Math.max(salvage, purchase - perUnitDep * Math.min(futureUsage, lifeUsage));
       val = Math.max(salvage, val * condFactor + val * (1 - condFactor) * 0.5);
       const dep = y === 0 ? 0 : (projection[y - 1]?.bookValue || currentValue) - val;
       projection.push({ year: String(yr), bookValue: Math.round(val), depreciation: Math.round(Math.max(0, dep)), marketValue: Math.round(val * 0.95) });
-    }
-
-    // Annual table
-    const annualTable = [];
-    for (let y = 1; y <= Math.ceil(usefulLife) + yearsOwned; y++) {
-      let openVal = purchase;
-      let closeVal = purchase;
-      if (method === "straight_line") {
-        openVal = Math.max(salvage, purchase - annualDepRate * (y - 1));
-        closeVal = Math.max(salvage, purchase - annualDepRate * y);
-      } else if (method === "declining_balance") {
-        openVal = Math.max(salvage, purchase * Math.pow(1 - annualDepRate, y - 1));
-        closeVal = Math.max(salvage, purchase * Math.pow(1 - annualDepRate, y));
-      } else {
-        const pu = (purchase - salvage) / lifeUsage;
-        openVal = Math.max(salvage, purchase - pu * annualUsage * (y - 1));
-        closeVal = Math.max(salvage, purchase - pu * annualUsage * y);
-      }
-      const dep = Math.max(0, openVal - closeVal);
-      if (dep < 1) break;
-      annualTable.push({ year: parseInt(inputs.purchaseYear) + y, opening: Math.round(openVal), depreciation: Math.round(dep), closing: Math.round(closeVal) });
     }
 
 
@@ -266,7 +293,12 @@ Cost Per ${unit}: $${results.costPerUnit.toFixed(2)}
 Years Remaining: ${results.yearsRemaining.toFixed(1)}
 Recommendation: ${results.recommendation.label}
 
-Give 3-4 sentences covering: market trend for this model, key risk factors, and one specific action item. Max 150 words.`;
+Provide 4-5 sentences covering:
+1. Whether the historic vs predicted usage rate is concerning or reasonable for this asset type
+2. Current depreciation trajectory and book vs market value gap
+3. Key risk factors at this usage level and age
+4. One specific action item for the fleet manager
+Max 180 words.\`;
 
     try {
       const { data: { session } } = await (await import("./supabase")).supabase.auth.getSession();
@@ -660,26 +692,39 @@ Give 3-4 sentences covering: market trend for this model, key risk factors, and 
 
           {/* Annual table */}
           <div style={{ ...cardStyle, marginBottom: 20 }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: CYAN }}>ANNUAL DEPRECIATION SCHEDULE</h3>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: CYAN }}>ANNUAL DEPRECIATION SCHEDULE</h3>
+              <div style={{ display: "flex", gap: 16, fontSize: 11, color: "#8fa8a8" }}>
+                <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#0a1a2a", border: `1px solid ${CYAN}33`, borderRadius: 2, marginRight: 5 }} />Historical (actual avg)</span>
+                <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#060b0b", border: `1px solid ${BORDER}`, borderRadius: 2, marginRight: 5 }} />Projected</span>
+              </div>
+            </div>
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
-                  <tr>{["Year", "Opening Value", "Depreciation", "Closing Value"].map(h => (
-                    <th key={h} style={{ padding: "8px 12px", textAlign: "left", color: "#8fa8a8", fontSize: 11, fontWeight: 700, borderBottom: `1px solid ${BORDER}` }}>{h}</th>
+                  <tr>{["Year", `${unitLabel}/yr`, `Cumulative ${unitLabel}`, "Opening Value", "Depreciation", "Closing Value"].map(h => (
+                    <th key={h} style={{ padding: "8px 10px", textAlign: "left", color: "#8fa8a8", fontSize: 10, fontWeight: 700, borderBottom: `1px solid ${BORDER}`, whiteSpace: "nowrap" }}>{h}</th>
                   ))}</tr>
                 </thead>
                 <tbody>
                   {results.annualTable.map((row, i) => (
-                    <tr key={i} style={{ background: i % 2 === 0 ? "#060b0b" : "transparent" }}>
-                      <td style={{ padding: "8px 12px", color: "#e0eaea" }}>{row.year}</td>
-                      <td style={{ padding: "8px 12px", color: GREEN }}>{formatCurrency(row.opening)}</td>
-                      <td style={{ padding: "8px 12px", color: RED }}>{formatCurrency(row.depreciation)}</td>
-                      <td style={{ padding: "8px 12px", color: CYAN }}>{formatCurrency(row.closing)}</td>
+                    <tr key={i} style={{ background: row.isPast ? "#0a1a2a" : (i % 2 === 0 ? "#060b0b" : "transparent"), borderLeft: row.year === new Date().getFullYear() ? `3px solid ${CYAN}` : "3px solid transparent" }}>
+                      <td style={{ padding: "7px 10px", color: row.isPast ? "#c8dada" : "#8fa8a8", fontWeight: row.year === new Date().getFullYear() ? 700 : 400 }}>
+                        {row.year}{row.year === new Date().getFullYear() ? <span style={{ color: CYAN, fontSize: 9, marginLeft: 4 }}>NOW</span> : ""}
+                      </td>
+                      <td style={{ padding: "7px 10px", color: "#8fa8a8" }}>{row.usageThisYear?.toLocaleString()}</td>
+                      <td style={{ padding: "7px 10px", color: "#8fa8a8" }}>{row.cumulativeUsage?.toLocaleString()}</td>
+                      <td style={{ padding: "7px 10px", color: GREEN }}>{formatCurrency(row.opening)}</td>
+                      <td style={{ padding: "7px 10px", color: RED }}>{formatCurrency(row.depreciation)}</td>
+                      <td style={{ padding: "7px 10px", color: CYAN, fontWeight: 600 }}>{formatCurrency(row.closing)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <p style={{ color: "#4a6a6a", fontSize: 11, marginTop: 10 }}>
+              Historical years use actual average usage ({Math.round(parseFloat(inputs.currentUsage || 0) / Math.max(1, new Date().getFullYear() - (parseInt(inputs.yearPurchased) || new Date().getFullYear()))).toLocaleString()} {unitLabel}/yr). Future years use predicted annual {unitLabel}.
+            </p>
           </div>
 
           {/* AI Market Insight */}
