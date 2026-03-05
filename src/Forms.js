@@ -1025,8 +1025,8 @@ function ServiceSheetsTab({ userRole }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', marginTop: '20px' }}>
           {templates.map(t => (
             <div key={t.id} className="form-card" style={{ cursor: 'pointer' }} onClick={() => { setSelectedTemplate(t); setView('fill'); }}>
-              <h3 style={{ color: '#00c2e0', marginBottom: '4px' }}>{t.name}</h3>
-              {t.service_type && <p style={{ color: '#ff6b00', fontSize: '12px', marginBottom: '8px', fontWeight: 600 }}>{t.service_type}</p>}
+              <h3 style={{ color: '#1a2b3c', marginBottom: '4px' }}>{t.name}</h3>
+              {t.service_type && <p style={{ color: '#7a92a8', fontSize: '12px', marginBottom: '8px', fontWeight: 600 }}>{t.service_type}</p>}
               <p style={{ color: '#a0b0b0', fontSize: '13px', marginBottom: '12px' }}>{t.description}</p>
               <p style={{ color: '#a0b0b0', fontSize: '12px' }}>{(t.sections || []).length} sections</p>
               <button className="btn-primary" style={{ marginTop: '12px', width: '100%' }}>Start Service Sheet</button>
