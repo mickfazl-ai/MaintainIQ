@@ -126,7 +126,7 @@ function MasterAdmin() {
       {pinAction && <PinModal actionLabel={pinAction.label} onConfirm={pinAction.onConfirm} onCancel={() => setPinAction(null)} />}
 
       <div style={{ marginBottom: '24px' }}>
-        <h2 style={{ color: '#fff', margin: 0 }}>⚙️ Master Admin <span style={{ color: '#00ABE4' }}>Panel</span></h2>
+        <h2 style={{ color: '#1a2b3c', margin: 0, fontWeight: 400, letterSpacing: '1px' }}>⚙️ Master Admin <span style={{ color: '#1a2b3c', fontWeight: 700 }}>Panel</span></h2>
         <p style={{ color: '#7a92a8', margin: '4px 0 0', fontSize: '13px' }}>Manage company registrations, features and access · Mech IQ</p>
       </div>
 
@@ -180,7 +180,7 @@ function MasterAdmin() {
                   </div>
                   <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {FEATURES.map(f => (
-                      <span key={f.key} style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '10px', backgroundColor: c.features?.[f.key] !== false ? '#0a2a1a' : '#2a0a0a', color: c.features?.[f.key] !== false ? '#16a34a' : '#dc2626' }}>{f.label}</span>
+                      <span key={f.key} style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '10px', backgroundColor: c.features?.[f.key] !== false ? '#e8eaed' : '#f0f0f0', color: c.features?.[f.key] !== false ? '#1a2b3c' : '#9aa0a8', border: `1px solid ${c.features?.[f.key] !== false ? '#c0c8d0' : '#dde0e3'}` }}>{f.label}</span>
                     ))}
                   </div>
                 </div>
@@ -227,7 +227,7 @@ function MasterAdmin() {
                 return (
                   <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <span style={{ color: '#fff', fontSize: '13px' }}>{f.label}</span>
-                    <button onClick={() => toggleFeature(selectedCompany, f.key)} style={{ padding: '4px 12px', borderRadius: '12px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600, backgroundColor: enabled ? '#0a2a1a' : '#2a0a0a', color: enabled ? '#16a34a' : '#dc2626' }}>
+                    <button onClick={() => toggleFeature(selectedCompany, f.key)} style={{ padding: '4px 12px', borderRadius: '12px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600, backgroundColor: enabled ? '#e8eaed' : '#f0f0f0', color: enabled ? '#1a2b3c' : '#9aa0a8', border: `1px solid ${enabled ? '#c0c8d0' : '#dde0e3'}` }}>
                       {enabled ? '✓ ON' : '✕ OFF'}
                     </button>
                   </div>
