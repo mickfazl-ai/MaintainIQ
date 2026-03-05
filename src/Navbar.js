@@ -69,18 +69,25 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
         <div
           className="navbar-brand"
           onClick={() => handleNav(isMaster && !viewingCompany ? 'master' : 'dashboard')}
-          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+          style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center' }}
         >
+          <div style={{ display: 'flex', alignItems: 'center', lineHeight: 1 }}>
+            <span style={{
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: '28px', fontWeight: 400, letterSpacing: '3px',
+              color: '#1a2b3c', textTransform: 'uppercase',
+            }}>MECH</span>
+            <span style={{
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: '28px', fontWeight: 400, letterSpacing: '3px',
+              color: '#00ABE4', textTransform: 'uppercase', marginLeft: '6px',
+            }}>IQ</span>
+          </div>
           <span style={{
-            fontFamily: "'Barlow Condensed', sans-serif",
-            fontSize: '34px', fontWeight: 800, letterSpacing: '2px',
-            color: '#ffffff', WebkitTextStroke: '1.5px #000000', textTransform: 'uppercase',
-          }}>MECH</span>
-          <span style={{
-            fontFamily: "'Barlow Condensed', sans-serif",
-            fontSize: '34px', fontWeight: 800, letterSpacing: '2px',
-            color: '#00ABE4', WebkitTextStroke: '1.5px #000000', textTransform: 'uppercase', marginLeft: '8px',
-          }}>IQ</span>
+            fontFamily: "'Barlow', sans-serif",
+            fontSize: '9px', fontWeight: 500, letterSpacing: '2px',
+            color: '#7a92a8', textTransform: 'uppercase', marginTop: '1px',
+          }}>Asset Software</span>
         </div>
 
         <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)}>
@@ -94,7 +101,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
                 key={item.id}
                 className={currentPage === item.id ? 'active' : ''}
                 onClick={() => handleNav(item.id)}
-                style={item.id === 'master' ? { color: '#00ABE4', fontWeight: 700 } : {}}
+                style={{}}
               >
                 {item.label}
               </li>
