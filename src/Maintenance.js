@@ -3,7 +3,6 @@ import { supabase } from './supabase';
 
 function Maintenance({ userRole, initialTab }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'scheduled');
-  useEffect(() => { if (initialTab) setActiveTab(initialTab); }, [initialTab]);
   const [tasks, setTasks] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
   const [assets, setAssets] = useState([]);
@@ -14,6 +13,8 @@ function Maintenance({ userRole, initialTab }) {
   const [editingWO, setEditingWO] = useState(null);
   const [newTask, setNewTask] = useState({ asset: '', task: '', frequency: '', next_due: '', assigned_to: '' });
   const [newWO, setNewWO] = useState({ asset: '', defect_description: '', priority: 'Medium', assigned_to: '', due_date: '', estimated_hours: '', comments: '' });
+
+  useEffect(() => { if (initialTab) setActiveTab(initialTab); }, [initialTab]);
 
   useEffect(() => {
     if (userRole?.company_id) { fetchTasks(); fetchWorkOrders(); fetchAssets(); fetchUsers(); }
