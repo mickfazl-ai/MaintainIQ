@@ -114,26 +114,27 @@ function DropdownItem({ item, onNav, currentPage }) {
 }
 
 // ─── Nav item (top level) ─────────────────────────────────────────────────────
-function NavItem({ item, currentPage, onNav }) {
-  const [open, setOpen] = useState(false);
+// openId/setOpenId are lifted to Navbar so only one dropdown is open at a time
+function NavItem({ item, currentPage, onNav, openId, setOpenId }) {
   const ref = useRef(null);
   const hasChildren = item.children && item.children.length > 0;
   const isActive = currentPage === item.id || (hasChildren && item.children.some(c => c.id === currentPage));
+  const open = openId === item.id;
 
-  // Close on outside click (desktop)
+  // Close on outside click
   useEffect(() => {
     const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (open && ref.current && !ref.current.contains(e.target)) setOpenId(null);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [open]);
 
   if (!hasChildren) {
     return (
       <li
         className={isActive ? 'active' : ''}
-        onClick={() => onNav(item.id, null)}
+        onClick={() => { setOpenId(null); onNav(item.id, null); }}
         style={item.id === 'master' ? { color: '#00ABE4', fontWeight: 700 } : {}}
       >
         {item.label}
@@ -146,51 +147,55 @@ function NavItem({ item, currentPage, onNav }) {
       ref={ref}
       className={isActive ? 'active' : ''}
       style={{ position: 'relative', userSelect: 'none' }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
     >
-      {/* Dropdown trigger — clicking parent also navigates to first child */}
+      {/* 1st click opens, 2nd click on same item closes */}
       <span
         style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
-        onClick={() => onNav(item.children[0].id, item.children[0].subPage)}
+        onClick={() => setOpenId(open ? null : item.id)}
       >
         {item.label}
-        <span style={{ fontSize: '9px', opacity: 0.7, marginTop: '1px' }}>▾</span>
+        <span style={{
+          fontSize: '9px', opacity: 0.7, marginTop: '1px',
+          display: 'inline-block',
+          transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform 0.2s',
+        }}>▾</span>
       </span>
 
-      {/* Dropdown panel */}
       {open && (
         <div style={{
           position: 'absolute',
-          top: '100%',
+          top: 'calc(100% + 8px)',
           left: '50%',
           transform: 'translateX(-50%)',
           backgroundColor: '#ffffff',
           border: '1px solid #d6e6f2',
           borderRadius: '8px',
-          minWidth: '180px',
+          minWidth: '190px',
           zIndex: 2000,
-          boxShadow: '0 8px 24px rgba(0,100,180,0.10)',
+          boxShadow: '0 8px 24px rgba(0,100,180,0.13)',
           overflow: 'hidden',
-          marginTop: '6px',
         }}>
           {/* Arrow pointer */}
           <div style={{
             position: 'absolute', top: '-6px', left: '50%', transform: 'translateX(-50%)',
             width: 0, height: 0,
-            borderLeft: '6px solid transparent',
-            borderRight: '6px solid transparent',
+            borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
             borderBottom: '6px solid #d6e6f2',
           }} />
           <div style={{
             position: 'absolute', top: '-5px', left: '50%', transform: 'translateX(-50%)',
             width: 0, height: 0,
-            borderLeft: '6px solid transparent',
-            borderRight: '6px solid transparent',
+            borderLeft: '6px solid transparent', borderRight: '6px solid transparent',
             borderBottom: '6px solid #ffffff',
           }} />
           {item.children.map(child => (
-            <DropdownItem key={`${child.id}-${child.subPage}`} item={child} onNav={onNav} currentPage={currentPage} />
+            <DropdownItem
+              key={`${child.id}-${child.subPage}`}
+              item={child}
+              onNav={(id, subPage) => { setOpenId(null); onNav(id, subPage); }}
+              currentPage={currentPage}
+            />
           ))}
         </div>
       )}
@@ -248,6 +253,7 @@ function MobileNavItem({ item, currentPage, onNav }) {
 // ─── Main Navbar ──────────────────────────────────────────────────────────────
 function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, viewingCompany, onSelectCompany, onExitCompany }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openNavId, setOpenNavId] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
   const companyDropdownRef = useRef(null);
@@ -336,7 +342,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
         </div>
 
         {/* Hamburger */}
-        <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)}>
+        <button className="hamburger" onClick={() => { setMenuOpen(!menuOpen); setOpenNavId(null); }}>
           {menuOpen ? 'X' : '='}
         </button>
 
@@ -345,7 +351,7 @@ function Navbar({ currentPage, setCurrentPage, onLogout, session, userRole, view
             {visibleItems.map(item =>
               menuOpen
                 ? <MobileNavItem key={item.id} item={item} currentPage={currentPage} onNav={handleNav} />
-                : <NavItem key={item.id} item={item} currentPage={currentPage} onNav={handleNav} />
+                : <NavItem key={item.id} item={item} currentPage={currentPage} onNav={handleNav} openId={openNavId} setOpenId={setOpenNavId} />
             )}
           </ul>
 
