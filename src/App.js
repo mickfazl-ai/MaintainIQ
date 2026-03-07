@@ -13,13 +13,11 @@ import Forms from './Forms';
 import Scanner from './Scanner';
 import AssetPage from './MachineProfile';
 import MasterAdmin from './MasterAdmin';
-import Depreciation from './Depreciation';
-import DataExport from './DataExport';
-import TermsOfService from './TermsOfService';
 import { supabase } from './supabase';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentPage, setCurrentPageRaw] = useState('dashboard');
+  const [currentSubPage, setCurrentSubPage] = useState(null);
   const [session, setSession] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +26,13 @@ function App() {
   const [prestartAssetId, setPrestartAssetId] = useState(null);
   const [prestartAsset, setPrestartAsset] = useState(null);
   const [viewingCompany, setViewingCompany] = useState(null);
+
+  // Navbar calls setCurrentPage(pageId, subPage)
+  // Components that have internal tabs receive initialTab prop
+  const setCurrentPage = (page, subPage = null) => {
+    setCurrentPageRaw(page);
+    setCurrentSubPage(subPage);
+  };
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -88,7 +93,7 @@ function App() {
       if (pendingAssetId) {
         sessionStorage.removeItem('pendingAssetId');
         setPrestartAssetId(pendingAssetId);
-        setCurrentPage('forms');
+        setCurrentPage('forms', 'prestarts');
       }
     }
   }, [userRole]);
@@ -97,12 +102,12 @@ function App() {
 
   const handleViewAsset = (assetId) => {
     setViewingAssetId(assetId);
-    setCurrentPage('assetpage');
+    setCurrentPageRaw('assetpage');
   };
 
   const handleStartPrestartFromAsset = (assetName) => {
     setPrestartAsset(assetName);
-    setCurrentPage('forms');
+    setCurrentPage('forms', 'prestarts');
     setViewingAssetId(null);
   };
 
@@ -126,33 +131,66 @@ function App() {
     if (userRole?.role === 'master' && currentPage === 'master' && !viewingCompany) return <MasterAdmin />;
 
     switch (currentPage) {
-      case 'dashboard':   return <Dashboard companyId={effectiveCompanyId} />;
-      case 'assets':      return <Assets userRole={effectiveUserRole} onViewAsset={handleViewAsset} />;
-      case 'downtime':    return <Downtime userRole={effectiveUserRole} />;
-      case 'maintenance': return <Maintenance userRole={effectiveUserRole} />;
-      case 'forms':       return <Forms userRole={effectiveUserRole} prestartAsset={prestartAsset} prestartAssetId={prestartAssetId} onClearPreload={() => { setPrestartAsset(null); setPrestartAssetId(null); }} />;
-      case 'scanner':     return <Scanner userRole={effectiveUserRole} onAssetFound={(assetId) => { setPrestartAssetId(assetId); setCurrentPage('forms'); }} />;
-      case 'export': return <DataExport userRole={effectiveUserRole} />;
-      case 'terms':  return <TermsOfService />;
-      case 'depreciation': return <Depreciation userRole={effectiveUserRole} />;
-      case 'assetpage':   return (
-        <div>
-          <button onClick={() => { setCurrentPage('assets'); setViewingAssetId(null); }}
-            style={{ marginBottom: '15px', backgroundColor: 'transparent', color: '#a0b0b0', border: '1px solid #1a2f2f', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer' }}>
-            Back to Assets
-          </button>
-          <AssetPage assetId={viewingAssetId} userRole={effectiveUserRole} onStartPrestart={handleStartPrestartFromAsset} />
-        </div>
-      );
-      case 'reports':     return <Reports companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
-      case 'users':       return <Users companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
-      case 'master':      return <MasterAdmin />;
-      default:            return <Dashboard companyId={effectiveCompanyId} />;
+      case 'dashboard':
+        return <Dashboard companyId={effectiveCompanyId} />;
+      case 'assets':
+        return <Assets userRole={effectiveUserRole} onViewAsset={handleViewAsset} />;
+      case 'downtime':
+        return <Downtime userRole={effectiveUserRole} />;
+      case 'maintenance':
+        return <Maintenance userRole={effectiveUserRole} initialTab={currentSubPage} />;
+      case 'forms':
+        return (
+          <Forms
+            userRole={effectiveUserRole}
+            initialTab={currentSubPage}
+            prestartAsset={prestartAsset}
+            prestartAssetId={prestartAssetId}
+            onClearPreload={() => { setPrestartAsset(null); setPrestartAssetId(null); }}
+          />
+        );
+      case 'scanner':
+        return (
+          <Scanner
+            userRole={effectiveUserRole}
+            onAssetFound={(assetId) => { setPrestartAssetId(assetId); setCurrentPage('forms', 'prestarts'); }}
+          />
+        );
+      case 'assetpage':
+        return (
+          <div>
+            <button
+              onClick={() => { setCurrentPage('assets'); setViewingAssetId(null); }}
+              style={{ marginBottom: '15px', backgroundColor: '#E9F1FA', color: '#1a2b3c', border: '1px solid #d6e6f2', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              Back to Assets
+            </button>
+            <AssetPage assetId={viewingAssetId} userRole={effectiveUserRole} onStartPrestart={handleStartPrestartFromAsset} />
+          </div>
+        );
+      case 'reports':
+        return <Reports companyId={effectiveCompanyId} userRole={effectiveUserRole} initialTab={currentSubPage} />;
+      case 'users':
+        return <Users companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
+      case 'export':
+        // Placeholder until Data Export component is built
+        return <Users companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
+      case 'settings':
+        // Placeholder until Settings component is built
+        return (
+          <div style={{ padding: '40px', color: '#7a92a8', textAlign: 'center' }}>
+            Settings page coming soon.
+          </div>
+        );
+      case 'master':
+        return <MasterAdmin />;
+      default:
+        return <Dashboard companyId={effectiveCompanyId} />;
     }
   };
 
   if (loading) return (
-    <div style={{ color: 'white', padding: '50px', textAlign: 'center', backgroundColor: '#0a0f0f', height: '100vh' }}>
+    <div style={{ color: '#1a2b3c', padding: '50px', textAlign: 'center', backgroundColor: '#E9F1FA', height: '100vh' }}>
       Loading...
     </div>
   );
