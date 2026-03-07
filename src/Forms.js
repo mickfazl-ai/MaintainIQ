@@ -1044,8 +1044,9 @@ function ServiceSheetsTab({ userRole }) {
   );
 }
 
-function Forms({ userRole }) {
-  const [activeTab, setActiveTab] = useState('prestarts');
+function Forms({ userRole, initialTab }) {
+const [activeTab, setActiveTab] = useState(initialTab || 'prestarts');
+  useEffect(() => { if (initialTab) setActiveTab(initialTab); }, [initialTab]);
   return (
     <div>
       <div style={{ display: 'flex', borderBottom: '2px solid #1a2f2f', marginBottom: '24px' }}>

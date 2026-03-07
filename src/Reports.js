@@ -5,8 +5,9 @@ import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-function Reports({ companyId, userRole }) {
-  const [activeTab, setActiveTab] = useState('downtime-log');
+function Reports({ companyId, userRole, initialTab }) {
+  const [activeTab, setActiveTab] = useState(initialTab || 'downtime-log');
+  useEffect(() => { if (initialTab) setActiveTab(initialTab); }, [initialTab]);
   const [downtimeData, setDowntimeData] = useState([]);
   const [assetCount, setAssetCount] = useState(0);
   const [totalHours, setTotalHours] = useState(0);

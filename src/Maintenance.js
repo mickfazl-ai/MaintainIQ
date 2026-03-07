@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
-function Maintenance({ userRole }) {
-  const [activeTab, setActiveTab] = useState('maintenance');
+function Maintenance({ userRole, initialTab }) {
+  const [activeTab, setActiveTab] = useState(initialTab || 'scheduled');
+  useEffect(() => { if (initialTab) setActiveTab(initialTab); }, [initialTab]);
   const [tasks, setTasks] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
   const [assets, setAssets] = useState([]);
@@ -101,7 +102,7 @@ function Maintenance({ userRole }) {
     <div className="maintenance">
       {/* Sub Navbar */}
       <div style={{display:'flex', gap:'0', marginBottom:'25px', borderBottom:'2px solid #1a2f2f'}}>
-        {[{id:'maintenance', label:'PM Tasks'}, {id:'workorders', label:'Work Orders'}].map(tab => (
+        {[{id:'scheduled', label:'Scheduled Service'}, {id:'work_orders', label:'Work Orders'}, {id:'pm_tasks', label:'PM Tasks'}, {id:'oil_sampling', label:'Oil Sampling'}].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             style={{padding:'12px 24px', backgroundColor:'transparent', color: activeTab === tab.id ? '#00c2e0' : '#a0b0b0', border:'none', borderBottom: activeTab === tab.id ? '2px solid #00c2e0' : '2px solid transparent', cursor:'pointer', fontWeight: activeTab === tab.id ? 'bold' : 'normal', fontSize:'14px', marginBottom:'-2px', fontFamily:'Barlow, sans-serif', letterSpacing:'0.5px'}}>
             {tab.label}
@@ -113,7 +114,7 @@ function Maintenance({ userRole }) {
       </div>
 
       {/* PM TASKS TAB */}
-      {activeTab === 'maintenance' && (
+      {activeTab === 'scheduled' && (
         <div>
           <div className="page-header">
             <h2>Preventative Maintenance</h2>
@@ -169,7 +170,7 @@ function Maintenance({ userRole }) {
       )}
 
       {/* WORK ORDERS TAB */}
-      {activeTab === 'workorders' && (
+      {activeTab === 'work_orders' && (
         <div>
           <div className="page-header">
             <h2>Work Orders</h2>
@@ -309,5 +310,20 @@ function Maintenance({ userRole }) {
     </div>
   );
 }
+
+      {activeTab === 'pm_tasks' && (
+        <div style={{ padding: '60px 0', textAlign: 'center', color: '#7a92a8' }}>
+          <div style={{ fontSize: '40px', marginBottom: '12px' }}>🚧</div>
+          <div style={{ fontSize: '16px', fontWeight: 600, color: '#3d5166', marginBottom: '6px' }}>PM Tasks</div>
+          <div style={{ fontSize: '13px' }}>This section is coming soon.</div>
+        </div>
+      )}
+      {activeTab === 'oil_sampling' && (
+        <div style={{ padding: '60px 0', textAlign: 'center', color: '#7a92a8' }}>
+          <div style={{ fontSize: '40px', marginBottom: '12px' }}>🚧</div>
+          <div style={{ fontSize: '16px', fontWeight: 600, color: '#3d5166', marginBottom: '6px' }}>Oil Sampling</div>
+          <div style={{ fontSize: '13px' }}>Oil sampling via email integration — coming soon.</div>
+        </div>
+      )}
 
 export default Maintenance;

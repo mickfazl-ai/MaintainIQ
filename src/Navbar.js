@@ -43,7 +43,7 @@ const NAV_STRUCTURE = [
     feature: 'prestart',
     children: [
       { id: 'forms', subPage: 'prestarts',      label: 'Prestarts',      roles: ['admin','supervisor','technician','operator'] },
-      { id: 'forms', subPage: 'service_sheets', label: 'Service Sheets', roles: ['admin','supervisor','technician'] },
+      { id: 'forms', subPage: 'service-sheets', label: 'Service Sheets', roles: ['admin','supervisor','technician'] },
     ],
   },
   {
@@ -58,10 +58,9 @@ const NAV_STRUCTURE = [
     roles: ['admin','supervisor'],
     feature: 'reports',
     children: [
-      { id: 'reports', subPage: 'overview',    label: 'Overview',    roles: ['admin','supervisor'] },
-      { id: 'reports', subPage: 'downtime',    label: 'Downtime',    roles: ['admin','supervisor'] },
-      { id: 'reports', subPage: 'costs',       label: 'Costs',       roles: ['admin','supervisor'] },
-      { id: 'reports', subPage: 'compliance',  label: 'Compliance',  roles: ['admin','supervisor'] },
+      { id: 'reports', subPage: 'downtime-log',  label: 'Downtime Log',        roles: ['admin','supervisor'] },
+      { id: 'reports', subPage: 'downtime',       label: 'Downtime Analysis',   roles: ['admin','supervisor'] },
+      { id: 'reports', subPage: 'availability',   label: 'Availability',        roles: ['admin','supervisor'] },
     ],
   },
   {
