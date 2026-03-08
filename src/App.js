@@ -134,7 +134,7 @@ function App() {
       case 'dashboard':
         return <Dashboard companyId={effectiveCompanyId} />;
       case 'assets':
-        return <Assets userRole={effectiveUserRole} onViewAsset={handleViewAsset} />;
+        return <Assets userRole={effectiveUserRole} onViewAsset={handleViewAsset} initialTab={currentSubPage} />;
       case 'downtime':
         return <Downtime userRole={effectiveUserRole} />;
       case 'maintenance':
