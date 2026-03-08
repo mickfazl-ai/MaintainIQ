@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
+import Depreciation from './Depreciation';
 import { QRCodeCanvas } from 'qrcode.react';
 
 // ─── Sub-tab styles ───────────────────────────────────────────────────────────
@@ -266,7 +267,7 @@ function Assets({ userRole, onViewAsset, initialTab }) {
     switch (activeTab) {
       case 'units':        return <UnitsTab userRole={userRole} onViewAsset={onViewAsset} />;
       case 'onboarding':  return <PlaceholderTab label="Onboarding" />;
-      case 'depreciation':return <PlaceholderTab label="Depreciation" />;
+      case 'depreciation':return <Depreciation userRole={userRole} />;
       case 'tracker':     return <PlaceholderTab label="Tracker" />;
       default:            return <UnitsTab userRole={userRole} onViewAsset={onViewAsset} />;
     }
