@@ -33,7 +33,6 @@ const NAV_STRUCTURE = [
       { id: 'maintenance', subPage: 'scheduled',    label: 'Scheduled Service', roles: ['admin','supervisor','technician'] },
       { id: 'maintenance', subPage: 'work_orders',  label: 'Work Orders',       roles: ['admin','supervisor','technician'] },
       { id: 'maintenance', subPage: 'pm_tasks',     label: 'PM Tasks',          roles: ['admin','supervisor','technician'] },
-      { id: 'maintenance', subPage: 'oil_sampling', label: 'Oil Sampling',      roles: ['admin','supervisor'] },
     ],
   },
   {
@@ -51,6 +50,12 @@ const NAV_STRUCTURE = [
     label: 'Scanner',
     roles: ['technician','operator'],
     feature: 'scanner',
+  },
+  {
+    id: 'oil_sampling',
+    label: 'Oil Sampling',
+    roles: ['admin','supervisor'],
+    feature: 'oil_sampling',
   },
   {
     id: 'reports',
@@ -80,8 +85,7 @@ const NAV_STRUCTURE = [
     roles: ['admin','supervisor'],
     feature: null,
     children: [
-      { id: 'settings', subPage: 'email',    label: 'Email Connection', roles: ['admin','supervisor'] },
-      { id: 'settings', subPage: 'company',  label: 'Company',          roles: ['admin'] },
+      { id: 'settings', subPage: null, label: 'Settings', roles: ['admin','supervisor'] },
     ],
   },
 ];
