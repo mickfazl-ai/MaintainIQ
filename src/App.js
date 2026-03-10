@@ -36,6 +36,33 @@ function App() {
     setCurrentSubPage(subPage);
   };
 
+  // Apply saved theme on every load
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('mechiq_theme') || 'default';
+    const THEME_MAP = {
+      default: { primary: '#00ABE4', primaryDark: '#0088b8', bg: '#E9F1FA', dark: '#1a2b3c', textMid: '#3d5166', textMuted: '#7a92a8', border: '#d6e6f2' },
+      slate:   { primary: '#475569', primaryDark: '#334155', bg: '#f1f5f9', dark: '#0f172a', textMid: '#334155', textMuted: '#64748b', border: '#cbd5e1' },
+      green:   { primary: '#16a34a', primaryDark: '#15803d', bg: '#f0fdf4', dark: '#14532d', textMid: '#166534', textMuted: '#4ade80', border: '#bbf7d0' },
+      orange:  { primary: '#d97706', primaryDark: '#b45309', bg: '#fffbeb', dark: '#78350f', textMid: '#92400e', textMuted: '#a16207', border: '#fde68a' },
+      purple:  { primary: '#7c3aed', primaryDark: '#6d28d9', bg: '#f5f3ff', dark: '#2e1065', textMid: '#4c1d95', textMuted: '#7c3aed', border: '#ddd6fe' },
+      red:     { primary: '#dc2626', primaryDark: '#b91c1c', bg: '#fef2f2', dark: '#7f1d1d', textMid: '#991b1b', textMuted: '#b91c1c', border: '#fecaca' },
+      teal:    { primary: '#0d9488', primaryDark: '#0f766e', bg: '#f0fdfa', dark: '#134e4a', textMid: '#115e59', textMuted: '#0f766e', border: '#99f6e4' },
+      dark:    { primary: '#00ABE4', primaryDark: '#0088b8', bg: '#1e2d3d', dark: '#060d18', textMid: '#94a3b8', textMuted: '#64748b', border: '#2d3f52' },
+    };
+    const t = THEME_MAP[savedTheme] || THEME_MAP.default;
+    const r = document.documentElement;
+    r.style.setProperty('--blue-bright',  t.primary);
+    r.style.setProperty('--blue-dark',    t.primaryDark);
+    r.style.setProperty('--blue-deeper',  t.primaryDark);
+    r.style.setProperty('--blue-light',   t.bg);
+    r.style.setProperty('--blue-mid',     t.border);
+    r.style.setProperty('--text-dark',    t.dark);
+    r.style.setProperty('--text-mid',     t.textMid);
+    r.style.setProperty('--text-muted',   t.textMuted);
+    r.style.setProperty('--border',       t.border);
+    document.body.style.backgroundColor = t.bg;
+  }, []);
+
   useEffect(() => {
     const path = window.location.pathname;
     const pathMatch = path.match(/^\/asset\/(.+)/);

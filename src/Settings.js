@@ -3,15 +3,34 @@ import { supabase } from './supabase';
 
 // ─── Colour themes ────────────────────────────────────────────────────────────
 const THEMES = [
-  { id: 'default',  label: 'Ocean Blue',    primary: '#00ABE4', bg: '#E9F1FA', dark: '#1a2b3c' },
-  { id: 'slate',    label: 'Slate',         primary: '#475569', bg: '#f1f5f9', dark: '#0f172a' },
-  { id: 'green',    label: 'Forest',        primary: '#16a34a', bg: '#f0fdf4', dark: '#14532d' },
-  { id: 'orange',   label: 'Amber',         primary: '#d97706', bg: '#fffbeb', dark: '#78350f' },
-  { id: 'purple',   label: 'Violet',        primary: '#7c3aed', bg: '#f5f3ff', dark: '#2e1065' },
-  { id: 'red',      label: 'Crimson',       primary: '#dc2626', bg: '#fef2f2', dark: '#7f1d1d' },
-  { id: 'teal',     label: 'Teal',          primary: '#0d9488', bg: '#f0fdfa', dark: '#134e4a' },
-  { id: 'dark',     label: 'Dark Mode',     primary: '#00ABE4', bg: '#1a2b3c', dark: '#060d18' },
+  { id: 'default', label: 'Ocean Blue', primary: '#00ABE4', primaryDark: '#0088b8', bg: '#E9F1FA', dark: '#1a2b3c', textMid: '#3d5166', textMuted: '#7a92a8', border: '#d6e6f2' },
+  { id: 'slate',   label: 'Slate',      primary: '#475569', primaryDark: '#334155', bg: '#f1f5f9', dark: '#0f172a', textMid: '#334155', textMuted: '#64748b', border: '#cbd5e1' },
+  { id: 'green',   label: 'Forest',     primary: '#16a34a', primaryDark: '#15803d', bg: '#f0fdf4', dark: '#14532d', textMid: '#166534', textMuted: '#4ade80', border: '#bbf7d0' },
+  { id: 'orange',  label: 'Amber',      primary: '#d97706', primaryDark: '#b45309', bg: '#fffbeb', dark: '#78350f', textMid: '#92400e', textMuted: '#a16207', border: '#fde68a' },
+  { id: 'purple',  label: 'Violet',     primary: '#7c3aed', primaryDark: '#6d28d9', bg: '#f5f3ff', dark: '#2e1065', textMid: '#4c1d95', textMuted: '#7c3aed', border: '#ddd6fe' },
+  { id: 'red',     label: 'Crimson',    primary: '#dc2626', primaryDark: '#b91c1c', bg: '#fef2f2', dark: '#7f1d1d', textMid: '#991b1b', textMuted: '#b91c1c', border: '#fecaca' },
+  { id: 'teal',    label: 'Teal',       primary: '#0d9488', primaryDark: '#0f766e', bg: '#f0fdfa', dark: '#134e4a', textMid: '#115e59', textMuted: '#0f766e', border: '#99f6e4' },
+  { id: 'dark',    label: 'Dark Mode',  primary: '#00ABE4', primaryDark: '#0088b8', bg: '#1e2d3d', dark: '#060d18', textMid: '#94a3b8', textMuted: '#64748b', border: '#2d3f52' },
 ];
+
+// ─── Apply theme to CSS variables ─────────────────────────────────────────────
+const applyTheme = (themeId) => {
+  const t = THEMES.find(x => x.id === themeId) || THEMES[0];
+  const root = document.documentElement;
+  root.style.setProperty('--blue-bright',  t.primary);
+  root.style.setProperty('--blue-dark',    t.primaryDark);
+  root.style.setProperty('--blue-deeper',  t.primaryDark);
+  root.style.setProperty('--blue-light',   t.bg);
+  root.style.setProperty('--blue-mid',     t.border);
+  root.style.setProperty('--blue-soft',    t.bg + 'aa');
+  root.style.setProperty('--text-dark',    t.dark);
+  root.style.setProperty('--text-mid',     t.textMid);
+  root.style.setProperty('--text-muted',   t.textMuted);
+  root.style.setProperty('--border',       t.border);
+  root.style.setProperty('--border-light', t.border + '88');
+  // Dark mode body bg
+  document.body.style.backgroundColor = t.bg;
+};
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
 const card = {
@@ -176,10 +195,16 @@ function Format({ userRole }) {
   const [selected, setSelected] = useState(localStorage.getItem('mechiq_theme') || 'default');
   const [saved, setSaved] = useState(false);
 
+  // Apply saved theme on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('mechiq_theme') || 'default';
+    applyTheme(savedTheme);
+    setSelected(savedTheme);
+  }, []);
+
   const handleSave = () => {
     localStorage.setItem('mechiq_theme', selected);
-    // Dispatch event so App.js can react
-    window.dispatchEvent(new CustomEvent('mechiq_theme_change', { detail: selected }));
+    applyTheme(selected);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
