@@ -675,7 +675,7 @@ function DataExport({ userRole }) {
           <div style={{ fontSize: '14px', fontWeight: 700, color: '#dc2626', marginBottom: '6px' }}>Delete All Company Data</div>
           <div style={{ fontSize: '13px', color: '#3d5166', marginBottom: '14px' }}>Permanently removes all assets, maintenance records, work orders and oil samples. This cannot be undone. Export your data first.</div>
           <button
-            onClick={() => window.confirm('Are you sure? Contact info@mechiq.com.au to request a full account deletion.') && window.location.href = 'mailto:info@mechiq.com.au?subject=Account Deletion Request'}
+            onClick={() => { if (window.confirm('Are you sure? Contact info@mechiq.com.au to request a full account deletion.')) { window.location.href = 'mailto:info@mechiq.com.au?subject=Account Deletion Request'; } }}
             style={{ padding: '9px 20px', backgroundColor: '#fff', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
             Request Account Deletion
           </button>
