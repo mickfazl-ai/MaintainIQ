@@ -85,7 +85,12 @@ const NAV_STRUCTURE = [
     roles: ['admin','supervisor'],
     feature: null,
     children: [
-      { id: 'settings', subPage: null, label: 'Settings', roles: ['admin','supervisor'] },
+      { id: 'settings', subPage: 'company', label: 'Company Details', roles: ['admin','supervisor'] },
+      { id: 'settings', subPage: 'format',  label: 'Format',          roles: ['admin','supervisor'] },
+      { id: 'settings', subPage: 'notifs',  label: 'Notifications',   roles: ['admin','supervisor'] },
+      { id: 'settings', subPage: 'users',   label: 'Users & Roles',   roles: ['admin'] },
+      { id: 'settings', subPage: 'billing', label: 'Billing & Plan',  roles: ['admin'] },
+      { id: 'settings', subPage: 'data',    label: 'Data & Export',   roles: ['admin'] },
     ],
   },
 ];

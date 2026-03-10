@@ -180,7 +180,7 @@ function App() {
       case 'oil_sampling':
         return <OilSampling userRole={effectiveUserRole} />;
       case 'settings':
-        return <Settings userRole={effectiveUserRole} />;
+        return <Settings userRole={effectiveUserRole} initialTab={currentSubPage || 'company'} />;
       case 'master':
         return <MasterAdmin />;
       default:
