@@ -526,8 +526,8 @@ function OnboardingTab({ userRole, onComplete, toast }) {
     });
   };
 
-  // ── Step renders ────────────────────────────────────────────────────────────
-  const Step0 = () => (
+  // ── Step renders (plain functions — NOT components — to avoid focus loss on re-render)
+  const renderStep0 = () => (
     <>
       <FieldGroup title="Identity">
         <Field label="Asset Name" required><FInput value={form.name} onChange={set('name')} placeholder="e.g. CAT 320 Excavator, Ford Ranger" /></Field>
@@ -545,7 +545,7 @@ function OnboardingTab({ userRole, onComplete, toast }) {
     </>
   );
 
-  const Step1 = () => (
+  const renderStep1 = () => (
     <>
       <FieldGroup title="Identification Numbers" optional>
         <Field label="VIN / Chassis"><FInput value={form.vin} onChange={set('vin')} placeholder="1HGBH41JXMN109186" /></Field>
@@ -561,7 +561,7 @@ function OnboardingTab({ userRole, onComplete, toast }) {
     </>
   );
 
-  const Step2 = () => (
+  const renderStep2 = () => (
     <>
       <div style={{ marginBottom: '22px' }}>
         <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2b3c', marginBottom: '12px' }}>Does this asset have vehicle registration?</div>
@@ -606,7 +606,7 @@ function OnboardingTab({ userRole, onComplete, toast }) {
     </>
   );
 
-  const Step3 = () => (
+  const renderStep3 = () => (
     <>
       {isAdmin ? (
         <>
@@ -659,7 +659,7 @@ function OnboardingTab({ userRole, onComplete, toast }) {
     </>
   );
 
-  const Step4 = () => {
+  const renderStep4 = () => {
     if (!savedAsset) return null;
     const qrVal = `https://maintain-iq.vercel.app/asset/${savedAsset.id}`;
     return (
@@ -693,11 +693,11 @@ function OnboardingTab({ userRole, onComplete, toast }) {
       </div>
       <StepBar current={step} />
       <div style={{ background: '#fff', border: '1px solid #e2ecf5', borderRadius: '16px', padding: '28px', boxShadow: '0 4px 20px rgba(0,100,180,0.07)' }}>
-        {step === 0 && <Step0 />}
-        {step === 1 && <Step1 />}
-        {step === 2 && <Step2 />}
-        {step === 3 && <Step3 />}
-        {step === 4 && <Step4 />}
+        {step === 0 && renderStep0()}
+        {step === 1 && renderStep1()}
+        {step === 2 && renderStep2()}
+        {step === 3 && renderStep3()}
+        {step === 4 && renderStep4()}
         {step < 4 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', paddingTop: '20px', borderTop: '1.5px solid #f0f5fa' }}>
             <button className="nav-pill nav-pill-ghost" onClick={() => setStep(s => s-1)} disabled={step === 0}>← Back</button>
