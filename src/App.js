@@ -28,15 +28,14 @@ function App() {
   const [prestartAssetId, setPrestartAssetId] = useState(null);
   const [prestartAsset, setPrestartAsset] = useState(null);
   const [viewingCompany, setViewingCompany] = useState(null);
+  const [subPageKey, setSubPageKey] = useState(0);
 
   // Navbar calls setCurrentPage(pageId, subPage)
-  // Components that have internal tabs receive initialTab prop
+  // subPageKey increments every nav so child useEffects always fire
   const setCurrentPage = (page, subPage = null) => {
     setCurrentPageRaw(page);
-    // Always update subPage — even if navigating to same page with different sub
-    // Use functional update + tiny delay to force useEffect to fire in child
-    setCurrentSubPage(null);
-    setTimeout(() => setCurrentSubPage(subPage), 0);
+    setCurrentSubPage(subPage);
+    setSubPageKey(k => k + 1);
   };
 
   // Apply saved theme on every load
@@ -166,14 +165,15 @@ function App() {
       case 'dashboard':
         return <Dashboard companyId={effectiveCompanyId} />;
       case 'assets':
-        return <Assets userRole={effectiveUserRole} onViewAsset={handleViewAsset} />;
+        return <Assets key={subPageKey} userRole={effectiveUserRole} onViewAsset={handleViewAsset} initialTab={currentSubPage} />;
       case 'downtime':
         return <Downtime userRole={effectiveUserRole} />;
       case 'maintenance':
-        return <Maintenance userRole={effectiveUserRole} initialTab={currentSubPage} />;
+        return <Maintenance key={subPageKey} userRole={effectiveUserRole} initialTab={currentSubPage} />;
       case 'forms':
         return (
           <Forms
+            key={subPageKey}
             userRole={effectiveUserRole}
             initialTab={currentSubPage}
             prestartAsset={prestartAsset}
@@ -201,7 +201,7 @@ function App() {
           </div>
         );
       case 'reports':
-        return <Reports companyId={effectiveCompanyId} userRole={effectiveUserRole} initialTab={currentSubPage} />;
+        return <Reports key={subPageKey} companyId={effectiveCompanyId} userRole={effectiveUserRole} initialTab={currentSubPage} />;
       case 'users':
         return <Users companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
       case 'export':
@@ -210,7 +210,7 @@ function App() {
       case 'oil_sampling':
         return <OilSampling userRole={effectiveUserRole} />;
       case 'settings':
-        return <Settings userRole={effectiveUserRole} initialTab={currentSubPage || 'company'} />;
+        return <Settings key={subPageKey} userRole={effectiveUserRole} initialTab={currentSubPage || 'company'} />;
       case 'master':
         return <MasterAdmin />;
       default:
