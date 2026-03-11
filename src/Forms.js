@@ -265,6 +265,20 @@ function FormRow({ item, formKey, responses, onResponse, companyId }) {
   );
 }
 
+
+async function extractExcelText(file) {
+  const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs');
+  const arrayBuffer = await file.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  let text = '';
+  workbook.SheetNames.forEach(sheetName => {
+    const sheet = workbook.Sheets[sheetName];
+    const csv = XLSX.utils.sheet_to_csv(sheet);
+    if (csv.trim()) text += `Sheet: ${sheetName}\n${csv}\n\n`;
+  });
+  return text.trim();
+}
+
 function AIGeneratorModal({ mode, onClose, onGenerated }) {
   const [inputType, setInputType] = useState('text');
   const [textInput, setTextInput] = useState('');
@@ -291,25 +305,30 @@ function AIGeneratorModal({ mode, onClose, onGenerated }) {
 
   const handleGenerate = async () => {
     if (inputType === 'text' && !textInput.trim()) { setError('Please describe the machine or service'); return; }
-    if (inputType !== 'text' && inputType !== 'excel' && !file) { setError('Please select a file'); return; }
+    if ((inputType === 'pdf' || inputType === 'image' || inputType === 'excel') && !file) { setError('Please select a file'); return; }
     setLoading(true); setError('');
     try {
       let messages;
-      if (inputType === 'text' || inputType === 'excel') {
+      if (inputType === 'text') {
         messages = [{ role: 'user', content: buildPrompt() + '\n\nInput: ' + textInput }];
       } else if (inputType === 'pdf') {
         setLoadingMsg('Extracting PDF text...');
         const pdfText = await extractPDFText(file);
-        if (!pdfText.trim()) throw new Error('Could not extract text.');
-        setLoadingMsg('Generating...');
+        if (!pdfText.trim()) throw new Error('Could not extract text from PDF.');
+        setLoadingMsg('Generating with AI...');
         messages = [{ role: 'user', content: buildPrompt() + '\n\nDocument:\n' + pdfText }];
+      } else if (inputType === 'excel') {
+        setLoadingMsg('Reading spreadsheet...');
+        const xlText = await extractExcelText(file);
+        if (!xlText.trim()) throw new Error('Could not extract data from spreadsheet.');
+        setLoadingMsg('Generating with AI...');
+        messages = [{ role: 'user', content: buildPrompt() + '\n\nSpreadsheet data:\n' + xlText }];
       } else if (inputType === 'image') {
         setLoadingMsg('Processing image...');
         const base64 = await toBase64(file);
         messages = [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } }, { type: 'text', text: buildPrompt() }] }];
       }
       setLoadingMsg('Generating with AI...');
-      // ── Uses shared proxy — no API key in browser ──
       const text = await callAI(messages, 2000);
       const clean = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
       onGenerated(JSON.parse(clean));
@@ -319,42 +338,72 @@ function AIGeneratorModal({ mode, onClose, onGenerated }) {
 
   const iStyle = { width: '100%', padding: '10px 14px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '6px', fontSize: '14px', fontFamily: 'Barlow, sans-serif', boxSizing: 'border-box' };
 
+  const FileUploadZone = ({ accept, hint }) => (
+    <div style={{ marginBottom: '16px' }}>
+      <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '8px' }}>{hint}</label>
+      <label style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        padding: '28px 16px', border: `2px dashed ${file ? '#00c264' : '#1a3a3a'}`,
+        borderRadius: '10px', cursor: 'pointer', background: file ? '#001a0d' : '#060c0c',
+        transition: 'all 0.2s', gap: '8px',
+      }}>
+        {file ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#00c264', fontSize: '14px', fontWeight: 700, marginBottom: '4px' }}>✓ {file.name}</div>
+            <div style={{ color: '#4a7a6a', fontSize: '11px' }}>{(file.size / 1024 / 1024).toFixed(2)} MB — click to change</div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#a0b0b0', fontSize: '13px', marginBottom: '4px' }}>Drop file here or click to browse</div>
+            <div style={{ color: '#4a6a6a', fontSize: '11px' }}>Accepted: {accept}</div>
+          </div>
+        )}
+        <input type="file" accept={accept} onChange={e => { setFile(e.target.files[0]); setError(''); }} style={{ display: 'none' }} />
+      </label>
+    </div>
+  );
+
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
       <div style={{ background: '#0d1515', border: '1px solid #1a3a3a', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '520px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h3 style={{ color: '#00c2e0', margin: 0 }}>AI {modeLabel} Generator</h3>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer' }}>X</button>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer' }}>×</button>
         </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '20px' }}>
-          {[{ id: 'text', sub: 'Text' }, { id: 'pdf', sub: 'PDF' }, { id: 'image', sub: 'Image' }, { id: 'excel', sub: 'Excel' }].map(t => (
-            <button key={t.id} onClick={() => { setInputType(t.id); setFile(null); setError(''); }}
-              style={{ padding: '10px 6px', backgroundColor: inputType === t.id ? '#0a2a2a' : '#0a0f0f', border: '1px solid ' + (inputType === t.id ? '#00c2e0' : '#1a2f2f'), borderRadius: '8px', cursor: 'pointer', color: inputType === t.id ? '#00c2e0' : '#a0b0b0', fontSize: '13px' }}>
-              {t.sub}
+          {[
+            { id: 'text',  label: 'Text',  desc: 'Describe it' },
+            { id: 'pdf',   label: 'PDF',   desc: 'Manual / doc' },
+            { id: 'excel', label: 'Excel', desc: 'Spreadsheet' },
+            { id: 'image', label: 'Image', desc: 'Photo / scan' },
+          ].map(t => (
+            <button key={t.id} onClick={() => { setInputType(t.id); setFile(null); setError(''); }} style={{
+              padding: '10px 6px', backgroundColor: inputType === t.id ? '#0a2a2a' : '#0a0f0f',
+              border: '1px solid ' + (inputType === t.id ? '#00c2e0' : '#1a2f2f'),
+              borderRadius: '8px', cursor: 'pointer', transition: 'all 0.15s',
+            }}>
+              <div style={{ color: inputType === t.id ? '#00c2e0' : '#a0b0b0', fontSize: '13px', fontWeight: 700 }}>{t.label}</div>
+              <div style={{ color: inputType === t.id ? '#4aa8b8' : '#4a6a6a', fontSize: '10px', marginTop: '2px' }}>{t.desc}</div>
             </button>
           ))}
         </div>
-        {(inputType === 'text' || inputType === 'excel') && (
+
+        {inputType === 'text' && (
           <div style={{ marginBottom: '16px' }}>
             <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Describe the machine or service</label>
-            <textarea value={textInput} onChange={e => setTextInput(e.target.value)} placeholder={mode === 'prestart' ? 'e.g. CAT 320 excavator daily prestart...' : 'e.g. 250hr service Komatsu PC200...'} style={{ ...iStyle, minHeight: '100px', resize: 'vertical' }} />
+            <textarea value={textInput} onChange={e => setTextInput(e.target.value)}
+              placeholder={mode === 'prestart' ? 'e.g. CAT 320 excavator daily prestart...' : 'e.g. 250hr service Komatsu PC200...'}
+              style={{ ...iStyle, minHeight: '100px', resize: 'vertical' }} />
           </div>
         )}
-        {inputType === 'pdf' && (
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Upload PDF manual or service document</label>
-            <input type="file" accept=".pdf" onChange={e => setFile(e.target.files[0])} style={{ ...iStyle, padding: '8px' }} />
-            {file && <p style={{ color: '#00c264', fontSize: '12px', marginTop: '6px' }}>{file.name} ({(file.size / 1024 / 1024).toFixed(1)}MB)</p>}
-          </div>
-        )}
-        {inputType === 'image' && (
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Upload image of existing form</label>
-            <input type="file" accept="image/*" onChange={e => setFile(e.target.files[0])} style={{ ...iStyle, padding: '8px' }} />
-            {file && <p style={{ color: '#00c264', fontSize: '12px', marginTop: '6px' }}>{file.name}</p>}
-          </div>
-        )}
-        {error && <p style={{ color: '#e94560', fontSize: '13px', marginBottom: '12px' }}>{error}</p>}
+
+        {inputType === 'pdf' && <FileUploadZone accept=".pdf" hint="Upload a PDF manual or service document" />}
+        {inputType === 'excel' && <FileUploadZone accept=".xlsx,.xls,.csv" hint="Upload an Excel spreadsheet or CSV checklist (.xlsx, .xls, .csv)" />}
+        {inputType === 'image' && <FileUploadZone accept="image/*" hint="Upload a photo or scan of an existing form" />}
+
+        {error && <p style={{ color: '#e94560', fontSize: '13px', marginBottom: '12px', padding: '10px', background: '#1a0808', borderRadius: '6px', border: '1px solid #3a1010' }}>{error}</p>}
+
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={onClose} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid #1a2f2f', color: '#a0b0b0', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
           <button onClick={handleGenerate} disabled={loading} style={{ flex: 2, padding: '12px', background: loading ? '#1a2f2f' : 'linear-gradient(135deg, #00c2e0, #0090a8)', border: 'none', color: loading ? '#a0b0b0' : '#000', borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 700 }}>
