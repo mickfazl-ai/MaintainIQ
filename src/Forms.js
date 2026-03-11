@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 // ─── SHARED AI HELPER ─────────────────────────────────────────────────────────
 // All AI calls route through /api/ai-insight (Vercel serverless proxy).
@@ -267,7 +268,6 @@ function FormRow({ item, formKey, responses, onResponse, companyId }) {
 
 
 async function extractExcelText(file) {
-  const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs');
   const arrayBuffer = await file.arrayBuffer();
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
   let text = '';
