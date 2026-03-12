@@ -3,80 +3,169 @@ import { supabase } from './supabase';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// ─── CSS ──────────────────────────────────────────────────────────────────────
+const CSS = `
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+  }
+  .ps-card {
+    background: #fff;
+    border: 1px solid #eaf3fb;
+    border-radius: 14px;
+    padding: 22px 24px;
+    box-shadow: 0 2px 10px rgba(0,100,180,0.07);
+    margin-bottom: 16px;
+  }
+  .ps-input {
+    width: 100%; padding: 10px 13px;
+    border: 1.5px solid #d6e6f2; border-radius: 8px;
+    font-size: 13px; color: #1a2b3c; background: #fff;
+    outline: none; box-sizing: border-box; font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .ps-input:focus { border-color: #00ABE4; box-shadow: 0 0 0 3px rgba(0,171,228,0.12); }
+  .ps-input::placeholder { color: #b0c4d4; }
+  .ps-btn {
+    padding: 9px 20px; background: #00ABE4; color: #fff; border: none;
+    border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;
+    font-family: inherit; letter-spacing: 0.4px;
+    box-shadow: 0 3px 10px rgba(0,171,228,0.3); transition: all 0.15s;
+  }
+  .ps-btn:hover { background: #0096cc; transform: translateY(-1px); }
+  .ps-btn-ghost {
+    padding: 9px 18px; background: #fff; color: #3d5166;
+    border: 1.5px solid #d6e6f2; border-radius: 8px; font-size: 12px;
+    font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .ps-btn-ghost:hover { border-color: #00ABE4; color: #00ABE4; }
+  .ps-btn-green { background: #16a34a; box-shadow: 0 3px 10px rgba(22,163,74,0.3); }
+  .ps-btn-green:hover { background: #15803d; }
+  .ps-btn-danger { background: #dc2626; box-shadow: 0 3px 10px rgba(220,38,38,0.2); }
+  .ps-btn-danger:hover { background: #b91c1c; }
+  .ps-template-card {
+    background: #fff; border: 1.5px solid #eaf3fb; border-radius: 14px;
+    padding: 22px; cursor: pointer; transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,100,180,0.06);
+  }
+  .ps-template-card:hover {
+    border-color: #00ABE4; transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(0,100,180,0.13);
+  }
+  .ps-template-new {
+    background: #fff; border: 2px dashed #d6e6f2; border-radius: 14px;
+    padding: 22px; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; min-height: 140px;
+  }
+  .ps-template-new:hover { border-color: #00ABE4; }
+  .ps-check-row { transition: background 0.1s; }
+  .ps-check-row:hover td { background: #f4f8fd !important; }
+  .ps-status-ok     { background: #dcfce7; color: #16a34a; }
+  .ps-status-defect { background: #fee2e2; color: #dc2626; }
+  .ps-status-na     { background: #f0f5fa; color: #7a92a8; }
+  .ps-status-empty  { background: #f8fbfe; color: #b0c4d4; }
+  .ps-history-row { transition: background 0.1s; }
+  .ps-history-row:hover td { background: #f4f8fd !important; }
+`;
+
+const iStyle = {
+  width:'100%', padding:'10px 13px', border:'1.5px solid #d6e6f2', borderRadius:8,
+  fontSize:13, color:'var(--text-bright)', background:'var(--surface)', fontFamily:'inherit',
+  outline:'none', boxSizing:'border-box', transition:'border-color 0.15s',
+};
+
+function SectionHead({ title, sub, action }) {
+  return (
+    <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:16, paddingBottom:13, borderBottom:'1.5px solid #eaf3fb' }}>
+      <div>
+        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:16, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:'var(--text-bright)', display:'block' }}>{title}</span>
+        {sub && <span style={{ fontSize:11, color:'var(--text-muted)', marginTop:2, display:'block' }}>{sub}</span>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function Empty({ icon, title, desc, action }) {
+  return (
+    <div style={{ textAlign:'center', padding:'44px 20px' }}>
+      <div style={{ fontSize:36, marginBottom:12, opacity:0.3 }}>{icon}</div>
+      <div style={{ fontSize:14, fontWeight:700, color:'var(--text-bright)', marginBottom:6 }}>{title}</div>
+      <div style={{ fontSize:12, color:'var(--text-muted)', maxWidth:240, margin:'0 auto 16px', lineHeight:1.65 }}>{desc}</div>
+      {action}
+    </div>
+  );
+}
+
+function Sk({ w = '100%', h = '13px', r = '6px' }) {
+  return <div style={{ width:w, height:h, borderRadius:r, background:'linear-gradient(90deg,#edf2f8 25%,#f5f8fd 50%,#edf2f8 75%)', backgroundSize:'200% 100%', animation:'shimmer 1.5s infinite linear' }} />;
+}
+
+function Label({ children }) {
+  return <label style={{ display:'block', fontSize:11, fontWeight:700, color:'var(--text-muted)', letterSpacing:'0.8px', textTransform:'uppercase', marginBottom:5 }}>{children}</label>;
+}
+
+// ─── Main ──────────────────────────────────────────────────────────────────────
 function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
-  const [templates, setTemplates] = useState([]);
+  const [templates, setTemplates]     = useState([]);
   const [submissions, setSubmissions] = useState([]);
-  const [assets, setAssets] = useState([]);
-  const [view, setView] = useState('list');
+  const [assets, setAssets]           = useState([]);
+  const [view, setView]               = useState('list');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]         = useState(true);
   const sigCanvas = useRef(null);
-  const [isSigning, setIsSigning] = useState(false);
+  const [isSigning, setIsSigning]     = useState(false);
   const [signatureData, setSignatureData] = useState('');
 
   const [form, setForm] = useState({
-    asset: '', asset_id: '', operator_name: '', site_area: '',
-    hrs_start: '', date: new Date().toISOString().split('T')[0], notes: '', responses: {}
+    asset:'', asset_id:'', operator_name:'', site_area:'',
+    hrs_start:'', date:new Date().toISOString().split('T')[0], notes:'', responses:{}
   });
-
-  const [builder, setBuilder] = useState({ name: '', description: '', sections: [] });
+  const [builder, setBuilder] = useState({ name:'', description:'', sections:[] });
 
   useEffect(() => {
+    if (!document.getElementById('prestart-css')) {
+      const s = document.createElement('style'); s.id='prestart-css'; s.textContent=CSS; document.head.appendChild(s);
+    }
     if (userRole?.company_id) { fetchTemplates(); fetchSubmissions(); fetchAssets(); }
   }, [userRole]);
 
-  useEffect(() => {
-    if (preloadAsset) setForm(prev => ({ ...prev, asset: preloadAsset }));
-  }, [preloadAsset]);
+  useEffect(() => { if (preloadAsset) setForm(prev => ({...prev, asset:preloadAsset})); }, [preloadAsset]);
 
   useEffect(() => {
     if (preloadAssetId && assets.length > 0) {
       const found = assets.find(a => a.id === preloadAssetId);
       if (found) {
-        setForm(prev => ({
-          ...prev, asset: found.name, asset_id: found.id,
-          site_area: found.location || '', operator_name: userRole?.name || '',
-          date: new Date().toISOString().split('T')[0],
-        }));
+        setForm(prev => ({ ...prev, asset:found.name, asset_id:found.id, site_area:found.location||'', operator_name:userRole?.name||'', date:new Date().toISOString().split('T')[0] }));
         if (templates.length === 1) { setSelectedTemplate(templates[0]); setView('fill'); }
         else if (templates.length > 1) { setView('select-template'); }
       }
     }
   }, [preloadAssetId, assets, templates]);
 
-  const fetchTemplates = async () => {
-    const { data } = await supabase.from('form_templates').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false });
-    setTemplates(data || []);
-    setLoading(false);
-  };
-
-  const fetchSubmissions = async () => {
-    const { data } = await supabase.from('form_submissions').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false });
-    setSubmissions(data || []);
-  };
-
-  const fetchAssets = async () => {
-    const { data } = await supabase.from('assets').select('id, name, location').eq('company_id', userRole.company_id);
-    setAssets(data || []);
-  };
+  const fetchTemplates   = async () => { const { data } = await supabase.from('form_templates').select('*').eq('company_id', userRole.company_id).order('created_at',{ascending:false}); setTemplates(data||[]); setLoading(false); };
+  const fetchSubmissions = async () => { const { data } = await supabase.from('form_submissions').select('*').eq('company_id', userRole.company_id).order('created_at',{ascending:false}); setSubmissions(data||[]); };
+  const fetchAssets      = async () => { const { data } = await supabase.from('assets').select('id, name, location').eq('company_id', userRole.company_id); setAssets(data||[]); };
 
   const seedExcavatorTemplate = async () => {
     const template = {
-      company_id: userRole.company_id,
-      name: 'Excavator Prestart Checklist',
-      description: 'Daily prestart inspection for excavators',
+      company_id: userRole.company_id, name:'Excavator Prestart Checklist', description:'Daily prestart inspection for excavators',
       sections: [
-        { title: 'Fluid Levels', items: ['No fluid leaks', 'Engine oil level', 'Radiator level', 'Slew motor oil level', 'Hydraulic oil', 'Fuel level'] },
-        { title: 'Inspection List', items: ['Bucket teeth / pin wear', 'Grease lines / grease points lubricated', 'Tracks / chains / shoe wear', 'First aid kit', 'Track tension', 'Hydraulic hoses (check for rubbing)', 'Hydraulic rams checked', 'Hand rails/door handles', 'Radiator', 'Radiator hoses', 'Battery condition', 'Gauges working correctly', 'Mirrors', 'Lights', 'Horn and reverse alarm', 'Window / wipers', 'Seat / seat belts', 'Air conditioning', 'Fire extinguisher', 'Controls working correctly', 'Quick hitch working correctly'] }
+        { title:'Fluid Levels', items:['No fluid leaks','Engine oil level','Radiator level','Slew motor oil level','Hydraulic oil','Fuel level'] },
+        { title:'Inspection List', items:['Bucket teeth / pin wear','Grease lines / grease points lubricated','Tracks / chains / shoe wear','First aid kit','Track tension','Hydraulic hoses (check for rubbing)','Hydraulic rams checked','Hand rails/door handles','Radiator','Radiator hoses','Battery condition','Gauges working correctly','Mirrors','Lights','Horn and reverse alarm','Window / wipers','Seat / seat belts','Air conditioning','Fire extinguisher','Controls working correctly','Quick hitch working correctly'] },
       ]
     };
     const { error } = await supabase.from('form_templates').insert([template]);
     if (!error) fetchTemplates();
   };
 
-  const handleResponse = (sectionIdx, item, field, value) => {
-    const key = `${sectionIdx}_${item}`;
-    setForm(prev => ({ ...prev, responses: { ...prev.responses, [key]: { ...prev.responses[key], [field]: value } } }));
+  const handleResponse = (si, item, field, value) => {
+    const key = `${si}_${item}`;
+    setForm(prev => ({...prev, responses:{...prev.responses, [key]:{...prev.responses[key], [field]:value}}}));
   };
 
   const startSigning = () => {
@@ -85,20 +174,20 @@ function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
       const canvas = sigCanvas.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
-      ctx.strokeStyle = '#00c2e0'; ctx.lineWidth = 2;
+      ctx.strokeStyle = '#00ABE4'; ctx.lineWidth = 2;
       let drawing = false;
-      canvas.onmousedown = (e) => { drawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
-      canvas.onmousemove = (e) => { if (drawing) { ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); } };
-      canvas.onmouseup = () => { drawing = false; setSignatureData(canvas.toDataURL()); };
-      canvas.ontouchstart = (e) => { drawing = true; const t = e.touches[0]; const r = canvas.getBoundingClientRect(); ctx.beginPath(); ctx.moveTo(t.clientX - r.left, t.clientY - r.top); e.preventDefault(); };
-      canvas.ontouchmove = (e) => { if (drawing) { const t = e.touches[0]; const r = canvas.getBoundingClientRect(); ctx.lineTo(t.clientX - r.left, t.clientY - r.top); ctx.stroke(); } e.preventDefault(); };
-      canvas.ontouchend = () => { drawing = false; setSignatureData(canvas.toDataURL()); };
+      canvas.onmousedown = e => { drawing=true; ctx.beginPath(); ctx.moveTo(e.offsetX,e.offsetY); };
+      canvas.onmousemove = e => { if(drawing){ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke();} };
+      canvas.onmouseup   = () => { drawing=false; setSignatureData(canvas.toDataURL()); };
+      canvas.ontouchstart = e => { drawing=true; const t=e.touches[0],r=canvas.getBoundingClientRect(); ctx.beginPath(); ctx.moveTo(t.clientX-r.left,t.clientY-r.top); e.preventDefault(); };
+      canvas.ontouchmove  = e => { if(drawing){const t=e.touches[0],r=canvas.getBoundingClientRect(); ctx.lineTo(t.clientX-r.left,t.clientY-r.top); ctx.stroke();} e.preventDefault(); };
+      canvas.ontouchend   = () => { drawing=false; setSignatureData(canvas.toDataURL()); };
     }, 100);
   };
 
   const clearSignature = () => {
     const canvas = sigCanvas.current;
-    if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    if (canvas) canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
     setSignatureData('');
   };
 
@@ -106,271 +195,376 @@ function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
     if (!form.asset || !form.operator_name) { alert('Please select an asset and enter operator name'); return; }
     const defects_found = Object.values(form.responses).some(r => r.status === 'Defect');
     const { data: submission, error } = await supabase.from('form_submissions').insert([{
-      company_id: userRole.company_id, template_id: selectedTemplate.id,
-      asset: form.asset, operator_name: form.operator_name, site_area: form.site_area,
-      hrs_start: form.hrs_start, date: form.date, notes: form.notes,
-      responses: form.responses, operator_signature: signatureData, defects_found
+      company_id:userRole.company_id, template_id:selectedTemplate.id,
+      asset:form.asset, operator_name:form.operator_name, site_area:form.site_area,
+      hrs_start:form.hrs_start, date:form.date, notes:form.notes,
+      responses:form.responses, operator_signature:signatureData, defects_found
     }]).select().single();
-    if (error) { alert('Error: ' + error.message); return; }
-
+    if (error) { alert('Error: '+error.message); return; }
     if (defects_found && submission) {
       const defectItems = [];
       selectedTemplate.sections.forEach((section, si) => {
-        section.items.forEach(item => {
-          const key = `${si}_${item}`;
-          const resp = form.responses[key];
-          if (resp?.status === 'Defect') defectItems.push(`${item}${resp.comment ? ': ' + resp.comment : ''}`);
-        });
+        section.items.forEach(item => { const key=`${si}_${item}`; const resp=form.responses[key]; if(resp?.status==='Defect') defectItems.push(`${item}${resp.comment?': '+resp.comment:''}`); });
       });
       if (defectItems.length > 0) {
-        await supabase.from('work_orders').insert([{
-          company_id: userRole.company_id, asset: form.asset,
-          defect_description: defectItems.join('\n'), priority: 'High', status: 'Open',
-          source: 'prestart', prestart_id: submission.id,
-          comments: `Auto-generated from prestart by ${form.operator_name} on ${form.date}`
-        }]);
+        await supabase.from('work_orders').insert([{ company_id:userRole.company_id, asset:form.asset, defect_description:defectItems.join('\n'), priority:'High', status:'Open', source:'prestart', prestart_id:submission.id, comments:`Auto-generated from prestart by ${form.operator_name} on ${form.date}` }]);
       }
     }
-
     fetchSubmissions();
     setView('list');
-    setForm({ asset: '', asset_id: '', operator_name: '', site_area: '', hrs_start: '', date: new Date().toISOString().split('T')[0], notes: '', responses: {} });
+    setForm({ asset:'', asset_id:'', operator_name:'', site_area:'', hrs_start:'', date:new Date().toISOString().split('T')[0], notes:'', responses:{} });
     setSignatureData('');
     if (onClearPreload) onClearPreload();
-    if (defects_found) alert('Prestart submitted. ⚠️ Defects found — a Work Order has been automatically created!');
-    else alert('Prestart submitted successfully! ✓');
+    if (defects_found) alert('Prestart submitted. Defects found — a Work Order has been automatically created!');
+    else alert('Prestart submitted successfully!');
   };
 
   const exportPDF = (submission) => {
     const doc = new jsPDF();
-    doc.setFillColor(13, 21, 21); doc.rect(0, 0, 210, 297, 'F');
-    doc.setTextColor(0, 194, 224); doc.setFontSize(20); doc.setFont('helvetica', 'bold');
-    doc.text('MECH IQ — PRESTART CHECKLIST', 14, 20);
-    doc.setTextColor(160, 176, 176); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-    doc.text(`Asset: ${submission.asset}   Operator: ${submission.operator_name}   Date: ${submission.date}`, 14, 30);
-    doc.text(`Site: ${submission.site_area || '-'}   Hrs Start: ${submission.hrs_start || '-'}`, 14, 36);
-    const template = templates.find(t => t.id === submission.template_id);
+    doc.setFillColor(13,21,21); doc.rect(0,0,210,297,'F');
+    doc.setTextColor(0,194,224); doc.setFontSize(20); doc.setFont('helvetica','bold'); doc.text('MECH IQ — PRESTART CHECKLIST',14,20);
+    doc.setTextColor(160,176,176); doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text(`Asset: ${submission.asset}   Operator: ${submission.operator_name}   Date: ${submission.date}`,14,30);
+    doc.text(`Site: ${submission.site_area||'-'}   Hrs Start: ${submission.hrs_start||'-'}`,14,36);
+    const template = templates.find(t => t.id===submission.template_id);
     let y = 45;
     if (template) {
       template.sections.forEach(section => {
-        doc.setTextColor(0, 194, 224); doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-        doc.text(section.title.toUpperCase(), 14, y); y += 6;
-        const rows = section.items.map(item => {
-          const key = `${template.sections.indexOf(section)}_${item}`;
-          const r = submission.responses[key] || {};
-          return [item, r.status || '-', r.comment || ''];
-        });
-        autoTable(doc, { startY: y, head: [['Item', 'Status', 'Comment']], body: rows, theme: 'plain', headStyles: { fillColor: [26, 47, 47], textColor: [160, 176, 176], fontSize: 8 }, bodyStyles: { fillColor: [13, 21, 21], textColor: [255, 255, 255], fontSize: 8 }, styles: { lineColor: [26, 47, 47], lineWidth: 0.1 } });
-        y = doc.lastAutoTable.finalY + 8;
+        doc.setTextColor(0,194,224); doc.setFontSize(11); doc.setFont('helvetica','bold');
+        doc.text(section.title.toUpperCase(),14,y); y+=6;
+        const rows = section.items.map(item => { const key=`${template.sections.indexOf(section)}_${item}`; const r=submission.responses[key]||{}; return[item,r.status||'-',r.comment||'']; });
+        autoTable(doc,{startY:y,head:[['Item','Status','Comment']],body:rows,theme:'plain',headStyles:{fillColor:[26,47,47],textColor:[160,176,176],fontSize:8},bodyStyles:{fillColor:[13,21,21],textColor:[255,255,255],fontSize:8},styles:{lineColor:[26,47,47],lineWidth:0.1}});
+        y=doc.lastAutoTable.finalY+8;
       });
     }
-    if (submission.notes) { doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.text('Notes: ' + submission.notes, 14, y); y += 10; }
-    if (submission.operator_signature) { doc.text('Operator Signature:', 14, y); doc.addImage(submission.operator_signature, 'PNG', 14, y + 2, 60, 20); }
+    if (submission.notes) { doc.setTextColor(255,255,255); doc.setFontSize(9); doc.text('Notes: '+submission.notes,14,y); y+=10; }
+    if (submission.operator_signature) { doc.text('Operator Signature:',14,y); doc.addImage(submission.operator_signature,'PNG',14,y+2,60,20); }
     doc.save(`MechIQ-Prestart-${submission.asset}-${submission.date}.pdf`);
   };
 
   const saveTemplate = async () => {
-    if (!builder.name || builder.sections.length === 0) { alert('Please add a name and at least one section'); return; }
-    const { error } = await supabase.from('form_templates').insert([{ ...builder, company_id: userRole.company_id }]);
-    if (!error) { fetchTemplates(); setView('list'); setBuilder({ name: '', description: '', sections: [] }); }
+    if (!builder.name || builder.sections.length===0) { alert('Please add a name and at least one section'); return; }
+    const { error } = await supabase.from('form_templates').insert([{...builder, company_id:userRole.company_id}]);
+    if (!error) { fetchTemplates(); setView('list'); setBuilder({name:'',description:'',sections:[]}); }
   };
 
-  const addSection = () => setBuilder(prev => ({ ...prev, sections: [...prev.sections, { title: '', items: [''] }] }));
-  const addItem = (si) => setBuilder(prev => { const s = [...prev.sections]; s[si].items.push(''); return { ...prev, sections: s }; });
-  const updateSection = (si, val) => setBuilder(prev => { const s = [...prev.sections]; s[si].title = val; return { ...prev, sections: s }; });
-  const updateItem = (si, ii, val) => setBuilder(prev => { const s = [...prev.sections]; s[si].items[ii] = val; return { ...prev, sections: s }; });
-  const removeItem = (si, ii) => setBuilder(prev => { const s = [...prev.sections]; s[si].items.splice(ii, 1); return { ...prev, sections: s }; });
-  const removeSection = (si) => setBuilder(prev => { const s = [...prev.sections]; s.splice(si, 1); return { ...prev, sections: s }; });
+  const addSection    = () => setBuilder(prev => ({...prev, sections:[...prev.sections, {title:'',items:['']}]}));
+  const addItem       = si => setBuilder(prev => { const s=[...prev.sections]; s[si].items.push(''); return{...prev,sections:s}; });
+  const updateSection = (si,val) => setBuilder(prev => { const s=[...prev.sections]; s[si].title=val; return{...prev,sections:s}; });
+  const updateItem    = (si,ii,val) => setBuilder(prev => { const s=[...prev.sections]; s[si].items[ii]=val; return{...prev,sections:s}; });
+  const removeItem    = (si,ii) => setBuilder(prev => { const s=[...prev.sections]; s[si].items.splice(ii,1); return{...prev,sections:s}; });
+  const removeSection = si => setBuilder(prev => { const s=[...prev.sections]; s.splice(si,1); return{...prev,sections:s}; });
 
-  if (loading) return <p style={{ color: '#a0b0b0', padding: '20px' }}>Loading...</p>;
+  const goBack = () => { setView('list'); if (onClearPreload) onClearPreload(); };
 
-  if (view === 'select-template') return (
-    <div className="prestart">
-      <div className="page-header">
-        <h2>Select Checklist</h2>
-        <button className="btn-primary" onClick={() => { setView('list'); if (onClearPreload) onClearPreload(); }}>← Back</button>
+  // ── Loading ──
+  if (loading) return (
+    <div style={{ animation:'fadeUp 0.4s ease both' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginTop:8 }}>
+        {[0,1,2].map(i => <div key={i} className="ps-card"><Sk w="60%" h="14px" /><div style={{marginTop:8}}><Sk w="40%" h="11px" /></div><div style={{marginTop:16}}><Sk w="100%" h="32px" r="8px" /></div></div>)}
       </div>
-      <p style={{ color: '#a0b0b0', marginBottom: '20px' }}>Asset: <strong style={{ color: '#00c2e0' }}>{form.asset}</strong> — select a checklist to begin:</p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
+    </div>
+  );
+
+  // ── Select template ──
+  if (view === 'select-template') return (
+    <div style={{ animation:'fadeUp 0.4s ease both' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:24 }}>
+        <div>
+          <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, color:'var(--text-bright)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Select Checklist</h2>
+          <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0' }}>Asset: <strong style={{ color:'var(--cyan)' }}>{form.asset}</strong></p>
+        </div>
+        <button className="ps-btn-ghost" onClick={goBack}>← Back</button>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
         {templates.map(t => (
-          <div key={t.id} className="form-card" style={{ cursor: 'pointer' }} onClick={() => { setSelectedTemplate(t); setView('fill'); }}>
-            <h3 style={{ color: '#00c2e0', marginBottom: '8px' }}>{t.name}</h3>
-            <p style={{ color: '#a0b0b0', fontSize: '13px', marginBottom: '12px' }}>{t.description}</p>
-            <button className="btn-primary" style={{ width: '100%' }}>Start →</button>
+          <div key={t.id} className="ps-template-card" onClick={() => { setSelectedTemplate(t); setView('fill'); }}>
+            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:800, color:'var(--text-bright)', marginBottom:6 }}>{t.name}</div>
+            <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:12, lineHeight:1.5 }}>{t.description}</div>
+            <div style={{ fontSize:11, color:'var(--text-faint)', marginBottom:16 }}>{t.sections?.length||0} sections · {t.sections?.reduce((s,sec)=>s+sec.items.length,0)||0} items</div>
+            <button className="ps-btn" style={{ width:'100%' }}>Start Prestart →</button>
           </div>
         ))}
       </div>
     </div>
   );
 
-  if (view === 'fill' && selectedTemplate) return (
-    <div className="prestart">
-      <div className="page-header">
-        <h2>{selectedTemplate.name}</h2>
-        <button className="btn-primary" onClick={() => { setView('list'); if (onClearPreload) onClearPreload(); }}>← Back</button>
+  // ── Fill form ──
+  if (view === 'fill' && selectedTemplate) {
+    const totalItems   = selectedTemplate.sections.reduce((s,sec)=>s+sec.items.length,0);
+    const answered     = Object.keys(form.responses).length;
+    const defectCount  = Object.values(form.responses).filter(r=>r.status==='Defect').length;
+    const pct          = totalItems > 0 ? Math.round((answered/totalItems)*100) : 0;
+
+    return (
+      <div style={{ animation:'fadeUp 0.4s ease both' }}>
+        {/* Header */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:20 }}>
+          <div>
+            <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:28, fontWeight:800, color:'var(--text-bright)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>{selectedTemplate.name}</h2>
+            <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0' }}>{answered}/{totalItems} items answered · {defectCount > 0 ? <span style={{ color:'var(--red)', fontWeight:700 }}>{defectCount} defects found</span> : 'no defects'}</p>
+          </div>
+          <button className="ps-btn-ghost" onClick={goBack}>← Back</button>
+        </div>
+
+        {/* Progress */}
+        <div style={{ height:5, background:'var(--surface-2)', borderRadius:99, marginBottom:20, overflow:'hidden' }}>
+          <div style={{ height:'100%', borderRadius:99, background:defectCount>0?'#dc2626':'#00ABE4', width:`${pct}%`, transition:'width 0.4s ease' }} />
+        </div>
+
+        {/* Details */}
+        <div className="ps-card">
+          <SectionHead title="Prestart Details" />
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+            <div><Label>Asset</Label>
+              <select style={iStyle} value={form.asset} onChange={e => setForm({...form, asset:e.target.value})}>
+                <option value="">Select Asset</option>
+                {assets.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
+              </select>
+            </div>
+            <div><Label>Operator Name</Label>
+              <input style={iStyle} placeholder="Operator Name" value={form.operator_name} onChange={e => setForm({...form, operator_name:e.target.value})} />
+            </div>
+            <div><Label>Site / Location</Label>
+              <input style={iStyle} placeholder="Site area" value={form.site_area} onChange={e => setForm({...form, site_area:e.target.value})} />
+            </div>
+            <div><Label>Hours Start</Label>
+              <input style={iStyle} type="number" placeholder="e.g. 1250" value={form.hrs_start} onChange={e => setForm({...form, hrs_start:e.target.value})} />
+            </div>
+            <div><Label>Date</Label>
+              <input style={iStyle} type="date" value={form.date} onChange={e => setForm({...form, date:e.target.value})} />
+            </div>
+          </div>
+        </div>
+
+        {/* Checklist sections */}
+        {selectedTemplate.sections.map((section, si) => (
+          <div key={si} className="ps-card">
+            <SectionHead title={section.title} sub={`${section.items.length} items`} />
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom:'2px solid #eaf3fb' }}>
+                    {['Inspection Item','Status','Comment'].map(h => (
+                      <th key={h} style={{ textAlign:'left', padding:'0 12px 11px 0', fontSize:10, fontWeight:700, color:'var(--text-muted)', letterSpacing:'1.2px', textTransform:'uppercase' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {section.items.map((item, ii) => {
+                    const key  = `${si}_${item}`;
+                    const resp = form.responses[key] || {};
+                    const statusClass = resp.status==='OK' ? 'ps-status-ok' : resp.status==='Defect' ? 'ps-status-defect' : resp.status==='NA' ? 'ps-status-na' : 'ps-status-empty';
+                    return (
+                      <tr key={ii} className="ps-check-row" style={{ borderBottom:'1px solid #eaf3fb' }}>
+                        <td style={{ padding:'10px 12px 10px 0', fontSize:13, color:'var(--text-bright)', fontWeight:500 }}>{item}</td>
+                        <td style={{ padding:'10px 12px 10px 0', width:130 }}>
+                          <select className={`ps-input ${statusClass}`} style={{ fontWeight:700 }} value={resp.status||''} onChange={e => handleResponse(si, item, 'status', e.target.value)}>
+                            <option value="">— Select —</option>
+                            <option value="OK">✓ OK</option>
+                            <option value="Defect">✗ Defect</option>
+                            <option value="NA">N/A</option>
+                          </select>
+                        </td>
+                        <td style={{ padding:'10px 0' }}>
+                          <input className="ps-input" placeholder="Comment (optional)" value={resp.comment||''} onChange={e => handleResponse(si, item, 'comment', e.target.value)} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+
+        {/* Notes + Signature */}
+        <div className="ps-card">
+          <SectionHead title="Notes & Signature" />
+          <div style={{ marginBottom:16 }}>
+            <Label>Additional Notes</Label>
+            <textarea style={{ ...iStyle, minHeight:80, resize:'vertical' }} placeholder="Any general defects or additional notes…" value={form.notes} onChange={e => setForm({...form, notes:e.target.value})} />
+          </div>
+          <div>
+            <Label>Operator Signature</Label>
+            {!isSigning ? (
+              <button className="ps-btn" onClick={startSigning}>Sign Here</button>
+            ) : (
+              <div>
+                <canvas ref={sigCanvas} width={420} height={100} style={{ border:'1.5px solid #d6e6f2', borderRadius:8, background:'#f8fbfe', cursor:'crosshair', display:'block' }} />
+                <button onClick={clearSignature} className="ps-btn-ghost" style={{ marginTop:8, padding:'6px 14px', fontSize:11 }}>Clear Signature</button>
+                {signatureData && <span style={{ marginLeft:10, fontSize:11, color:'var(--green)', fontWeight:700 }}>✓ Signed</span>}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Submit */}
+        <button className="ps-btn ps-btn-green" style={{ width:'100%', padding:'14px', fontSize:14, marginBottom:20 }} onClick={handleSubmit}>
+          Submit Prestart Checklist
+        </button>
       </div>
-      <div className="form-card">
-        <h3 style={{ color: '#00c2e0', marginBottom: '15px' }}>Prestart Details</h3>
-        <div className="form-grid">
-          <div>
-            <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Asset</label>
-            <select value={form.asset} onChange={e => setForm({ ...form, asset: e.target.value })}
-              style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: form.asset ? '#00c2e0' : 'white', border: '1px solid #1a2f2f', borderRadius: '4px', fontWeight: form.asset ? 'bold' : 'normal' }}>
-              <option value="">Select Asset</option>
-              {assets.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Operator Name</label>
-            <input placeholder="Operator Name" value={form.operator_name} onChange={e => setForm({ ...form, operator_name: e.target.value })}
-              style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
-          </div>
-          <div>
-            <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Site / Location</label>
-            <input placeholder="Site Area" value={form.site_area} onChange={e => setForm({ ...form, site_area: e.target.value })}
-              style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
-          </div>
-          <div>
-            <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Hours Start</label>
-            <input type="number" placeholder="Hours Start" value={form.hrs_start} onChange={e => setForm({ ...form, hrs_start: e.target.value })}
-              style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
-          </div>
-          <div>
-            <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Date</label>
-            <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })}
-              style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
-          </div>
+    );
+  }
+
+  // ── Builder ──
+  if (view === 'builder') return (
+    <div style={{ animation:'fadeUp 0.4s ease both' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:24 }}>
+        <div>
+          <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, color:'var(--text-bright)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Form Builder</h2>
+          <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0' }}>Create a reusable checklist template</p>
+        </div>
+        <button className="ps-btn-ghost" onClick={() => setView('list')}>← Back</button>
+      </div>
+
+      <div className="ps-card">
+        <SectionHead title="Template Details" />
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+          <div><Label>Template Name</Label><input style={iStyle} placeholder="e.g. Truck Prestart Checklist" value={builder.name} onChange={e => setBuilder({...builder,name:e.target.value})} /></div>
+          <div><Label>Description</Label><input style={iStyle} placeholder="Brief description (optional)" value={builder.description} onChange={e => setBuilder({...builder,description:e.target.value})} /></div>
         </div>
       </div>
 
-      {selectedTemplate.sections.map((section, si) => (
-        <div key={si} className="form-card" style={{ marginTop: '15px' }}>
-          <h3 style={{ color: '#00c2e0', marginBottom: '15px' }}>{section.title}</h3>
-          <table className="data-table">
-            <thead><tr><th>Item</th><th>Status</th><th>Comment</th></tr></thead>
-            <tbody>
-              {section.items.map((item, ii) => {
-                const key = `${si}_${item}`;
-                const resp = form.responses[key] || {};
-                return (
-                  <tr key={ii}>
-                    <td>{item}</td>
-                    <td>
-                      <select value={resp.status || ''} onChange={e => handleResponse(si, item, 'status', e.target.value)}
-                        style={{ backgroundColor: resp.status === 'OK' ? '#0a2a1a' : resp.status === 'Defect' ? '#2a0a0a' : '#0a0f0f', color: resp.status === 'OK' ? '#00c264' : resp.status === 'Defect' ? '#e94560' : 'white', border: '1px solid #1a2f2f', padding: '5px 10px', borderRadius: '4px' }}>
-                        <option value="">Select</option>
-                        <option value="OK">✓ OK</option>
-                        <option value="Defect">✗ Defect</option>
-                        <option value="NA">N/A</option>
-                      </select>
-                    </td>
-                    <td><input placeholder="Comment..." value={resp.comment || ''} onChange={e => handleResponse(si, item, 'comment', e.target.value)} style={{ backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', padding: '5px 10px', borderRadius: '4px', width: '100%' }} /></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {builder.sections.map((section, si) => (
+        <div key={si} className="ps-card">
+          <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:12 }}>
+            <input style={{ ...iStyle, flex:1 }} placeholder="Section Title" value={section.title} onChange={e => updateSection(si,e.target.value)} />
+            <button onClick={() => removeSection(si)} style={{ padding:'8px 13px', background:'var(--surface)', color:'var(--red)', border:'1.5px solid #fecaca', borderRadius:7, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>Remove</button>
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:12 }}>
+            {section.items.map((item, ii) => (
+              <div key={ii} style={{ display:'flex', gap:8 }}>
+                <input style={{ ...iStyle, flex:1 }} placeholder={`Item ${ii+1}`} value={item} onChange={e => updateItem(si,ii,e.target.value)} />
+                <button onClick={() => removeItem(si,ii)} style={{ padding:'8px 12px', background:'var(--surface)', color:'var(--text-muted)', border:'1.5px solid #d6e6f2', borderRadius:7, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>✕</button>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => addItem(si)} style={{ padding:'7px 16px', background:'transparent', color:'var(--cyan)', border:'1.5px dashed #00ABE4', borderRadius:7, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>+ Add Item</button>
         </div>
       ))}
 
-      <div className="form-card" style={{ marginTop: '15px' }}>
-        <h3 style={{ marginBottom: '10px' }}>Comments / Additional Notes</h3>
-        <textarea placeholder="Any general defects or notes..." value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })}
-          style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #1a2f2f', backgroundColor: '#0a0f0f', color: 'white', minHeight: '80px', fontFamily: 'Barlow, sans-serif', fontSize: '14px', marginBottom: '15px' }} />
-        <h3 style={{ marginBottom: '10px' }}>Operator Signature</h3>
-        {!isSigning ? (
-          <button className="btn-primary" onClick={startSigning}>Sign Here</button>
+      <button onClick={addSection} style={{ width:'100%', padding:'12px', background:'transparent', color:'var(--cyan)', border:'2px dashed #d6e6f2', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit', marginBottom:14 }}>+ Add Section</button>
+      <button className="ps-btn" style={{ width:'100%', padding:'13px', fontSize:13 }} onClick={saveTemplate}>Save Template</button>
+    </div>
+  );
+
+  // ── History ──
+  if (view === 'history') return (
+    <div style={{ animation:'fadeUp 0.4s ease both' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:24 }}>
+        <div>
+          <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, color:'var(--text-bright)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Prestart History</h2>
+          <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0' }}>{submissions.length} total submission{submissions.length!==1?'s':''}</p>
+        </div>
+        <button className="ps-btn-ghost" onClick={() => setView('list')}>← Back</button>
+      </div>
+
+      <div className="ps-card" style={{ marginBottom:0 }}>
+        {submissions.length === 0 ? (
+          <Empty icon="📋" title="No submissions yet" desc="Completed prestarts will appear here." />
         ) : (
-          <div>
-            <canvas ref={sigCanvas} width={400} height={100} style={{ border: '1px solid #1a2f2f', borderRadius: '4px', backgroundColor: '#0a0f0f', cursor: 'crosshair', display: 'block' }} />
-            <button onClick={clearSignature} style={{ marginTop: '8px', backgroundColor: 'transparent', color: '#a0b0b0', border: '1px solid #1a2f2f', padding: '5px 12px', borderRadius: '4px', cursor: 'pointer' }}>Clear</button>
+          <div style={{ overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom:'2px solid #eaf3fb' }}>
+                  {['Date','Asset','Operator','Site','Hrs Start','Result',''].map(h => (
+                    <th key={h} style={{ textAlign:'left', padding:'0 12px 11px 0', fontSize:10, fontWeight:700, color:'var(--text-muted)', letterSpacing:'1.2px', textTransform:'uppercase', whiteSpace:'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {submissions.map((s,i) => (
+                  <tr key={s.id} className="ps-history-row" style={{ borderBottom:'1px solid #eaf3fb', opacity:0, animation:`fadeUp 0.3s ease ${i*35}ms forwards` }}>
+                    <td style={{ padding:'11px 12px 11px 0', fontSize:13, color:'var(--text-bright)', fontWeight:600, whiteSpace:'nowrap' }}>{s.date}</td>
+                    <td style={{ padding:'11px 12px 11px 0', fontSize:13, fontWeight:700, color:'var(--text-bright)' }}>{s.asset}</td>
+                    <td style={{ padding:'11px 12px 11px 0', fontSize:13, color:'var(--text-mid)' }}>{s.operator_name}</td>
+                    <td style={{ padding:'11px 12px 11px 0', fontSize:12, color:'var(--text-muted)' }}>{s.site_area||'—'}</td>
+                    <td style={{ padding:'11px 12px 11px 0', fontSize:12, color:'var(--text-muted)' }}>{s.hrs_start||'—'}</td>
+                    <td style={{ padding:'11px 12px 11px 0' }}>
+                      {s.defects_found ? (
+                        <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20, background:'var(--red-glow)', color:'var(--red)', fontSize:11, fontWeight:700 }}>
+                          <span style={{ width:5, height:5, borderRadius:'50%', background:'#dc2626' }} />Defects
+                        </span>
+                      ) : (
+                        <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:20, background:'var(--green-glow)', color:'var(--green)', fontSize:11, fontWeight:700 }}>
+                          <span style={{ width:5, height:5, borderRadius:'50%', background:'#16a34a' }} />Clear
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding:'11px 0' }}>
+                      <button className="ps-btn" style={{ padding:'5px 13px', fontSize:11, boxShadow:'none' }} onClick={() => exportPDF(s)}>PDF</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
-      <button className="btn-primary" style={{ marginTop: '20px', width: '100%', padding: '15px', fontSize: '16px' }} onClick={handleSubmit}>Submit Prestart</button>
     </div>
   );
 
-  if (view === 'builder') return (
-    <div className="prestart">
-      <div className="page-header">
-        <h2>Form Builder</h2>
-        <button className="btn-primary" onClick={() => setView('list')}>← Back</button>
-      </div>
-      <div className="form-card">
-        <input placeholder="Form Name (e.g. Truck Prestart)" value={builder.name} onChange={e => setBuilder({ ...builder, name: e.target.value })} style={{ width: '100%', marginBottom: '10px', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
-        <input placeholder="Description (optional)" value={builder.description} onChange={e => setBuilder({ ...builder, description: e.target.value })} style={{ width: '100%', padding: '10px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
-      </div>
-      {builder.sections.map((section, si) => (
-        <div key={si} className="form-card" style={{ marginTop: '15px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <input placeholder="Section Title" value={section.title} onChange={e => updateSection(si, e.target.value)} style={{ flex: 1, marginRight: '10px', padding: '8px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
-            <button onClick={() => removeSection(si)} className="btn-delete">Remove Section</button>
-          </div>
-          {section.items.map((item, ii) => (
-            <div key={ii} style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
-              <input placeholder={`Item ${ii + 1}`} value={item} onChange={e => updateItem(si, ii, e.target.value)} style={{ flex: 1, padding: '8px', backgroundColor: '#0a0f0f', color: 'white', border: '1px solid #1a2f2f', borderRadius: '4px' }} />
-              <button onClick={() => removeItem(si, ii)} className="btn-delete">✕</button>
-            </div>
-          ))}
-          <button onClick={() => addItem(si)} style={{ backgroundColor: 'transparent', color: '#00c2e0', border: '1px dashed #00c2e0', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer', marginTop: '5px' }}>+ Add Item</button>
-        </div>
-      ))}
-      <button onClick={addSection} style={{ marginTop: '15px', backgroundColor: 'transparent', color: '#00c2e0', border: '1px dashed #00c2e0', padding: '10px 20px', borderRadius: '4px', cursor: 'pointer', width: '100%' }}>+ Add Section</button>
-      <button className="btn-primary" style={{ marginTop: '15px', width: '100%', padding: '14px' }} onClick={saveTemplate}>Save Form Template</button>
-    </div>
-  );
-
-  if (view === 'history') return (
-    <div className="prestart">
-      <div className="page-header">
-        <h2>Prestart History</h2>
-        <button className="btn-primary" onClick={() => setView('list')}>← Back</button>
-      </div>
-      {submissions.length === 0 ? <p style={{ color: '#a0b0b0' }}>No submissions yet</p> : (
-        <table className="data-table">
-          <thead><tr><th>Date</th><th>Asset</th><th>Operator</th><th>Site</th><th>Defects</th><th>Action</th></tr></thead>
-          <tbody>
-            {submissions.map(s => (
-              <tr key={s.id}>
-                <td>{s.date}</td><td>{s.asset}</td><td>{s.operator_name}</td><td>{s.site_area || '-'}</td>
-                <td><span style={{ color: s.defects_found ? '#e94560' : '#00c264' }}>{s.defects_found ? '⚠ Defects' : '✓ Clear'}</span></td>
-                <td><button className="btn-primary" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => exportPDF(s)}>PDF</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-
+  // ── Main list ──
   return (
-    <div className="prestart">
-      <div className="page-header">
-        <h2>Prestarts & Checklists</h2>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button className="btn-primary" onClick={() => setView('history')}>View History</button>
-          {userRole?.role !== 'technician' && <button className="btn-primary" onClick={() => setView('builder')}>+ Build Form</button>}
+    <div style={{ animation:'fadeUp 0.4s ease both' }}>
+
+      {/* Header */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:24 }}>
+        <div>
+          <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, color:'var(--text-bright)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Prestarts & Checklists</h2>
+          <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0' }}>{templates.length} template{templates.length!==1?'s':''} · {submissions.length} submission{submissions.length!==1?'s':''}</p>
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <button className="ps-btn-ghost" onClick={() => setView('history')}>View History</button>
+          {userRole?.role !== 'technician' && <button className="ps-btn" onClick={() => setView('builder')}>+ Build Form</button>}
         </div>
       </div>
+
+      {/* Stats strip */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:24 }}>
+        {[
+          { label:'Templates',  value:templates.length,                                  color:'var(--cyan)', bg:'#e0f4ff' },
+          { label:'Submissions',value:submissions.length,                                 color:'var(--purple)', bg:'#f5f3ff' },
+          { label:'Defects Found',value:submissions.filter(s=>s.defects_found).length,  color:'var(--red)', bg:'#fee2e2' },
+        ].map((s,i) => (
+          <div key={s.label} className="ps-card" style={{ padding:'14px 20px', display:'flex', alignItems:'center', gap:14, marginBottom:0, opacity:0, animation:`fadeUp 0.4s ease ${i*60}ms forwards` }}>
+            <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:34, fontWeight:800, color:s.color, background:s.bg, padding:'2px 12px', borderRadius:8, lineHeight:1.3 }}>{s.value}</span>
+            <span style={{ fontSize:12, fontWeight:600, color:'var(--text-mid)' }}>{s.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Templates */}
       {templates.length === 0 ? (
-        <div className="form-card" style={{ textAlign: 'center', padding: '40px' }}>
-          <p style={{ color: '#a0b0b0', marginBottom: '20px' }}>No form templates yet.</p>
-          {userRole?.role !== 'technician' && <button className="btn-primary" onClick={seedExcavatorTemplate}>+ Load Excavator Template</button>}
+        <div className="ps-card" style={{ textAlign:'center', padding:'48px 20px' }}>
+          <Empty
+            icon="📋"
+            title="No form templates yet"
+            desc="Create your first checklist template or load the default excavator template."
+            action={userRole?.role !== 'technician' && (
+              <button className="ps-btn" onClick={seedExcavatorTemplate}>+ Load Excavator Template</button>
+            )}
+          />
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', marginTop: '20px' }}>
-          {templates.map(t => (
-            <div key={t.id} className="form-card" style={{ cursor: 'pointer' }} onClick={() => { setSelectedTemplate(t); setView('fill'); }}>
-              <h3 style={{ color: '#00c2e0', marginBottom: '8px' }}>{t.name}</h3>
-              <p style={{ color: '#a0b0b0', fontSize: '13px', marginBottom: '12px' }}>{t.description}</p>
-              <p style={{ color: '#a0b0b0', fontSize: '12px' }}>{t.sections?.length || 0} sections · {t.sections?.reduce((sum, s) => sum + s.items.length, 0) || 0} items</p>
-              <button className="btn-primary" style={{ marginTop: '12px', width: '100%' }} onClick={e => { e.stopPropagation(); setSelectedTemplate(t); setView('fill'); }}>Start Prestart</button>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
+          {templates.map((t,i) => (
+            <div key={t.id} className="ps-template-card" style={{ opacity:0, animation:`fadeUp 0.4s ease ${i*60}ms forwards` }} onClick={() => { setSelectedTemplate(t); setView('fill'); }}>
+              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:800, color:'var(--text-bright)', marginBottom:6 }}>{t.name}</div>
+              <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:10, lineHeight:1.5 }}>{t.description}</div>
+              <div style={{ fontSize:11, color:'var(--text-faint)', marginBottom:16 }}>
+                {t.sections?.length||0} sections · {t.sections?.reduce((s,sec)=>s+sec.items.length,0)||0} items
+              </div>
+              <button className="ps-btn" style={{ width:'100%' }} onClick={e => { e.stopPropagation(); setSelectedTemplate(t); setView('fill'); }}>Start Prestart →</button>
             </div>
           ))}
           {userRole?.role !== 'technician' && (
-            <div className="form-card" style={{ cursor: 'pointer', border: '1px dashed #1a2f2f', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }} onClick={() => setView('builder')}>
-              <p style={{ color: '#00c2e0', fontSize: '16px' }}>+ Create New Form</p>
+            <div className="ps-template-new" onClick={() => setView('builder')}>
+              <div style={{ textAlign:'center' }}>
+                <div style={{ fontSize:28, marginBottom:8, opacity:0.3 }}>+</div>
+                <div style={{ fontSize:13, fontWeight:700, color:'var(--text-muted)' }}>Create New Form</div>
+              </div>
             </div>
           )}
         </div>

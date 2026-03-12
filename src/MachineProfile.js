@@ -2,16 +2,83 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
 import { QRCodeCanvas } from 'qrcode.react';
 
+// ─── CSS ──────────────────────────────────────────────────────────────────────
+const CSS = `
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(1.4); }
+  }
+  .mp-card {
+    background: #fff;
+    border: 1px solid #eaf3fb;
+    border-radius: 14px;
+    padding: 20px 22px;
+    box-shadow: 0 2px 10px rgba(0,100,180,0.07);
+  }
+  .mp-row { transition: background 0.1s; }
+  .mp-row:hover { background: #f4f8fd; }
+  .mp-start-btn {
+    width: 100%; padding: 14px; background: linear-gradient(135deg, #00ABE4, #0096cc);
+    color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 800;
+    cursor: pointer; font-family: inherit; letter-spacing: 0.5px;
+    box-shadow: 0 6px 20px rgba(0,171,228,0.35); transition: all 0.2s;
+    margin-bottom: 20px;
+  }
+  .mp-start-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,171,228,0.45); }
+`;
+
+const STATUS_COLOR = {
+  Running:     { c:'#16a34a', bg:'#dcfce7', pulse:false },
+  Down:        { c:'#dc2626', bg:'#fee2e2', pulse:true  },
+  Maintenance: { c:'#d97706', bg:'#fef3c7', pulse:false },
+  Active:      { c:'#16a34a', bg:'#dcfce7', pulse:false },
+  Standby:     { c:'#7c3aed', bg:'#f5f3ff', pulse:false },
+};
+
+const PRIORITY_COLOR = { Critical:'#dc2626', High:'#ea580c', Medium:'#d97706', Low:'#16a34a' };
+
+function StatusPill({ status }) {
+  const s = STATUS_COLOR[status] || { c:'#7a92a8', bg:'#f1f5f9', pulse:false };
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 12px', borderRadius:20, background:s.bg, color:s.c, fontSize:12, fontWeight:700 }}>
+      <span style={{ width:6, height:6, borderRadius:'50%', background:s.c, animation:s.pulse?'pulse-dot 1.8s ease-in-out infinite':'none' }} />
+      {status}
+    </span>
+  );
+}
+
+function SectionHead({ title, count }) {
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, paddingBottom:12, borderBottom:'1.5px solid #eaf3fb' }}>
+      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:15, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:'var(--text-bright)' }}>{title}</span>
+      {count !== undefined && <span style={{ background:'#e0f4ff', color:'var(--cyan)', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20 }}>{count}</span>}
+    </div>
+  );
+}
+
 function AssetPage({ assetId, userRole, onStartPrestart }) {
-  const [asset, setAsset] = useState(null);
-  const [recentPrestarts, setRecentPrestarts] = useState([]);
+  const [asset, setAsset]                       = useState(null);
+  const [recentPrestarts, setRecentPrestarts]   = useState([]);
   const [recentMaintenance, setRecentMaintenance] = useState([]);
-  const [recentDowntime, setRecentDowntime] = useState([]);
-  const [openWorkOrders, setOpenWorkOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [recentDowntime, setRecentDowntime]     = useState([]);
+  const [openWorkOrders, setOpenWorkOrders]     = useState([]);
+  const [loading, setLoading]                   = useState(true);
   const printRef = useRef();
 
-  useEffect(() => { if (assetId) fetchAssetData(); }, [assetId]);
+  useEffect(() => {
+    if (!document.getElementById('mp-css')) {
+      const s = document.createElement('style'); s.id='mp-css'; s.textContent=CSS; document.head.appendChild(s);
+    }
+    if (assetId) fetchAssetData();
+  }, [assetId]);
 
   const fetchAssetData = async () => {
     setLoading(true);
@@ -19,20 +86,18 @@ function AssetPage({ assetId, userRole, onStartPrestart }) {
     setAsset(assetData);
     if (assetData) {
       const [prestarts, maintenance, downtime, workorders] = await Promise.all([
-        supabase.from('form_submissions').select('*').eq('asset', assetData.name).eq('company_id', assetData.company_id).order('date', { ascending: false }).limit(5),
-        supabase.from('maintenance').select('*').eq('asset', assetData.name).eq('company_id', assetData.company_id).order('created_at', { ascending: false }).limit(5),
-        supabase.from('downtime').select('*').eq('asset', assetData.name).eq('company_id', assetData.company_id).order('date', { ascending: false }).limit(5),
-        supabase.from('work_orders').select('*').eq('asset', assetData.name).eq('company_id', assetData.company_id).neq('status', 'Complete').order('created_at', { ascending: false })
+        supabase.from('form_submissions').select('*').eq('asset', assetData.name).eq('company_id', assetData.company_id).order('date',{ascending:false}).limit(5),
+        supabase.from('maintenance').select('*').eq('asset', assetData.name).eq('company_id', assetData.company_id).order('created_at',{ascending:false}).limit(5),
+        supabase.from('downtime').select('*').eq('asset', assetData.name).eq('company_id', assetData.company_id).order('date',{ascending:false}).limit(5),
+        supabase.from('work_orders').select('*').eq('asset', assetData.name).eq('company_id', assetData.company_id).neq('status','Complete').order('created_at',{ascending:false}),
       ]);
-      setRecentPrestarts(prestarts.data || []);
-      setRecentMaintenance(maintenance.data || []);
-      setRecentDowntime(downtime.data || []);
-      setOpenWorkOrders(workorders.data || []);
+      setRecentPrestarts(prestarts.data||[]);
+      setRecentMaintenance(maintenance.data||[]);
+      setRecentDowntime(downtime.data||[]);
+      setOpenWorkOrders(workorders.data||[]);
     }
     setLoading(false);
   };
-
-  const getPriorityColor = (p) => p === 'Critical' ? '#e94560' : p === 'High' ? '#ff6b00' : p === 'Medium' ? '#ffc800' : '#00c264';
 
   const handlePrint = () => {
     const canvas = document.querySelector('#qr-visible canvas');
@@ -44,25 +109,24 @@ function AssetPage({ assetId, userRole, onStartPrestart }) {
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f0f0f0; }
         .card { width: 85.6mm; height: 53.98mm; background: #0a0f0f; border-radius: 4mm; padding: 5mm; display: flex; flex-direction: row; align-items: center; gap: 4mm; position: relative; overflow: hidden; }
-        .card::before { content: ''; position: absolute; top: -10mm; right: -10mm; width: 35mm; height: 35mm; background: radial-gradient(circle, #00c2e020, transparent 70%); border-radius: 50%; }
         .qr-box { width: 30mm; height: 30mm; background: white; border-radius: 2mm; padding: 1.5mm; flex-shrink: 0; }
         .qr-box img { width: 100%; height: 100%; }
         .info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
-        .company-id { font-size: 7pt; color: #a0b0b0; letter-spacing: 0.5px; margin-bottom: 1mm; }
-        .asset-num { font-size: 14pt; font-weight: bold; color: #00c2e0; letter-spacing: 1px; margin-bottom: 1mm; }
+        .company-id { font-size: 7pt; color: #a0b0b0; margin-bottom: 1mm; }
+        .asset-num { font-size: 14pt; font-weight: bold; color: #00c2e0; margin-bottom: 1mm; }
         .asset-name { font-size: 9pt; font-weight: bold; color: white; margin-bottom: 1mm; }
         .asset-type { font-size: 7pt; color: #a0b0b0; }
         .brand { font-size: 8pt; font-weight: bold; color: #a0b0b0; margin-top: auto; }
         .brand span { color: #00c2e0; }
-        @media print { body { background: white; margin: 0; } .card { margin: 0; } }
+        @media print { body { background: white; margin: 0; } }
       </style></head>
       <body onload="window.print(); window.close();">
         <div class="card">
           <div class="qr-box"><img src="${qrDataUrl}" /></div>
           <div class="info">
             <div>
-              <div class="company-id">COMPANY: ${userRole?.company_id?.substring(0, 8).toUpperCase() || 'N/A'}</div>
-              <div class="asset-num">${asset.asset_number || 'AST-0000'}</div>
+              <div class="company-id">COMPANY: ${userRole?.company_id?.substring(0,8).toUpperCase()||'N/A'}</div>
+              <div class="asset-num">${asset.asset_number||'AST-0000'}</div>
               <div class="asset-name">${asset.name}</div>
               <div class="asset-type">${asset.type} · ${asset.location}</div>
             </div>
@@ -74,111 +138,134 @@ function AssetPage({ assetId, userRole, onStartPrestart }) {
     win.document.close();
   };
 
-  if (loading) return <p style={{ color: '#a0b0b0', padding: '20px' }}>Loading asset...</p>;
-  if (!asset) return <p style={{ color: '#a0b0b0', padding: '20px' }}>Asset not found</p>;
+  if (loading) return (
+    <div style={{ animation:'fadeUp 0.4s ease both', padding:'8px 0' }}>
+      <div className="mp-card" style={{ marginBottom:16 }}>
+        <div style={{ height:14, width:'30%', background:'linear-gradient(90deg,#edf2f8 25%,#f5f8fd 50%,#edf2f8 75%)', borderRadius:6, backgroundSize:'200% 100%', animation:'shimmer 1.5s infinite linear', marginBottom:10 }} />
+        <div style={{ height:28, width:'50%', background:'linear-gradient(90deg,#edf2f8 25%,#f5f8fd 50%,#edf2f8 75%)', borderRadius:6, backgroundSize:'200% 100%', animation:'shimmer 1.5s infinite linear' }} />
+      </div>
+    </div>
+  );
+
+  if (!asset) return <div style={{ textAlign:'center', padding:'60px 20px', color:'var(--text-muted)', fontSize:14 }}>Asset not found</div>;
 
   const qrUrl = `${window.location.origin}?asset=${assetId}`;
 
   return (
-    <div style={{ padding: '0' }}>
-      <div style={{ background: 'linear-gradient(135deg, #0d1515 0%, #1a2f2f 100%)', borderRadius: '8px', padding: '25px', marginBottom: '20px', border: '1px solid #1a2f2f' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
-          <div>
-            <div style={{ color: '#00c2e0', fontSize: '13px', marginBottom: '4px' }}>{asset.asset_number || 'AST-0000'}</div>
-            <h2 style={{ margin: '0 0 6px 0', fontSize: '26px' }}>{asset.name}</h2>
-            <p style={{ color: '#a0b0b0', margin: '0 0 12px 0' }}>{asset.type} · {asset.location}</p>
-            <span className={`status-badge ${asset.status?.toLowerCase()}`}>{asset.status}</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-            <div id="qr-print-area" style={{ display: 'none' }}>
-              <QRCodeCanvas value={qrUrl} size={120} bgColor="#ffffff" fgColor="#000000" />
+    <div style={{ animation:'fadeUp 0.4s ease both' }}>
+
+      {/* ── Hero card ── */}
+      <div className="mp-card" style={{ marginBottom:16 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:20 }}>
+          <div style={{ flex:1, minWidth:200 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:'var(--cyan)', letterSpacing:'1px', marginBottom:4 }}>{asset.asset_number||'AST-0000'}</div>
+            <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:34, fontWeight:800, color:'var(--text-bright)', margin:'0 0 6px', letterSpacing:'0.5px', textTransform:'uppercase' }}>{asset.name}</h2>
+            <p style={{ fontSize:13, color:'var(--text-muted)', margin:'0 0 12px' }}>{asset.type}{asset.location ? ` · ${asset.location}` : ''}</p>
+            <StatusPill status={asset.status} />
+            <div style={{ display:'flex', gap:24, marginTop:18, flexWrap:'wrap' }}>
+              {[
+                { label:'Target Hrs/Day', value:`${asset.target_hours||8}h`, color:'var(--cyan)' },
+                { label:'Hourly Rate',    value:`$${asset.hourly_rate||0}/hr`, color:'var(--green)' },
+                { label:'Open WOs',       value:openWorkOrders.length, color:openWorkOrders.length>0?'#dc2626':'#16a34a' },
+                { label:'Last Prestart',  value:recentPrestarts[0]?.date||'None', color:'var(--text-mid)' },
+              ].map(s => (
+                <div key={s.label}>
+                  <div style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)', letterSpacing:'1px', textTransform:'uppercase', marginBottom:3 }}>{s.label}</div>
+                  <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:20, fontWeight:800, color:s.color }}>{s.value}</div>
+                </div>
+              ))}
             </div>
-            <div id="qr-visible">
-              <QRCodeCanvas value={qrUrl} size={120} bgColor="#ffffff" fgColor="#000000" style={{ borderRadius: '6px', padding: '8px', backgroundColor: 'white' }} />
+          </div>
+
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+            <div id="qr-visible" style={{ padding:10, background:'var(--surface)', borderRadius:10, border:'1px solid #eaf3fb', boxShadow:'0 2px 8px rgba(0,100,180,0.08)' }}>
+              <QRCodeCanvas value={qrUrl} size={110} bgColor="#ffffff" fgColor="#1a2b3c" />
             </div>
-            <button className="btn-primary" style={{ fontSize: '12px', padding: '6px 14px' }} onClick={handlePrint}>🖨 Print QR Card</button>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: '20px', marginTop: '15px', flexWrap: 'wrap' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ color: '#a0b0b0', fontSize: '11px' }}>TARGET HRS/DAY</div>
-            <div style={{ color: '#00c2e0', fontWeight: 'bold', fontSize: '18px' }}>{asset.target_hours || 8}h</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ color: '#a0b0b0', fontSize: '11px' }}>HOURLY RATE</div>
-            <div style={{ color: '#00c264', fontWeight: 'bold', fontSize: '18px' }}>${asset.hourly_rate || 0}/hr</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ color: '#a0b0b0', fontSize: '11px' }}>OPEN WORK ORDERS</div>
-            <div style={{ color: openWorkOrders.length > 0 ? '#e94560' : '#00c264', fontWeight: 'bold', fontSize: '18px' }}>{openWorkOrders.length}</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ color: '#a0b0b0', fontSize: '11px' }}>LAST PRESTART</div>
-            <div style={{ color: 'white', fontWeight: 'bold', fontSize: '18px' }}>{recentPrestarts[0]?.date || 'None'}</div>
+            <button onClick={handlePrint} style={{ padding:'6px 14px', background:'var(--surface)', color:'var(--text-mid)', border:'1.5px solid #d6e6f2', borderRadius:7, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+              Print QR Card
+            </button>
           </div>
         </div>
       </div>
 
-      <button className="btn-primary" style={{ width: '100%', padding: '15px', fontSize: '16px', marginBottom: '20px', borderRadius: '8px' }}
-        onClick={() => onStartPrestart(asset.name)}>
-        ✓ Start Prestart for {asset.name}
+      {/* ── Start prestart button ── */}
+      <button className="mp-start-btn" onClick={() => onStartPrestart(asset.name)}>
+        Start Prestart for {asset.name} →
       </button>
 
+      {/* ── Open Work Orders ── */}
       {openWorkOrders.length > 0 && (
-        <div className="form-card" style={{ marginBottom: '20px' }}>
-          <h3 style={{ color: '#e94560', marginBottom: '12px' }}>⚠ Open Work Orders ({openWorkOrders.length})</h3>
-          {openWorkOrders.map(wo => (
-            <div key={wo.id} style={{ padding: '10px', backgroundColor: '#0a0f0f', borderRadius: '4px', marginBottom: '8px', borderLeft: `3px solid ${getPriorityColor(wo.priority)}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <span style={{ color: getPriorityColor(wo.priority), fontWeight: 'bold', fontSize: '12px' }}>{wo.priority}</span>
-                <span style={{ color: '#a0b0b0', fontSize: '12px' }}>{wo.status}</span>
-              </div>
-              <p style={{ color: 'white', margin: '0', fontSize: '13px' }}>{wo.defect_description}</p>
-              {wo.assigned_to && <p style={{ color: '#a0b0b0', margin: '4px 0 0 0', fontSize: '12px' }}>Assigned: {wo.assigned_to}</p>}
-            </div>
-          ))}
+        <div className="mp-card" style={{ marginBottom:16, borderLeft:'3px solid #dc2626' }}>
+          <SectionHead title="Open Work Orders" count={openWorkOrders.length} />
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {openWorkOrders.map(wo => {
+              const pc = PRIORITY_COLOR[wo.priority] || '#7a92a8';
+              return (
+                <div key={wo.id} style={{ padding:'11px 14px', background:'#fafcfe', borderRadius:8, borderLeft:`3px solid ${pc}` }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                    <span style={{ fontSize:11, fontWeight:700, color:pc, padding:'2px 8px', background:pc+'18', borderRadius:20 }}>{wo.priority}</span>
+                    <span style={{ fontSize:11, color:'var(--text-muted)', fontWeight:600 }}>{wo.status}</span>
+                  </div>
+                  <div style={{ fontSize:13, color:'var(--text-bright)', fontWeight:500 }}>{wo.defect_description}</div>
+                  {wo.assigned_to && <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:3 }}>Assigned: {wo.assigned_to}</div>}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-        <div className="form-card">
-          <h3 style={{ marginBottom: '12px' }}>Recent Prestarts</h3>
-          {recentPrestarts.length === 0 ? <p style={{ color: '#a0b0b0', fontSize: '13px' }}>No prestarts yet</p> : recentPrestarts.map(p => (
-            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1a2f2f' }}>
+      {/* ── Activity grid ── */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:14 }}>
+
+        <div className="mp-card">
+          <SectionHead title="Recent Prestarts" count={recentPrestarts.length} />
+          {recentPrestarts.length === 0 ? <div style={{ fontSize:13, color:'var(--text-muted)' }}>No prestarts yet</div>
+          : recentPrestarts.map(p => (
+            <div key={p.id} className="mp-row" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #eaf3fb' }}>
               <div>
-                <div style={{ color: 'white', fontSize: '13px' }}>{p.date}</div>
-                <div style={{ color: '#a0b0b0', fontSize: '12px' }}>{p.operator_name}</div>
+                <div style={{ fontSize:13, fontWeight:600, color:'var(--text-bright)' }}>{p.date}</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:1 }}>{p.operator_name}</div>
               </div>
-              <span style={{ color: p.defects_found ? '#e94560' : '#00c264', fontSize: '12px', fontWeight: 'bold' }}>
-                {p.defects_found ? '⚠ Defects' : '✓ Clear'}
+              <span style={{ fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:20, background:p.defects_found?'#fee2e2':'#dcfce7', color:p.defects_found?'#dc2626':'#16a34a' }}>
+                {p.defects_found ? 'Defects' : 'Clear'}
               </span>
             </div>
           ))}
         </div>
-        <div className="form-card">
-          <h3 style={{ marginBottom: '12px' }}>Recent Maintenance</h3>
-          {recentMaintenance.length === 0 ? <p style={{ color: '#a0b0b0', fontSize: '13px' }}>No maintenance records</p> : recentMaintenance.map(m => (
-            <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1a2f2f' }}>
-              <div>
-                <div style={{ color: 'white', fontSize: '13px' }}>{m.task}</div>
-                <div style={{ color: '#a0b0b0', fontSize: '12px' }}>{m.frequency}</div>
+
+        <div className="mp-card">
+          <SectionHead title="Recent Maintenance" count={recentMaintenance.length} />
+          {recentMaintenance.length === 0 ? <div style={{ fontSize:13, color:'var(--text-muted)' }}>No maintenance records</div>
+          : recentMaintenance.map(m => {
+            const sc = { Overdue:['#dc2626','#fee2e2'], 'Due Soon':['#d97706','#fef3c7'], Upcoming:['#00ABE4','#e0f4ff'], Completed:['#16a34a','#dcfce7'] };
+            const [c, bg] = sc[m.status] || ['#7a92a8','#f1f5f9'];
+            return (
+              <div key={m.id} className="mp-row" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid #eaf3fb' }}>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:600, color:'var(--text-bright)' }}>{m.task}</div>
+                  <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:1 }}>{m.frequency}</div>
+                </div>
+                <span style={{ fontSize:11, fontWeight:700, padding:'3px 9px', borderRadius:20, background:bg, color:c, whiteSpace:'nowrap' }}>{m.status}</span>
               </div>
-              <span className={`pm-status ${m.status?.toLowerCase().replace(' ', '-')}`} style={{ fontSize: '11px' }}>{m.status}</span>
+            );
+          })}
+        </div>
+
+        <div className="mp-card">
+          <SectionHead title="Recent Downtime" count={recentDowntime.length} />
+          {recentDowntime.length === 0 ? <div style={{ fontSize:13, color:'var(--text-muted)' }}>No downtime recorded</div>
+          : recentDowntime.map(d => (
+            <div key={d.id} className="mp-row" style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', padding:'9px 0', borderBottom:'1px solid #eaf3fb' }}>
+              <div style={{ flex:1, minWidth:0, paddingRight:10 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'var(--text-bright)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.description}</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:1 }}>{d.date} · {d.category}</div>
+              </div>
+              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:16, fontWeight:800, color:'#ea580c', flexShrink:0 }}>{d.hours}h</span>
             </div>
           ))}
         </div>
-        <div className="form-card">
-          <h3 style={{ marginBottom: '12px' }}>Recent Downtime</h3>
-          {recentDowntime.length === 0 ? <p style={{ color: '#a0b0b0', fontSize: '13px' }}>No downtime recorded</p> : recentDowntime.map(d => (
-            <div key={d.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1a2f2f' }}>
-              <div>
-                <div style={{ color: 'white', fontSize: '13px' }}>{d.description}</div>
-                <div style={{ color: '#a0b0b0', fontSize: '12px' }}>{d.date} · {d.category}</div>
-              </div>
-              <span style={{ color: '#ff6b00', fontSize: '12px', fontWeight: 'bold' }}>{d.hours}h</span>
-            </div>
-          ))}
-        </div>
+
       </div>
     </div>
   );

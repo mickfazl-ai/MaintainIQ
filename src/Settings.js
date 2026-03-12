@@ -144,7 +144,7 @@ function CompanyDetails({ userRole }) {
       <div style={card}>
         <SectionHeader icon="🏢" title="Company Logo" desc="Appears on reports, pre-starts and service sheets" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ width: '80px', height: '80px', borderRadius: '10px', border: '2px dashed #d6e6f2', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--blue-light)' }}>
+          <div style={{ width: '80px', height: '80px', borderRadius: '10px', border: '2px dashed var(--border)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--blue-light)' }}>
             {logoUrl
               ? <img src={logoUrl} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               : <span style={{ fontSize: '28px' }}>🏢</span>
@@ -178,7 +178,7 @@ function CompanyDetails({ userRole }) {
           <button onClick={handleSave} disabled={saving} style={saveBtn()}>
             {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save Changes'}
           </button>
-          {saved && <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>Changes saved successfully</span>}
+          {saved && <span style={{ fontSize: '13px', color: 'var(--green)', fontWeight: 600 }}>Changes saved successfully</span>}
         </div>
       </div>
 
@@ -252,7 +252,7 @@ const FORMAT_CSS = `
     padding:7px 14px; border:none; border-radius:6px; font-size:12px; font-weight:600;
     cursor:pointer; transition:all 0.15s; font-family:inherit; color:#7a92a8; background:transparent;
   }
-  .fmt-seg-btn.on { background:#fff; color:#1a2b3c; box-shadow:0 1px 4px rgba(0,0,0,0.1); }
+  .fmt-seg-btn.on { background:var(--surface-3); color:var(--text-bright); box-shadow:0 0 8px rgba(0,212,255,0.12); }
 
   .fmt-density-card {
     border:2px solid #e2ecf5; border-radius:12px; padding:16px;
@@ -362,6 +362,7 @@ function LivePreview({ t, density, fontSize }) {
 function Format({ userRole }) {
   const [selected,   setSelected]   = useState(() => localStorage.getItem('mechiq_theme')      || 'default');
   const [hovered,    setHovered]    = useState(null);
+  const [sidebarScheme, setSidebarScheme] = useState(() => localStorage.getItem('mechiq_sidebar_scheme') || 'slate');
   const [density,    setDensity]    = useState(() => localStorage.getItem('mechiq_density')    || 'comfortable');
   const [fontSize,   setFontSize]   = useState(() => localStorage.getItem('mechiq_fontsize')   || 'medium');
   const [dateFormat, setDateFormat] = useState(() => localStorage.getItem('mechiq_datefmt')    || 'DD/MM/YYYY');
@@ -381,24 +382,32 @@ function Format({ userRole }) {
       document.head.appendChild(s);
     }
     applyTheme(localStorage.getItem('mechiq_theme') || 'default');
+    // Restore sidebar scheme
+    const savedScheme = localStorage.getItem('mechiq_sidebar_scheme') || 'slate';
+    document.body.className = document.body.className.replace(/scheme-\S+/g, '').trim();
+    if (savedScheme !== 'slate') document.body.classList.add('scheme-' + savedScheme);
   }, []);
 
   const handleApply = () => {
     setApplying(true);
     setTimeout(() => {
-      localStorage.setItem('mechiq_theme',   selected);
-      localStorage.setItem('mechiq_density', density);
-      localStorage.setItem('mechiq_fontsize',fontSize);
-      localStorage.setItem('mechiq_datefmt', dateFormat);
-      localStorage.setItem('mechiq_units',   units);
-      localStorage.setItem('mechiq_tz',      timezone);
+      localStorage.setItem('mechiq_theme',          selected);
+      localStorage.setItem('mechiq_density',        density);
+      localStorage.setItem('mechiq_fontsize',       fontSize);
+      localStorage.setItem('mechiq_datefmt',        dateFormat);
+      localStorage.setItem('mechiq_units',          units);
+      localStorage.setItem('mechiq_tz',             timezone);
+      localStorage.setItem('mechiq_sidebar_scheme', sidebarScheme);
       applyTheme(selected);
+      // Apply sidebar colour scheme class
+      document.body.className = document.body.className.replace(/scheme-\S+/g, '').trim();
+      if (sidebarScheme !== 'slate') document.body.classList.add('scheme-' + sidebarScheme);
       setApplying(false); setSaved(true);
       setTimeout(() => setSaved(false), 4000);
     }, 500);
   };
 
-  const panelStyle = { background:'#fff', border:'1px solid #e2ecf5', borderRadius:'18px', padding:'24px', marginBottom:'20px', boxShadow:'0 2px 12px rgba(0,100,180,0.06)' };
+  const panelStyle = { background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'18px', padding:'24px', marginBottom:'20px', boxShadow:'0 2px 12px rgba(0,100,180,0.06)' };
   const panelHead  = (emoji, title, desc) => (
     <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'22px',paddingBottom:'14px',borderBottom:'1.5px solid var(--border-light)'}}>
       <div style={{width:'3px',height:'32px',backgroundColor:'var(--blue-bright)',borderRadius:'2px',flexShrink:0}} />
@@ -414,10 +423,10 @@ function Format({ userRole }) {
 
       {/* ── Page title ── */}
       <div style={{marginBottom:'28px'}}>
-        <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'30px',fontWeight:900,color:'#1a2b3c',textTransform:'uppercase',letterSpacing:'1px',margin:'0 0 4px'}}>
+        <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'30px',fontWeight:900,color:'var(--text-bright)',textTransform:'uppercase',letterSpacing:'1px',margin:'0 0 4px'}}>
           Format <span style={{color:activeT.primary}}>&</span> Theme
         </h2>
-        <p style={{fontSize:'13px',color:'#7a92a8',margin:0}}>Personalise MechIQ's look, feel and data display. Changes apply instantly across the entire app.</p>
+        <p style={{fontSize:'13px',color:'var(--text-muted)',margin:0}}>Personalise MechIQ's look, feel and data display. Changes apply instantly across the entire app.</p>
       </div>
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 360px',gap:'24px',alignItems:'start'}}>
@@ -442,7 +451,7 @@ function Format({ userRole }) {
                   <div style={{height:'42px',background:t.gradient,display:'flex',alignItems:'center',justifyContent:'center',position:'relative'}}>
                     
                     {selected===t.id && (
-                      <div style={{position:'absolute',top:'6px',right:'6px',width:'16px',height:'16px',borderRadius:'50%',background:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      <div style={{position:'absolute',top:'6px',right:'6px',width:'16px',height:'16px',borderRadius:'50%',background:'var(--surface)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <div style={{width:'8px',height:'8px',borderRadius:'50%',background:t.primary}}/>
                       </div>
                     )}
@@ -454,6 +463,47 @@ function Format({ userRole }) {
                     <div style={{fontSize:'11px',fontWeight:800,color:t.dark}}>{t.label}</div>
                     <div style={{fontSize:'10px',color:t.textMuted,marginTop:'1px'}}>{t.tagline}</div>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Sidebar colour scheme ── */}
+          <div style={panelStyle}>
+            {panelHead('🖥', 'Sidebar Style', 'Choose the colour skin for the left navigation panel')}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'10px'}}>
+              {[
+                {id:'slate',   label:'Slate',   desc:'Dark navy — default', bg:'#111827', accent:'#00ABE4'},
+                {id:'carbon',  label:'Carbon',  desc:'Near-black minimal',  bg:'#0a0f14', accent:'#00ABE4'},
+                {id:'ocean',   label:'Ocean',   desc:'Deep blue tones',     bg:'#0c1e35', accent:'#0099d6'},
+                {id:'forest',  label:'Forest',  desc:'Dark green earthy',   bg:'#0d1f17', accent:'#22c55e'},
+                {id:'amber',   label:'Amber',   desc:'Warm industrial',     bg:'#1c1407', accent:'#f59e0b'},
+                {id:'light',   label:'Light',   desc:'White / inverted',    bg:'#ffffff', accent:'#00ABE4'},
+              ].map(s => (
+                <div
+                  key={s.id}
+                  onClick={() => setSidebarScheme(s.id)}
+                  style={{
+                    border: `1px solid ${sidebarScheme === s.id ? s.accent : 'var(--border)'}`,
+                    borderRadius: '10px', padding: '12px', cursor: 'pointer',
+                    background: sidebarScheme === s.id ? `${s.accent}10` : 'var(--surface-2)',
+                    boxShadow: sidebarScheme === s.id ? `0 0 16px ${s.accent}20` : 'none',
+                    transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '10px',
+                  }}
+                >
+                  {/* Mini sidebar swatch */}
+                  <div style={{width:28,height:36,borderRadius:5,background:s.bg,flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:3}}>
+                    {[0,1,2].map(i=><div key={i} style={{width:14,height:3,borderRadius:2,background:i===0?s.accent:'rgba(255,255,255,0.25)'}}/>)}
+                  </div>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:'var(--text-bright)'}}>{s.label}</div>
+                    <div style={{fontSize:11,color:'var(--text-muted)',marginTop:1}}>{s.desc}</div>
+                  </div>
+                  {sidebarScheme === s.id && (
+                    <div style={{marginLeft:'auto',width:16,height:16,borderRadius:'50%',background:s.accent,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      <div style={{width:6,height:6,borderRadius:'50%',background:'var(--surface)'}}/>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -474,8 +524,8 @@ function Format({ userRole }) {
                   onClick={() => setDensity(d.id)}
                 >
                   <div style={{fontSize:'16px',letterSpacing:density===d.id?'4px':'1px',color:density===d.id?activeT.primary:'#7a92a8',marginBottom:'8px',transition:'all 0.2s'}}>{d.icon}</div>
-                  <div style={{fontSize:'12px',fontWeight:800,color:'#1a2b3c',marginBottom:'3px'}}>{d.label}</div>
-                  <div style={{fontSize:'11px',color:'#7a92a8'}}>{d.desc}</div>
+                  <div style={{fontSize:'12px',fontWeight:800,color:'var(--text-bright)',marginBottom:'3px'}}>{d.label}</div>
+                  <div style={{fontSize:'11px',color:'var(--text-muted)'}}>{d.desc}</div>
                 </div>
               ))}
             </div>
@@ -488,8 +538,8 @@ function Format({ userRole }) {
             {/* Font size */}
             <div className="fmt-pref-row">
               <div>
-                <div style={{fontSize:'13px',fontWeight:700,color:'#1a2b3c'}}>Font Size</div>
-                <div style={{fontSize:'11px',color:'#7a92a8',marginTop:'2px'}}>Base text size throughout the app</div>
+                <div style={{fontSize:'13px',fontWeight:700,color:'var(--text-bright)'}}>Font Size</div>
+                <div style={{fontSize:'11px',color:'var(--text-muted)',marginTop:'2px'}}>Base text size throughout the app</div>
               </div>
               <div className="fmt-seg">
                 {['small','medium','large'].map(s => (
@@ -501,8 +551,8 @@ function Format({ userRole }) {
             {/* Date format */}
             <div className="fmt-pref-row">
               <div>
-                <div style={{fontSize:'13px',fontWeight:700,color:'#1a2b3c'}}>Date Format</div>
-                <div style={{fontSize:'11px',color:'#7a92a8',marginTop:'2px'}}>How dates appear across the platform</div>
+                <div style={{fontSize:'13px',fontWeight:700,color:'var(--text-bright)'}}>Date Format</div>
+                <div style={{fontSize:'11px',color:'var(--text-muted)',marginTop:'2px'}}>How dates appear across the platform</div>
               </div>
               <div className="fmt-seg">
                 {['DD/MM/YYYY','MM/DD/YYYY','YYYY-MM-DD'].map(f => (
@@ -514,8 +564,8 @@ function Format({ userRole }) {
             {/* Timezone */}
             <div className="fmt-pref-row">
               <div>
-                <div style={{fontSize:'13px',fontWeight:700,color:'#1a2b3c'}}>Time Zone</div>
-                <div style={{fontSize:'11px',color:'#7a92a8',marginTop:'2px'}}>Used for timestamps and scheduling</div>
+                <div style={{fontSize:'13px',fontWeight:700,color:'var(--text-bright)'}}>Time Zone</div>
+                <div style={{fontSize:'11px',color:'var(--text-muted)',marginTop:'2px'}}>Used for timestamps and scheduling</div>
               </div>
               <div className="fmt-seg">
                 {[['AEST','Eastern'],['ACST','Central'],['AWST','Western']].map(([id,lbl]) => (
@@ -527,8 +577,8 @@ function Format({ userRole }) {
             {/* Units */}
             <div className="fmt-pref-row">
               <div>
-                <div style={{fontSize:'13px',fontWeight:700,color:'#1a2b3c'}}>Measurement Units</div>
-                <div style={{fontSize:'11px',color:'#7a92a8',marginTop:'2px'}}>Distances, weights and volumes</div>
+                <div style={{fontSize:'13px',fontWeight:700,color:'var(--text-bright)'}}>Measurement Units</div>
+                <div style={{fontSize:'11px',color:'var(--text-muted)',marginTop:'2px'}}>Distances, weights and volumes</div>
               </div>
               <div className="fmt-seg">
                 {[['metric','Metric (km/kg)'],['imperial','Imperial (mi/lb)']].map(([id,lbl]) => (
@@ -549,9 +599,9 @@ function Format({ userRole }) {
               {applying ? '⟳  Applying…' : saved ? '✓  Saved!' : `Apply ${activeT.label}`}
             </button>
             {saved && (
-              <div style={{display:'flex',alignItems:'center',gap:'8px',padding:'11px 18px',background:'#dcfce7',border:'1px solid #86efac',borderRadius:'12px',animation:'fmt-fadein 0.3s ease'}}>
+              <div style={{display:'flex',alignItems:'center',gap:'8px',padding:'11px 18px',background:'var(--green-glow)',border:'1px solid #86efac',borderRadius:'12px',animation:'fmt-fadein 0.3s ease'}}>
                 <span style={{fontSize:'18px'}}>🎨</span>
-                <span style={{fontSize:'13px',fontWeight:700,color:'#16a34a'}}>Theme applied across MechIQ</span>
+                <span style={{fontSize:'13px',fontWeight:700,color:'var(--green)'}}>Theme applied across MechIQ</span>
               </div>
             )}
           </div>
@@ -562,7 +612,7 @@ function Format({ userRole }) {
           {/* Live label */}
           <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'12px'}}>
             <div style={{width:'8px',height:'8px',borderRadius:'50%',background:'#16a34a',animation:'fmt-pulse 2s ease-in-out infinite'}}/>
-            <span style={{fontSize:'10px',fontWeight:800,color:'#7a92a8',letterSpacing:'1.5px',textTransform:'uppercase'}}>
+            <span style={{fontSize:'10px',fontWeight:800,color:'var(--text-muted)',letterSpacing:'1.5px',textTransform:'uppercase'}}>
               Live Preview
             </span>
             <span style={{fontSize:'12px',fontWeight:700,color:previewT.primary,marginLeft:'2px'}}>
@@ -593,9 +643,9 @@ function Format({ userRole }) {
           {/* Density + font size preview labels */}
           <div style={{marginTop:'10px',display:'flex',gap:'8px'}}>
             {[['📐',density],['🔤',fontSize],['📅',dateFormat.split('/')[0]==='DD'?'AU date':'US date']].map(([ic,lbl])=>(
-              <div key={lbl} style={{flex:1,padding:'8px',background:'#f8fafc',border:'1px solid #e2ecf5',borderRadius:'8px',textAlign:'center'}}>
+              <div key={lbl} style={{flex:1,padding:'8px',background:'#f8fafc',border:'1px solid var(--border)',borderRadius:'8px',textAlign:'center'}}>
                 <div style={{fontSize:'14px',marginBottom:'2px'}}>{ic}</div>
-                <div style={{fontSize:'10px',fontWeight:700,color:'#3d5166',textTransform:'capitalize'}}>{lbl}</div>
+                <div style={{fontSize:'10px',fontWeight:700,color:'var(--text-mid)',textTransform:'capitalize'}}>{lbl}</div>
               </div>
             ))}
           </div>
@@ -634,7 +684,7 @@ function Notifications({ userRole }) {
       onClick={() => toggle(k)}
       style={{
         width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer',
-        backgroundColor: prefs[k] ? '#00ABE4' : '#d6e6f2',
+        background: prefs[k] ? 'var(--cyan)' : 'var(--surface-3)',
         position: 'relative', transition: 'background 0.2s', flexShrink: 0,
       }}
     >
@@ -705,7 +755,7 @@ function Notifications({ userRole }) {
       ))}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <button onClick={handleSave} style={saveBtn()}>Save Notifications</button>
-        {saved && <span style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600 }}>✓ Preferences saved</span>}
+        {saved && <span style={{ fontSize: '13px', color: 'var(--green)', fontWeight: 600 }}>✓ Preferences saved</span>}
       </div>
     </div>
   );
@@ -833,7 +883,7 @@ function UsersRoles({ userRole }) {
                   <td style={{ padding: '12px 14px' }}>
                     {u.role !== 'master' && u.email !== userRole?.email && (
                       <button onClick={() => handleDeactivate(u.id, u.name)}
-                        style={{ padding: '5px 12px', backgroundColor: 'var(--surface)', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+                        style={{ padding: '5px 12px', backgroundColor: 'var(--surface)', color: 'var(--red)', border: '1px solid #dc2626', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
                         Remove
                       </button>
                     )}
@@ -879,7 +929,7 @@ function Billing({ userRole }) {
             { label: 'Asset Limit', value: company?.asset_limit || 10 },
           ].map(({ label: l, value }) => (
             <div key={l} style={{ backgroundColor: 'var(--blue-light)', borderRadius: '8px', padding: '16px 24px', textAlign: 'center', minWidth: '120px' }}>
-              <div style={{ fontSize: '24px', fontWeight: 900, color: '#00ABE4' }}>{value}</div>
+              <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--cyan)' }}>{value}</div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '1px', marginTop: '4px' }}>{l}</div>
             </div>
           ))}
@@ -892,18 +942,18 @@ function Billing({ userRole }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
           {plans.map(p => (
             <div key={p.id} style={{
-              border: current === p.id ? '2px solid #00ABE4' : '1px solid #d6e6f2',
+              border: current === p.id ? '1px solid var(--cyan-dim)' : '1px solid var(--border)',
               borderRadius: '10px', padding: '20px',
-              backgroundColor: current === p.id ? '#E9F1FA' : '#fff',
+              backgroundColor: current === p.id ? 'var(--cyan-glow)' : 'var(--surface-2)',
               position: 'relative',
             }}>
               {current === p.id && (
-                <div style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#00ABE4', color: '#fff', fontSize: '10px', fontWeight: 700, padding: '3px 10px', borderRadius: '10px', whiteSpace: 'nowrap' }}>
+                <div style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', backgroundColor: 'var(--cyan)', color: '#fff', fontSize: '10px', fontWeight: 700, padding: '3px 10px', borderRadius: '10px', whiteSpace: 'nowrap' }}>
                   CURRENT PLAN
                 </div>
               )}
               <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-dark)', marginBottom: '4px' }}>{p.label}</div>
-              <div style={{ fontSize: '22px', fontWeight: 900, color: '#00ABE4', marginBottom: '4px' }}>{p.price}</div>
+              <div style={{ fontSize: '22px', fontWeight: 900, color: 'var(--cyan)', marginBottom: '4px' }}>{p.price}</div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px' }}>Up to {p.assets === 999 ? 'unlimited' : p.assets} assets</div>
               {p.features.map(f => <div key={f} style={{ fontSize: '12px', color: 'var(--text-mid)', marginBottom: '4px' }}>✓ {f}</div>)}
               {current !== p.id && (
@@ -917,7 +967,7 @@ function Billing({ userRole }) {
           ))}
         </div>
         <div style={{ marginTop: '16px', fontSize: '12px', color: 'var(--text-muted)' }}>
-          To upgrade your plan contact us at <a href="mailto:info@mechiq.com.au" style={{ color: '#00ABE4' }}>info@mechiq.com.au</a>
+          To upgrade your plan contact us at <a href="mailto:info@mechiq.com.au" style={{ color: 'var(--cyan)' }}>info@mechiq.com.au</a>
         </div>
       </div>
     </div>
@@ -1001,11 +1051,11 @@ function DataExport({ userRole }) {
       <div style={card}>
         <SectionHeader icon="🗑️" title="Danger Zone" desc="Irreversible actions — proceed with caution" />
         <div style={{ border: '1px solid #fecaca', borderRadius: '8px', padding: '18px', backgroundColor: '#fef2f2' }}>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: '#dc2626', marginBottom: '6px' }}>Delete All Company Data</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--red)', marginBottom: '6px' }}>Delete All Company Data</div>
           <div style={{ fontSize: '13px', color: 'var(--text-mid)', marginBottom: '14px' }}>Permanently removes all assets, maintenance records, work orders and oil samples. This cannot be undone. Export your data first.</div>
           <button
             onClick={() => { if (window.confirm('Are you sure? Contact info@mechiq.com.au to request a full account deletion.')) { window.location.href = 'mailto:info@mechiq.com.au?subject=Account Deletion Request'; } }}
-            style={{ padding: '9px 20px', backgroundColor: 'var(--surface)', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+            style={{ padding: '9px 20px', backgroundColor: 'var(--surface)', color: 'var(--red)', border: '1px solid #dc2626', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
             Request Account Deletion
           </button>
         </div>

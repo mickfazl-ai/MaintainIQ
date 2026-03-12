@@ -5,11 +5,11 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 // ─── Condition badge ──────────────────────────────────────────────────────────
 function ConditionBadge({ condition }) {
   const map = {
-    Normal:   { bg: '#dcfce7', color: '#16a34a', dot: '#16a34a' },
-    Monitor:  { bg: '#fef9c3', color: '#d97706', dot: '#d97706' },
-    Critical: { bg: '#fee2e2', color: '#dc2626', dot: '#dc2626' },
+    Normal:   { bg: '#dcfce7', color: 'var(--green)', dot: '#16a34a' },
+    Monitor:  { bg: '#fef9c3', color: 'var(--amber)', dot: '#d97706' },
+    Critical: { bg: '#fee2e2', color: 'var(--red)', dot: '#dc2626' },
   };
-  const s = map[condition] || { bg: '#E9F1FA', color: '#7a92a8', dot: '#7a92a8' };
+  const s = map[condition] || { bg: '#E9F1FA', color: 'var(--text-muted)', dot: '#7a92a8' };
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '12px', backgroundColor: s.bg, color: s.color, fontWeight: 700, fontSize: '12px' }}>
       <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: s.dot, display: 'inline-block' }} />
@@ -29,10 +29,10 @@ function MetalBar({ metal, value }) {
   return (
     <div style={{ marginBottom: '8px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '3px' }}>
-        <span style={{ color: '#3d5166', fontWeight: 600 }}>{METAL_LABELS[metal] || metal.toUpperCase()} ({metal.toUpperCase()})</span>
+        <span style={{ color: 'var(--text-mid)', fontWeight: 600 }}>{METAL_LABELS[metal] || metal.toUpperCase()} ({metal.toUpperCase()})</span>
         <span style={{ color, fontWeight: 700 }}>{value ?? '—'} ppm</span>
       </div>
-      <div style={{ height: '6px', backgroundColor: '#E9F1FA', borderRadius: '3px', overflow: 'hidden' }}>
+      <div style={{ height: '6px', backgroundColor: 'var(--base)', borderRadius: '3px', overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', backgroundColor: color, borderRadius: '3px', transition: 'width 0.4s' }} />
       </div>
     </div>
@@ -49,17 +49,17 @@ function SampleDetail({ sample }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '20px' }}>
 
         {/* Wear Metals */}
-        <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #d6e6f2' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#7a92a8', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px' }}>Wear Metals</div>
+        <div style={{ backgroundColor: 'var(--surface)', borderRadius: '8px', padding: '16px', border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px' }}>Wear Metals</div>
           {metalKeys.length > 0
             ? metalKeys.map(k => <MetalBar key={k} metal={k} value={metals[k]} />)
-            : <div style={{ color: '#7a92a8', fontSize: '13px' }}>No wear metal data</div>
+            : <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No wear metal data</div>
           }
         </div>
 
         {/* Fluid Properties */}
-        <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #d6e6f2' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#7a92a8', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px' }}>Fluid Properties</div>
+        <div style={{ backgroundColor: 'var(--surface)', borderRadius: '8px', padding: '16px', border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px' }}>Fluid Properties</div>
           {[
             { label: 'Viscosity @40°C', value: sample.viscosity_40 ? `${sample.viscosity_40} cSt` : '—' },
             { label: 'Viscosity @100°C', value: sample.viscosity_100 ? `${sample.viscosity_100} cSt` : '—' },
@@ -70,35 +70,35 @@ function SampleDetail({ sample }) {
             { label: 'Oil Hours', value: sample.oil_hours ? `${sample.oil_hours} hrs` : '—' },
             { label: 'Unit Hours', value: sample.unit_hours ? `${sample.unit_hours} hrs` : '—' },
           ].map(({ label, value }) => (
-            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px', paddingBottom: '6px', borderBottom: '1px solid #f0f5fa' }}>
-              <span style={{ color: '#7a92a8' }}>{label}</span>
-              <span style={{ color: '#1a2b3c', fontWeight: 600 }}>{value}</span>
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px', paddingBottom: '6px', borderBottom: '1px solid var(--border-dim)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+              <span style={{ color: 'var(--text-bright)', fontWeight: 600 }}>{value}</span>
             </div>
           ))}
         </div>
 
         {/* AI Analysis */}
-        <div style={{ backgroundColor: '#fff', borderRadius: '8px', padding: '16px', border: '1px solid #d6e6f2' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#7a92a8', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px' }}>AI Analysis</div>
+        <div style={{ backgroundColor: 'var(--surface)', borderRadius: '8px', padding: '16px', border: '1px solid var(--border)' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '12px' }}>AI Analysis</div>
           <div style={{ marginBottom: '14px' }}>
             <ConditionBadge condition={sample.ai_condition} />
           </div>
           {sample.ai_analysis && (
             <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#3d5166', marginBottom: '4px' }}>SUMMARY</div>
-              <div style={{ fontSize: '12px', color: '#3d5166', lineHeight: 1.6 }}>{sample.ai_analysis}</div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-mid)', marginBottom: '4px' }}>SUMMARY</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-mid)', lineHeight: 1.6 }}>{sample.ai_analysis}</div>
             </div>
           )}
           {sample.ai_recommendations && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#3d5166', marginBottom: '4px' }}>RECOMMENDATIONS</div>
-              <div style={{ fontSize: '12px', color: '#3d5166', lineHeight: 1.6, backgroundColor: '#E9F1FA', padding: '8px 10px', borderRadius: '6px', borderLeft: '3px solid #00ABE4' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-mid)', marginBottom: '4px' }}>RECOMMENDATIONS</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-mid)', lineHeight: 1.6, backgroundColor: 'var(--base)', padding: '8px 10px', borderRadius: '6px', borderLeft: '3px solid #00ABE4' }}>
                 {sample.ai_recommendations}
               </div>
             </div>
           )}
           {sample.lab_name && (
-            <div style={{ marginTop: '10px', fontSize: '11px', color: '#7a92a8' }}>Lab: {sample.lab_name}</div>
+            <div style={{ marginTop: '10px', fontSize: '11px', color: 'var(--text-muted)' }}>Lab: {sample.lab_name}</div>
           )}
         </div>
       </div>
@@ -122,13 +122,13 @@ function TrendModal({ assetNumber, samples, onClose }) {
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-      <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '800px', maxHeight: '85vh', overflowY: 'auto' }}>
+      <div style={{ backgroundColor: 'var(--surface)', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '800px', maxHeight: '85vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: '#1a2b3c' }}>{assetNumber} — Wear Metal Trends</div>
-            <div style={{ fontSize: '13px', color: '#7a92a8' }}>{assetSamples.length} samples on record</div>
+            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-bright)' }}>{assetNumber} — Wear Metal Trends</div>
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{assetSamples.length} samples on record</div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#7a92a8' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-muted)' }}>✕</button>
         </div>
         {chartData.length >= 2 ? (
           <ResponsiveContainer width="100%" height={300}>
@@ -145,13 +145,13 @@ function TrendModal({ assetNumber, samples, onClose }) {
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#7a92a8' }}>Need at least 2 samples to show trends</div>
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Need at least 2 samples to show trends</div>
         )}
         <div style={{ marginTop: '20px' }}>
           {assetSamples.map(s => (
             <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #E9F1FA', fontSize: '13px' }}>
-              <span style={{ color: '#7a92a8' }}>{s.sample_date}</span>
-              <span style={{ color: '#1a2b3c', fontWeight: 600 }}>{s.component}</span>
+              <span style={{ color: 'var(--text-muted)' }}>{s.sample_date}</span>
+              <span style={{ color: 'var(--text-bright)', fontWeight: 600 }}>{s.component}</span>
               <ConditionBadge condition={s.ai_condition} />
             </div>
           ))}
@@ -205,7 +205,7 @@ function OilSampling({ userRole }) {
   const uniqueComponents = [...new Set(samples.map(s => s.component).filter(Boolean))];
 
   const cardStyle = (color) => ({
-    backgroundColor: '#fff', border: `1px solid #d6e6f2`, borderRadius: '10px',
+    backgroundColor: 'var(--surface)', border: `1px solid #d6e6f2`, borderRadius: '10px',
     padding: '18px', textAlign: 'center', borderTop: `3px solid ${color}`,
   });
 
@@ -214,12 +214,12 @@ function OilSampling({ userRole }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <div>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#1a2b3c', margin: '0 0 4px' }}>Oil Sampling</h2>
-          <p style={{ fontSize: '13px', color: '#7a92a8', margin: 0 }}>AI-powered oil analysis results — automatically extracted from lab reports</p>
+          <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-bright)', margin: '0 0 4px' }}>Oil Sampling</h2>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>AI-powered oil analysis results — automatically extracted from lab reports</p>
         </div>
-        <div style={{ fontSize: '12px', color: '#7a92a8', textAlign: 'right', backgroundColor: '#E9F1FA', padding: '8px 14px', borderRadius: '8px' }}>
-          <div style={{ fontWeight: 700, color: '#3d5166', marginBottom: '2px' }}>Submit reports to:</div>
-          <div style={{ fontFamily: 'monospace', color: '#00ABE4', fontWeight: 600 }}>
+        <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'right', backgroundColor: 'var(--base)', padding: '8px 14px', borderRadius: '8px' }}>
+          <div style={{ fontWeight: 700, color: 'var(--text-mid)', marginBottom: '2px' }}>Submit reports to:</div>
+          <div style={{ fontFamily: 'monospace', color: 'var(--cyan)', fontWeight: 600 }}>
             oilsamples+{(userRole?.company_id || 'company').slice(0, 8)}@mechiq.com.au
           </div>
         </div>
@@ -228,14 +228,14 @@ function OilSampling({ userRole }) {
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
         {[
-          { label: 'Total Samples', value: counts.total, color: '#00ABE4' },
-          { label: 'Normal', value: counts.normal, color: '#16a34a' },
-          { label: 'Monitor', value: counts.monitor, color: '#d97706' },
-          { label: 'Critical', value: counts.critical, color: '#dc2626' },
+          { label: 'Total Samples', value: counts.total, color: 'var(--cyan)' },
+          { label: 'Normal', value: counts.normal, color: 'var(--green)' },
+          { label: 'Monitor', value: counts.monitor, color: 'var(--amber)' },
+          { label: 'Critical', value: counts.critical, color: 'var(--red)' },
         ].map(c => (
           <div key={c.label} style={cardStyle(c.color)}>
             <div style={{ fontSize: '32px', fontWeight: 900, color: c.color }}>{c.value}</div>
-            <div style={{ fontSize: '12px', color: '#7a92a8', marginTop: '4px' }}>{c.label}</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>{c.label}</div>
           </div>
         ))}
       </div>
@@ -243,25 +243,25 @@ function OilSampling({ userRole }) {
       {/* Filters */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <select value={filterAsset} onChange={e => setFilterAsset(e.target.value)}
-          style={{ padding: '7px 12px', border: '1px solid #d6e6f2', borderRadius: '6px', fontSize: '13px', color: '#1a2b3c', backgroundColor: '#fff', cursor: 'pointer' }}>
+          style={{ padding: '7px 12px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', color: 'var(--text-bright)', backgroundColor: 'var(--surface)', cursor: 'pointer' }}>
           <option value="">All Assets</option>
           {uniqueAssets.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
         <select value={filterCondition} onChange={e => setFilterCondition(e.target.value)}
-          style={{ padding: '7px 12px', border: '1px solid #d6e6f2', borderRadius: '6px', fontSize: '13px', color: '#1a2b3c', backgroundColor: '#fff', cursor: 'pointer' }}>
+          style={{ padding: '7px 12px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', color: 'var(--text-bright)', backgroundColor: 'var(--surface)', cursor: 'pointer' }}>
           <option value="">All Conditions</option>
           <option value="Normal">Normal</option>
           <option value="Monitor">Monitor</option>
           <option value="Critical">Critical</option>
         </select>
         <select value={filterComponent} onChange={e => setFilterComponent(e.target.value)}
-          style={{ padding: '7px 12px', border: '1px solid #d6e6f2', borderRadius: '6px', fontSize: '13px', color: '#1a2b3c', backgroundColor: '#fff', cursor: 'pointer' }}>
+          style={{ padding: '7px 12px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', color: 'var(--text-bright)', backgroundColor: 'var(--surface)', cursor: 'pointer' }}>
           <option value="">All Components</option>
           {uniqueComponents.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         {(filterAsset || filterCondition || filterComponent) && (
           <button onClick={() => { setFilterAsset(''); setFilterCondition(''); setFilterComponent(''); }}
-            style={{ padding: '7px 14px', border: '1px solid #d6e6f2', borderRadius: '6px', fontSize: '13px', color: '#7a92a8', backgroundColor: '#fff', cursor: 'pointer' }}>
+            style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', color: 'var(--text-muted)', backgroundColor: 'var(--surface)', cursor: 'pointer' }}>
             Clear Filters
           </button>
         )}
@@ -269,22 +269,22 @@ function OilSampling({ userRole }) {
 
       {/* Table */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#7a92a8' }}>Loading samples...</div>
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Loading samples...</div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', color: '#7a92a8', backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #d6e6f2' }}>
+        <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)', backgroundColor: 'var(--surface)', borderRadius: '10px', border: '1px solid var(--border)' }}>
           <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔬</div>
-          <div style={{ fontSize: '16px', fontWeight: 700, color: '#3d5166', marginBottom: '6px' }}>No oil samples yet</div>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-mid)', marginBottom: '6px' }}>No oil samples yet</div>
           <div style={{ fontSize: '13px', maxWidth: '400px', margin: '0 auto', lineHeight: 1.6 }}>
             Ask your oil analysis lab to email reports to your company address above. Results will appear here automatically within 6 hours.
           </div>
         </div>
       ) : (
-        <div style={{ backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #d6e6f2', overflow: 'hidden' }}>
+        <div style={{ backgroundColor: 'var(--surface)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ backgroundColor: '#E9F1FA' }}>
+              <tr style={{ backgroundColor: 'var(--base)' }}>
                 {['Date', 'Asset', 'Component', 'Condition', 'Key Metals (Fe/Cu/Al)', 'Lab', ''].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#7a92a8', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -295,14 +295,14 @@ function OilSampling({ userRole }) {
                     style={{ borderBottom: '1px solid #E9F1FA', cursor: 'pointer', backgroundColor: expandedId === sample.id ? '#f8fbfd' : '#fff' }}
                     onClick={() => setExpandedId(expandedId === sample.id ? null : sample.id)}
                   >
-                    <td style={{ padding: '12px 14px', fontSize: '13px', color: '#3d5166', whiteSpace: 'nowrap' }}>{sample.sample_date || '—'}</td>
+                    <td style={{ padding: '12px 14px', fontSize: '13px', color: 'var(--text-mid)', whiteSpace: 'nowrap' }}>{sample.sample_date || '—'}</td>
                     <td style={{ padding: '12px 14px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#00ABE4' }}>{sample.asset_number || '—'}</div>
-                      <div style={{ fontSize: '11px', color: '#7a92a8' }}>{sample.asset_name || ''}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--cyan)' }}>{sample.asset_number || '—'}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{sample.asset_name || ''}</div>
                     </td>
-                    <td style={{ padding: '12px 14px', fontSize: '13px', color: '#3d5166', textTransform: 'capitalize' }}>{sample.component || '—'}</td>
+                    <td style={{ padding: '12px 14px', fontSize: '13px', color: 'var(--text-mid)', textTransform: 'capitalize' }}>{sample.component || '—'}</td>
                     <td style={{ padding: '12px 14px' }}><ConditionBadge condition={sample.ai_condition} /></td>
-                    <td style={{ padding: '12px 14px', fontSize: '12px', color: '#3d5166' }}>
+                    <td style={{ padding: '12px 14px', fontSize: '12px', color: 'var(--text-mid)' }}>
                       {sample.wear_metals ? (
                         <span>
                           Fe: <strong>{sample.wear_metals.fe ?? '—'}</strong> &nbsp;
@@ -311,16 +311,16 @@ function OilSampling({ userRole }) {
                         </span>
                       ) : '—'}
                     </td>
-                    <td style={{ padding: '12px 14px', fontSize: '12px', color: '#7a92a8' }}>{sample.lab_name || '—'}</td>
+                    <td style={{ padding: '12px 14px', fontSize: '12px', color: 'var(--text-muted)' }}>{sample.lab_name || '—'}</td>
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button
                           onClick={e => { e.stopPropagation(); setTrendAsset(sample.asset_number); }}
-                          style={{ fontSize: '11px', padding: '4px 10px', backgroundColor: '#E9F1FA', color: '#3d5166', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                          style={{ fontSize: '11px', padding: '4px 10px', backgroundColor: 'var(--base)', color: 'var(--text-mid)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
                         >
                           Trends
                         </button>
-                        <span style={{ fontSize: '16px', color: '#7a92a8' }}>{expandedId === sample.id ? '▲' : '▼'}</span>
+                        <span style={{ fontSize: '16px', color: 'var(--text-muted)' }}>{expandedId === sample.id ? '▲' : '▼'}</span>
                       </div>
                     </td>
                   </tr>

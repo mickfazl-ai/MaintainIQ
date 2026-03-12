@@ -5,82 +5,85 @@ import { QRCodeCanvas } from 'qrcode.react';
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const CSS = `
-  @keyframes shimmer {
-    0%   { background-position: -200% 0; }
-    100% { background-position:  200% 0; }
-  }
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(14px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes toast-in {
-    from { opacity: 0; transform: translateX(20px) scale(0.96); }
-    to   { opacity: 1; transform: translateX(0) scale(1); }
-  }
-  @keyframes toast-out {
-    from { opacity: 1; transform: translateX(0) scale(1); }
-    to   { opacity: 0; transform: translateX(20px) scale(0.96); }
-  }
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%       { opacity: 0.5; transform: scale(1.4); }
-  }
+  @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+  @keyframes fadeUp  { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes toast-in  { from{opacity:0;transform:translateX(20px) scale(0.96)} to{opacity:1;transform:translateX(0) scale(1)} }
+  @keyframes toast-out { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(20px)} }
+  @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.5)} }
+
   .asset-card {
-    background: #fff;
-    border: 1px solid #e2ecf5;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 0;
     overflow: hidden;
-    transition: box-shadow 0.22s ease, transform 0.22s ease;
+    transition: all 0.2s;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,100,180,0.06);
+    position: relative;
   }
-  .asset-card:hover {
-    box-shadow: 0 12px 36px rgba(0,100,180,0.14), 0 2px 6px rgba(0,0,0,0.05);
-    transform: translateY(-3px);
+  .asset-card::before {
+    content:''; position:absolute; top:0;left:0;right:0; height:1px;
+    background:linear-gradient(90deg,transparent,rgba(0,212,255,0.4),transparent);
+    opacity:0; transition:opacity 0.2s;
   }
-  .asset-card:hover .card-actions { opacity: 1 !important; }
-  .card-actions { opacity: 0; transition: opacity 0.18s; }
+  .asset-card:hover { box-shadow:0 0 32px rgba(0,212,255,0.12); border-color:rgba(0,180,255,0.25); transform:translateY(-3px); }
+  .asset-card:hover::before { opacity:1; }
+  .asset-card:hover .card-actions { opacity:1 !important; }
+  .card-actions { opacity:0; transition:opacity 0.18s; }
+
   .form-input {
-    width: 100%; padding: 10px 13px; border: 1.5px solid #e2ecf5;
-    border-radius: 8px; font-size: 13px; color: #1a2b3c;
-    background: #fff; outline: none; box-sizing: border-box;
-    font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s;
+    width:100%; padding:10px 13px;
+    border:1px solid var(--border) !important;
+    border-radius:8px !important; font-size:13px;
+    color:var(--text-bright) !important;
+    background:var(--base) !important;
+    outline:none; box-sizing:border-box;
+    font-family:'Rajdhani',sans-serif !important;
+    transition:border-color 0.15s, box-shadow 0.15s !important;
   }
   .form-input:focus {
-    border-color: #00ABE4;
-    box-shadow: 0 0 0 3px rgba(0,171,228,0.12);
+    border-color:var(--cyan-dim) !important;
+    box-shadow:0 0 0 3px var(--cyan-glow) !important;
   }
-  .form-input::placeholder { color: #b0c4d4; }
-  .step-line { transition: background-color 0.4s ease; }
+  .form-input::placeholder { color:var(--text-faint) !important; }
+  .form-input option { background:var(--surface); color:var(--text-bright); }
+
+  .step-line { transition:background-color 0.4s ease; }
+
   .nav-pill {
-    padding: 7px 16px; border: none; border-radius: 8px;
-    font-size: 12px; font-weight: 700; cursor: pointer;
-    transition: all 0.15s; font-family: inherit; letter-spacing: 0.3px;
+    padding:8px 18px; border-radius:8px;
+    font-size:11px; font-weight:700; cursor:pointer;
+    transition:all 0.15s; font-family:'Rajdhani',sans-serif;
+    letter-spacing:1px; text-transform:uppercase; border:none;
   }
   .nav-pill-primary {
-    background: #00ABE4; color: #fff;
-    box-shadow: 0 4px 12px rgba(0,171,228,0.3);
+    background:transparent; color:var(--cyan);
+    border:1px solid var(--cyan-dim) !important;
   }
-  .nav-pill-primary:hover { background: #0096cc; box-shadow: 0 6px 16px rgba(0,171,228,0.4); transform: translateY(-1px); }
-  .nav-pill-primary:disabled { background: #d6e6f2; color: #b0c4d4; box-shadow: none; transform: none; cursor: default; }
-  .nav-pill-ghost { background: #f0f5fa; color: #3d5166; }
-  .nav-pill-ghost:hover { background: #e2ecf5; }
-  .nav-pill-ghost:disabled { opacity: 0.4; cursor: default; }
-  .nav-pill-success { background: #16a34a; color: #fff; box-shadow: 0 4px 12px rgba(22,163,74,0.3); }
-  .nav-pill-success:hover { background: #15803d; transform: translateY(-1px); }
+  .nav-pill-primary:hover { background:var(--cyan-glow); box-shadow:0 0 16px var(--cyan-glow); color:#fff; }
+  .nav-pill-primary:disabled { opacity:0.3; cursor:default; }
+  .nav-pill-ghost {
+    background:transparent; color:var(--text-muted);
+    border:1px solid var(--border) !important;
+  }
+  .nav-pill-ghost:hover { border-color:var(--cyan-dim) !important; color:var(--cyan); }
+  .nav-pill-ghost:disabled { opacity:0.3; cursor:default; }
+  .nav-pill-success {
+    background:transparent; color:var(--green);
+    border:1px solid var(--green-dim) !important;
+  }
+  .nav-pill-success:hover { background:var(--green-glow); box-shadow:0 0 14px var(--green-glow); }
 `;
 
 // ─── Status config ─────────────────────────────────────────────────────────────
 const STATUS = {
-  Running:     { color: '#16a34a', bg: '#dcfce7', dot: true },
-  Down:        { color: '#dc2626', bg: '#fee2e2', dot: true, pulse: true },
-  Maintenance: { color: '#d97706', bg: '#fef3c7', dot: true },
-  Active:      { color: '#16a34a', bg: '#dcfce7', dot: true },
-  Standby:     { color: '#7c3aed', bg: '#f5f3ff', dot: true },
+  Running:     { color: 'var(--green)', bg: 'var(--green-glow)', dot: true },
+  Down:        { color: 'var(--red)', bg: 'var(--red-glow)', dot: true, pulse: true },
+  Maintenance: { color: 'var(--amber)', bg: 'var(--amber-glow)', dot: true },
+  Active:      { color: 'var(--green)', bg: 'var(--green-glow)', dot: true },
+  Standby:     { color: 'var(--purple)', bg: 'var(--purple-glow)', dot: true },
 };
 function StatusPill({ status }) {
-  const s = STATUS[status] || { color: '#7a92a8', bg: '#f1f5f9', dot: true };
+  const s = STATUS[status] || { color: 'var(--text-muted)', bg: 'var(--surface-2)', dot: true };
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '20px', backgroundColor: s.bg, color: s.color, fontSize: '11px', fontWeight: 700, letterSpacing: '0.2px' }}>
       <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: s.color, flexShrink: 0, animation: s.pulse ? 'pulse-dot 1.8s ease-in-out infinite' : 'none' }} />
@@ -103,15 +106,15 @@ function useToast() {
   return { toasts, add };
 }
 function Toasts({ toasts }) {
-  const P = { success: ['#16a34a','#f0fdf4','✓'], error: ['#dc2626','#fef2f2','✕'], warning: ['#d97706','#fffbeb','⚠'], info: ['#00ABE4','#f0f8ff','ℹ'] };
+  const P = { success: ['#00ff88','rgba(0,255,136,0.08)','✓'], error: ['#ff3366','rgba(255,51,102,0.08)','✕'], warning: ['#ffaa00','rgba(255,170,0,0.08)','⚠'], info: ['#00d4ff','rgba(0,212,255,0.08)','ℹ'] };
   return (
     <div style={{ position: 'fixed', bottom: '28px', right: '28px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '10px', pointerEvents: 'none' }}>
       {toasts.map(t => {
         const [c, bg, icon] = P[t.type] || P.info;
         return (
-          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: bg, border: `1px solid ${c}28`, borderLeft: `4px solid ${c}`, borderRadius: '12px', padding: '12px 18px', boxShadow: '0 8px 28px rgba(0,0,0,0.1)', minWidth: '260px', animation: t.exiting ? 'toast-out 0.3s ease forwards' : 'toast-in 0.3s cubic-bezier(0.16,1,0.3,1)', pointerEvents: 'auto' }}>
+          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: bg, border: `1px solid ${c}28`, borderLeft: `4px solid ${c}`, borderRadius: '10px', padding: '12px 18px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)', minWidth: '260px', animation: t.exiting ? 'toast-out 0.3s ease forwards' : 'toast-in 0.3s cubic-bezier(0.16,1,0.3,1)', pointerEvents: 'auto' }}>
             <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: c+'22', display: 'flex', alignItems: 'center', justifyContent: 'center', color: c, fontWeight: 800, fontSize: '12px', flexShrink: 0 }}>{icon}</div>
-            <span style={{ fontSize: '13px', color: '#1a2b3c', fontWeight: 500 }}>{t.msg}</span>
+            <span style={{ fontSize: '13px', color: 'var(--text-bright)', fontWeight: 500, fontFamily: 'Rajdhani,sans-serif' }}>{t.msg}</span>
           </div>
         );
       })}
@@ -125,8 +128,8 @@ function Sk({ w = '100%', h = '13px', r = '6px', style = {} }) {
 }
 function AssetCardSkeleton() {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2ecf5', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,100,180,0.06)' }}>
-      <div style={{ height: '5px', background: '#edf2f8' }} />
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,100,180,0.06)' }}>
+      <div style={{ height: '5px', background: 'var(--surface-2)' }} />
       <div style={{ padding: '18px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '14px' }}>
           <Sk w="55%" h="14px" />
@@ -160,10 +163,10 @@ function QRModal({ asset, onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,20,40,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)' }}>
-      <div style={{ background: '#fff', borderRadius: '16px', padding: '28px', width: '400px', boxShadow: '0 24px 60px rgba(0,0,0,0.2)', animation: 'fadeUp 0.3s ease' }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid rgba(0,212,255,0.25)', borderRadius: '16px', padding: '28px', width: '400px', boxShadow: '0 24px 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,212,255,0.08)', animation: 'fadeUp 0.3s ease' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '18px', fontWeight: 800, color: '#1a2b3c', margin: 0, textTransform: 'uppercase' }}>QR Label Preview</h3>
-          <button onClick={onClose} style={{ background: '#f0f5fa', border: 'none', color: '#3d5166', width: '30px', height: '30px', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          <h3 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '18px', fontWeight: 800, color: 'var(--text-bright)', margin: 0, textTransform: 'uppercase', letterSpacing: '1px' }}>QR Label Preview</h3>
+          <button onClick={onClose} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', width: '30px', height: '30px', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>✕</button>
         </div>
         <div ref={ref} style={{ position: 'absolute', left: '-9999px' }}><QRCodeCanvas value={qrVal} size={300} level="H" /></div>
         <div style={{ background: '#0d1117', borderRadius: '12px', padding: '16px', display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
@@ -196,26 +199,26 @@ function AssetCard({ asset, index, onView, onDelete, onQR, userRole }) {
   return (
     <div
       className="asset-card"
-      style={{ animation: `fadeUp 0.4s ease ${index * 45}ms both`, borderTop: `3px solid ${s.color}` }}
+      style={{ animation: `fadeUp 0.4s ease ${index * 45}ms both`, borderTop: `2px solid ${s.color}40` }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       {/* Card header */}
       <div style={{ padding: '16px 18px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-          <div style={{ width: '38px', height: '38px', borderRadius: '10px', backgroundColor: s.color + '14', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
+          <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: `${s.color}18`, border: `1px solid ${s.color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
             {getIcon(asset.type)}
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#1a2b3c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
-            <div style={{ fontSize: '11px', color: '#00ABE4', fontWeight: 700, letterSpacing: '0.5px' }}>{asset.asset_number || '—'}</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-bright)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{asset.name}</div>
+            <div style={{ fontSize: '11px', color: 'var(--cyan)', fontWeight: 700, letterSpacing: '0.5px' }}>{asset.asset_number || '—'}</div>
           </div>
         </div>
         <StatusPill status={asset.status} />
       </div>
 
       {/* Divider */}
-      <div style={{ height: '1px', background: '#f0f5fa', margin: '14px 0 0' }} />
+      <div style={{ height: '1px', background: 'var(--border-dim)', margin: '14px 0 0' }} />
 
       {/* Meta grid */}
       <div style={{ padding: '14px 18px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px' }}>
@@ -226,8 +229,8 @@ function AssetCard({ asset, index, onView, onDelete, onQR, userRole }) {
           ['Hours', asset.current_hours ? `${asset.current_hours.toLocaleString()} hrs` : '—'],
         ].map(([k, v]) => (
           <div key={k}>
-            <div style={{ fontSize: '10px', fontWeight: 700, color: '#7a92a8', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '2px' }}>{k}</div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#3d5166', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</div>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '2px' }}>{k}</div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-mid)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</div>
           </div>
         ))}
       </div>
@@ -237,9 +240,9 @@ function AssetCard({ asset, index, onView, onDelete, onQR, userRole }) {
         <button onClick={() => onView(asset.id)} className="nav-pill nav-pill-primary" style={{ fontSize: '11px', padding: '6px 14px' }}>View →</button>
         <button onClick={() => onQR(asset)} className="nav-pill nav-pill-ghost" style={{ fontSize: '11px', padding: '6px 12px' }}>QR</button>
         {canDelete && (
-          <button onClick={() => onDelete(asset.id, asset.name)} style={{ marginLeft: 'auto', padding: '6px 12px', background: '#fff', border: '1px solid #fecaca', color: '#dc2626', borderRadius: '8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}>
+          <button onClick={() => onDelete(asset.id, asset.name)} style={{ marginLeft: 'auto', padding: '6px 12px', background: 'transparent', border: '1px solid var(--red-dim)', color: 'var(--red)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', fontFamily:'Rajdhani,sans-serif', letterSpacing:'0.5px', textTransform:'uppercase' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--red-glow)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
             Delete
           </button>
         )}
@@ -303,21 +306,21 @@ function UnitsTab({ userRole, onViewAsset, toast }) {
             const fc = f === 'Down' ? '#dc2626' : f === 'Maintenance' ? '#d97706' : f === 'Running' ? '#16a34a' : '#00ABE4';
             return (
               <button key={f} onClick={() => setFilter(f)} style={{
-                padding: '7px 14px', borderRadius: '8px', border: `1.5px solid ${active ? fc : '#e2ecf5'}`,
-                background: active ? fc + '15' : '#fff', color: active ? fc : '#7a92a8',
+                padding: '7px 14px', borderRadius: '8px', border: `1px solid ${active ? fc+'60' : 'var(--border)'}`,
+                background: active ? fc + '15' : 'var(--surface)', color: active ? fc : 'var(--text-muted)',
                 fontSize: '12px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
                 display: 'flex', alignItems: 'center', gap: '6px',
               }}>
                 {f}
-                <span style={{ background: active ? fc : '#edf2f8', color: active ? fc : '#7a92a8', borderRadius: '10px', padding: '1px 7px', fontSize: '11px', fontWeight: 700 }}>{cnt}</span>
+                <span style={{ background: active ? fc+'20' : 'var(--surface-2)', color: active ? fc : 'var(--text-muted)', borderRadius: '10px', padding: '1px 7px', fontSize: '11px', fontWeight: 700 }}>{cnt}</span>
               </button>
             );
           })}
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#b0c4d4', fontSize: '13px', fontWeight: 700 }}>⌕</span>
-            <input className="form-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assets…" style={{ paddingLeft: '32px', width: '200px' }} />
+            <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700 }}>⌕</span>
+            <input className="form-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assets…" style={{ paddingLeft: '32px', width: '200px', background:'var(--base)', color:'var(--text-bright)', border:'1px solid var(--border)', borderRadius:8, fontSize:13, padding:'8px 12px 8px 30px', fontFamily:'Rajdhani,sans-serif' }} />
           </div>
           {userRole?.role !== 'technician' && userRole?.role !== 'operator' && (
             <button onClick={() => setShowForm(!showForm)} className="nav-pill nav-pill-primary">Add Asset</button>
@@ -327,8 +330,8 @@ function UnitsTab({ userRole, onViewAsset, toast }) {
 
       {/* Add form */}
       {showForm && (
-        <div style={{ background: '#fff', border: '1px solid #e2ecf5', borderRadius: '14px', padding: '22px', marginBottom: '20px', boxShadow: '0 4px 16px rgba(0,100,180,0.08)', animation: 'fadeUp 0.25s ease' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a2b3c', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '22px', marginBottom: '20px', boxShadow: '0 0 20px rgba(0,212,255,0.06)', animation: 'fadeUp 0.25s ease' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-bright)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily:'Rajdhani,sans-serif', letterSpacing:'1px', textTransform:'uppercase' }}>
             Quick Add Asset
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '14px' }}>
@@ -340,12 +343,12 @@ function UnitsTab({ userRole, onViewAsset, toast }) {
               ['Target Hours/Day', 'target_hours', 'number', 'e.g. 8'],
             ].map(([lbl, key, type, ph]) => (
               <div key={key}>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#7a92a8', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '5px' }}>{lbl}</label>
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: '5px', fontFamily:'Rajdhani,sans-serif' }}>{lbl}</label>
                 <input className="form-input" type={type} placeholder={ph} value={newAsset[key]} onChange={e => setNewAsset(p => ({ ...p, [key]: e.target.value }))} />
               </div>
             ))}
             <div>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#7a92a8', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '5px' }}>Status</label>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: '5px', fontFamily:'Rajdhani,sans-serif' }}>Status</label>
               <select className="form-input" value={newAsset.status} onChange={e => setNewAsset(p => ({ ...p, status: e.target.value }))}>
                 <option>Running</option><option>Down</option><option>Maintenance</option>
               </select>
@@ -364,12 +367,12 @@ function UnitsTab({ userRole, onViewAsset, toast }) {
           {[0,1,2,3,4,5].map(i => <AssetCardSkeleton key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '64px 20px', background: '#fff', border: '1px solid #e2ecf5', borderRadius: '16px' }}>
+        <div style={{ textAlign: 'center', padding: '64px 20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}>
           <div style={{ fontSize: '48px', marginBottom: '14px' }}>{search || filter !== 'All' ? '🔍' : '⚙️'}</div>
-          <div style={{ fontSize: '16px', fontWeight: 700, color: '#1a2b3c', marginBottom: '6px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-bright)', marginBottom: '6px', fontFamily:'Rajdhani,sans-serif' }}>
             {search ? 'No assets match your search' : filter !== 'All' ? `No ${filter} assets` : 'No assets yet'}
           </div>
-          <div style={{ fontSize: '13px', color: '#7a92a8', maxWidth: '280px', margin: '0 auto' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '280px', margin: '0 auto' }}>
             {search || filter !== 'All' ? 'Try adjusting your filters or search term.' : 'Add your first asset or use Onboarding to register equipment.'}
           </div>
         </div>
@@ -394,14 +397,14 @@ function StepBar({ current }) {
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px' }}>
       {STEPS.map((label, i) => {
         const done = i < current, active = i === current;
-        const c = done ? '#16a34a' : active ? '#00ABE4' : '#d6e6f2';
+        const c = done ? 'var(--green)' : active ? 'var(--cyan)' : 'var(--surface-3)';
         return (
           <React.Fragment key={i}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-              <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: c, color: (done||active) ? '#fff' : '#b0c4d4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px', transition: 'all 0.3s', boxShadow: active ? `0 0 0 4px ${c}28` : 'none' }}>
+              <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: c, color: (done||active) ? 'var(--void)' : 'var(--text-faint)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '13px', transition: 'all 0.3s', boxShadow: active ? `0 0 0 4px ${c}28` : 'none' }}>
                 {done ? '✓' : i + 1}
               </div>
-              <div style={{ fontSize: '10px', marginTop: '5px', color: active ? '#00ABE4' : done ? '#16a34a' : '#b0c4d4', fontWeight: active || done ? 700 : 500, whiteSpace: 'nowrap', letterSpacing: '0.3px' }}>{label}</div>
+              <div style={{ fontSize: '10px', marginTop: '5px', color: active ? 'var(--cyan)' : done ? 'var(--green)' : 'var(--text-faint)', fontWeight: active || done ? 700 : 500, whiteSpace: 'nowrap', letterSpacing: '0.3px' }}>{label}</div>
             </div>
             {i < STEPS.length - 1 && (
               <div className="step-line" style={{ flex: 1, height: '2px', background: done ? '#16a34a' : '#e2ecf5', margin: '0 6px', marginBottom: '18px', transition: 'background 0.4s' }} />
@@ -417,8 +420,8 @@ function StepBar({ current }) {
 function FieldGroup({ title, optional, children }) {
   return (
     <div style={{ marginBottom: '22px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '8px', borderBottom: '1.5px solid #f0f5fa' }}>
-        <span style={{ fontSize: '11px', fontWeight: 800, color: '#3d5166', letterSpacing: '1.1px', textTransform: 'uppercase' }}>{title}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', paddingBottom: '8px', borderBottom: '1px solid var(--border)' }}>
+        <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--cyan)', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily:'Rajdhani,sans-serif' }}>{title}</span>
         {optional && <span style={{ fontSize: '10px', fontWeight: 700, color: '#00ABE4', background: '#e0f4ff', padding: '2px 8px', borderRadius: '10px' }}>Optional</span>}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>{children}</div>
@@ -428,8 +431,8 @@ function FieldGroup({ title, optional, children }) {
 function Field({ label, required, fullWidth, children }) {
   return (
     <div style={{ gridColumn: fullWidth ? '1/-1' : 'auto' }}>
-      <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#7a92a8', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '5px' }}>
-        {label}{required && <span style={{ color: '#dc2626', marginLeft: '3px' }}>*</span>}
+      <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: '5px', fontFamily:'Rajdhani,sans-serif' }}>
+        {label}{required && <span style={{ color: 'var(--red)', marginLeft: '3px' }}>*</span>}
       </label>
       {children}
     </div>
@@ -563,13 +566,13 @@ function OnboardingTab({ userRole, onComplete, toast }) {
   const renderStep2 = () => (
     <>
       <div style={{ marginBottom: '22px' }}>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2b3c', marginBottom: '12px' }}>Does this asset have vehicle registration?</div>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-bright)', fontFamily:'Rajdhani,sans-serif', marginBottom: '12px' }}>Does this asset have vehicle registration?</div>
         <div style={{ display: 'flex', gap: '10px' }}>
           {[true, false].map(v => (
             <button key={String(v)} onClick={() => setHasRego(v)} style={{
-              padding: '11px 32px', borderRadius: '10px', border: `2px solid ${hasRego === v ? '#00ABE4' : '#e2ecf5'}`,
-              background: hasRego === v ? '#e0f4ff' : '#fff', color: hasRego === v ? '#00ABE4' : '#7a92a8',
-              fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'all 0.15s',
+              padding: '11px 32px', borderRadius: '10px', border: `1px solid ${hasRego === v ? 'var(--cyan-dim)' : 'var(--border)'}`,
+              background: hasRego === v ? 'var(--cyan-glow)' : 'var(--surface-2)', color: hasRego === v ? 'var(--cyan)' : 'var(--text-muted)',
+              fontWeight: 700, fontSize: '14px', cursor: 'pointer', transition: 'all 0.15s', fontFamily:'Rajdhani,sans-serif',
             }}>{v ? '✅ Yes' : '❌ No'}</button>
           ))}
         </div>
@@ -591,14 +594,14 @@ function OnboardingTab({ userRole, onComplete, toast }) {
         </>
       )}
       {hasRego === false && (
-        <div style={{ padding: '36px', textAlign: 'center', background: '#f8fbfd', borderRadius: '12px', border: '1.5px dashed #d6e6f2' }}>
+        <div style={{ padding: '36px', textAlign: 'center', background: 'var(--base)', borderRadius: '12px', border: '1px dashed var(--border)' }}>
           
-          <div style={{ fontSize: '14px', fontWeight: 600, color: '#3d5166' }}>No registration required</div>
-          <div style={{ fontSize: '12px', color: '#7a92a8', marginTop: '4px' }}>Click Next to continue to purchase details.</div>
+          <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-mid)', fontFamily:'Rajdhani,sans-serif' }}>No registration required</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Click Next to continue to purchase details.</div>
         </div>
       )}
       {hasRego === null && (
-        <div style={{ padding: '36px', textAlign: 'center', background: '#f8fbfd', borderRadius: '12px', border: '1.5px dashed #d6e6f2' }}>
+        <div style={{ padding: '36px', textAlign: 'center', background: 'var(--base)', borderRadius: '12px', border: '1px dashed var(--border)' }}>
           <div style={{ fontSize: '12px', color: '#7a92a8' }}>Select Yes or No above to continue.</div>
         </div>
       )}
@@ -609,9 +612,9 @@ function OnboardingTab({ userRole, onComplete, toast }) {
     <>
       {isAdmin ? (
         <>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '10px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', marginBottom: '18px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '10px 14px', background: 'rgba(255,170,0,0.08)', border: '1px solid rgba(204,136,0,0.3)', borderRadius: '8px', marginBottom: '18px' }}>
             <span>🔒</span>
-            <span style={{ fontSize: '12px', color: '#92400e', fontWeight: 600 }}>Admin Only — purchase price and depreciation not visible to technicians</span>
+            <span style={{ fontSize: '12px', color: 'var(--amber)', fontWeight: 600, fontFamily:'Rajdhani,sans-serif' }}>Admin Only — purchase price and depreciation not visible to technicians</span>
           </div>
           <FieldGroup title="Purchase Information" optional>
             <Field label="Purchase Date"><FInput value={form.purchase_date} onChange={set('purchase_date')} type="date" /></Field>
@@ -620,8 +623,8 @@ function OnboardingTab({ userRole, onComplete, toast }) {
             <Field label="Warranty Expiry" fullWidth><FInput value={form.warranty_expiry} onChange={set('warranty_expiry')} type="date" /></Field>
           </FieldGroup>
           {depr ? (
-            <div style={{ background: 'linear-gradient(135deg, #E9F1FA, #f0f8ff)', borderRadius: '12px', padding: '18px', marginBottom: '16px', border: '1px solid #d6e6f2' }}>
-              <div style={{ fontSize: '10px', fontWeight: 800, color: '#7a92a8', letterSpacing: '1.2px', textTransform: 'uppercase', marginBottom: '14px' }}>Depreciation Preview · Straight-Line · 10yr · 10% Residual</div>
+            <div style={{ background: 'var(--surface-2)', borderRadius: '12px', padding: '18px', marginBottom: '16px', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--cyan)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '14px', fontFamily:'Rajdhani,sans-serif' }}>Depreciation Preview · Straight-Line · 10yr · 10% Residual</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px' }}>
                 {[
                   ['Purchase Price', `$${depr.purchasePrice.toLocaleString()}`, false, false],
@@ -631,23 +634,23 @@ function OnboardingTab({ userRole, onComplete, toast }) {
                   ['Annual Depr.',   `$${depr.annualDepreciation.toLocaleString()}/yr`, false, false],
                   ['Depreciated',    `${depr.depreciationRate}%`,               false, depr.depreciationRate > 70],
                 ].map(([lbl, val, hi, warn]) => (
-                  <div key={lbl} style={{ textAlign: 'center', background: '#fff', borderRadius: '8px', padding: '10px' }}>
-                    <div style={{ fontSize: '10px', color: '#7a92a8', marginBottom: '3px' }}>{lbl}</div>
-                    <div style={{ fontSize: '16px', fontWeight: 800, color: warn ? '#dc2626' : hi ? '#00ABE4' : '#1a2b3c' }}>{val}</div>
+                  <div key={lbl} style={{ textAlign: 'center', background: 'var(--surface-3)', borderRadius: '8px', padding: '10px' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '3px', fontFamily:'Rajdhani,sans-serif' }}>{lbl}</div>
+                    <div style={{ fontSize: '16px', fontWeight: 800, color: warn ? 'var(--red)' : hi ? 'var(--cyan)' : 'var(--text-bright)' }}>{val}</div>
                   </div>
                 ))}
               </div>
             </div>
           ) : (
-            <div style={{ padding: '16px', background: '#f8fbfd', borderRadius: '10px', border: '1.5px dashed #d6e6f2', textAlign: 'center', color: '#7a92a8', fontSize: '13px', marginBottom: '16px' }}>
+            <div style={{ padding: '16px', background: 'var(--base)', borderRadius: '10px', border: '1px dashed var(--border)', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', marginBottom: '16px', fontFamily:'Rajdhani,sans-serif' }}>
               Enter a purchase price above to see a live depreciation preview.
             </div>
           )}
         </>
       ) : (
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '12px 16px', background: '#E9F1FA', border: '1px solid #d6e6f2', borderRadius: '10px', marginBottom: '18px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '12px 16px', background: 'rgba(0,212,255,0.06)', border: '1px solid var(--border)', borderRadius: '10px', marginBottom: '18px' }}>
           <span>🔒</span>
-          <span style={{ fontSize: '13px', color: '#3d5166', fontWeight: 600 }}>Purchase and financial details are visible to admins only.</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-mid)', fontWeight: 600, fontFamily:'Rajdhani,sans-serif' }}>Purchase and financial details are visible to admins only.</span>
         </div>
       )}
       <FieldGroup title="Notes" optional>
@@ -663,21 +666,21 @@ function OnboardingTab({ userRole, onComplete, toast }) {
     const qrVal = `https://maintain-iq.vercel.app/asset/${savedAsset.id}`;
     return (
       <div style={{ textAlign: 'center', padding: '10px 0', animation: 'fadeUp 0.4s ease' }}>
-        <div style={{ width: '72px', height: '72px', background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '3px solid #16a34a' }}><div style={{ width: '28px', height: '14px', borderLeft: '4px solid #16a34a', borderBottom: '4px solid #16a34a', transform: 'rotate(-45deg) translate(2px, -4px)' }} /></div>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '28px', fontWeight: 800, color: '#1a2b3c', marginBottom: '4px' }}>{savedAsset.asset_number} Onboarded!</div>
-        <div style={{ fontSize: '14px', color: '#7a92a8', marginBottom: '28px' }}>{savedAsset.name} has been registered in your fleet</div>
-        <div style={{ display: 'inline-block', padding: '20px', background: '#fff', border: '1.5px solid #e2ecf5', borderRadius: '18px', marginBottom: '24px', boxShadow: '0 4px 16px rgba(0,100,180,0.08)' }}>
+        <div style={{ width: '72px', height: '72px', background: 'var(--green-glow)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '2px solid var(--green-dim)', boxShadow: '0 0 24px rgba(0,255,136,0.3)' }}><div style={{ width: '28px', height: '14px', borderLeft: '4px solid var(--green)', borderBottom: '4px solid var(--green)', transform: 'rotate(-45deg) translate(2px, -4px)' }} /></div>
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '28px', fontWeight: 800, color: 'var(--text-bright)', marginBottom: '4px' }}>{savedAsset.asset_number} Onboarded!</div>
+        <div style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '28px', fontFamily:'Rajdhani,sans-serif' }}>{savedAsset.name} has been registered in your fleet</div>
+        <div style={{ display: 'inline-block', padding: '20px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '18px', marginBottom: '24px', boxShadow: '0 0 20px rgba(0,212,255,0.08)' }}>
           <div ref={qrRef}><QRCodeCanvas value={qrVal} size={180} level="H" /></div>
-          <div style={{ marginTop: '8px', fontSize: '10px', color: '#7a92a8', fontFamily: 'monospace' }}>{qrVal.slice(0, 40)}…</div>
+          <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono,monospace' }}>{qrVal.slice(0, 40)}…</div>
         </div>
-        <div style={{ background: '#f5f9fd', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', textAlign: 'left' }}>
+        <div style={{ background: 'var(--base)', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', textAlign: 'left', border:'1px solid var(--border)' }}>
           {[['Asset No.', savedAsset.asset_number], ['Type', savedAsset.type], ['Make', [savedAsset.make, savedAsset.model].filter(Boolean).join(' ')||'—'], ['Location', savedAsset.location||'—'], ['Serial', savedAsset.serial_number||'—'], ['VIN', savedAsset.vin||'—']].map(([k, v]) => (
-            <div key={k}><div style={{ fontSize: '10px', color: '#7a92a8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{k}</div><div style={{ fontSize: '13px', fontWeight: 600, color: '#1a2b3c' }}>{v}</div></div>
+            <div key={k}><div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', fontFamily:'Rajdhani,sans-serif' }}>{k}</div><div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-bright)', fontFamily:'Rajdhani,sans-serif' }}>{v}</div></div>
           ))}
         </div>
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={printQR} className="nav-pill nav-pill-primary">Print QR Label</button>
-          <button onClick={again} style={{ padding: '7px 18px', background: '#fff', border: '2px solid #00ABE4', color: '#00ABE4', borderRadius: '8px', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}>+ Onboard Another</button>
+          <button onClick={again} style={{ padding: '7px 18px', background: 'transparent', border: '1px solid var(--cyan-dim)', color: 'var(--cyan)', borderRadius: '8px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', fontFamily:'Rajdhani,sans-serif', letterSpacing:'1px', textTransform:'uppercase', transition:'all 0.15s' }}>+ Onboard Another</button>
           {onComplete && <button onClick={onComplete} className="nav-pill nav-pill-ghost">View All Assets</button>}
         </div>
       </div>
@@ -687,18 +690,18 @@ function OnboardingTab({ userRole, onComplete, toast }) {
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto' }}>
       <div style={{ marginBottom: '24px' }}>
-        <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '24px', fontWeight: 800, color: '#1a2b3c', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Asset Onboarding</h2>
-        <p style={{ fontSize: '13px', color: '#7a92a8', margin: 0 }}>Register any asset, vehicle or equipment and generate its QR tag.</p>
+        <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '30px', fontWeight: 900, color: 'var(--text-bright)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '2px' }}>Asset Onboarding</h2>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily:'Rajdhani,sans-serif' }}>Register any asset, vehicle or equipment and generate its QR tag.</p>
       </div>
       <StepBar current={step} />
-      <div style={{ background: '#fff', border: '1px solid #e2ecf5', borderRadius: '16px', padding: '28px', boxShadow: '0 4px 20px rgba(0,100,180,0.07)' }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', padding: '28px', boxShadow: '0 0 32px rgba(0,212,255,0.06)' }}>
         {step === 0 && renderStep0()}
         {step === 1 && renderStep1()}
         {step === 2 && renderStep2()}
         {step === 3 && renderStep3()}
         {step === 4 && renderStep4()}
         {step < 4 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', paddingTop: '20px', borderTop: '1.5px solid #f0f5fa' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
             <button className="nav-pill nav-pill-ghost" onClick={() => setStep(s => s-1)} disabled={step === 0}>← Back</button>
             {step < 3
               ? <button className="nav-pill nav-pill-primary" onClick={() => setStep(s => s+1)} disabled={!canNext}>Next →</button>
@@ -714,10 +717,10 @@ function OnboardingTab({ userRole, onComplete, toast }) {
 // ─── Tracker placeholder ───────────────────────────────────────────────────────
 function TrackerPlaceholder() {
   return (
-    <div style={{ textAlign: 'center', padding: '80px 20px', background: '#fff', border: '1px solid #e2ecf5', borderRadius: '16px' }}>
+    <div style={{ textAlign: 'center', padding: '80px 20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}>
       <div style={{ fontSize: '48px', marginBottom: '14px' }}>📡</div>
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '22px', fontWeight: 800, color: '#1a2b3c', marginBottom: '6px', textTransform: 'uppercase' }}>GPS Tracker</div>
-      <div style={{ fontSize: '13px', color: '#7a92a8', maxWidth: '280px', margin: '0 auto' }}>Live asset tracking is coming soon. Connect telematics hardware to see real-time locations.</div>
+      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '22px', fontWeight: 800, color: 'var(--text-bright)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing:'1.5px' }}>GPS Tracker</div>
+      <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '280px', margin: '0 auto' }}>Live asset tracking is coming soon. Connect telematics hardware to see real-time locations.</div>
     </div>
   );
 }
@@ -750,7 +753,7 @@ function Assets({ userRole, onViewAsset, initialTab }) {
       <Toasts toasts={toasts} />
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '34px', fontWeight: 800, color: '#1a2b3c', letterSpacing: '1px', textTransform: 'uppercase', margin: 0, lineHeight: 1 }}>Assets</h2>
+          <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '38px', fontWeight: 900, color: 'var(--text-bright)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0, lineHeight: 1 }}>Assets</h2>
         </div>
         {renderTab()}
       </div>

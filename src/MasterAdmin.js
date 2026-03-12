@@ -2,47 +2,104 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
 const MASTER_PIN = '4900';
-
 const FEATURES = [
-  { key: 'dashboard',    label: 'Dashboard' },
-  { key: 'assets',       label: 'Assets' },
-  { key: 'downtime',     label: 'Downtime' },
-  { key: 'maintenance',  label: 'Maintenance' },
-  { key: 'prestart',     label: 'Prestarts' },
-  { key: 'scanner',      label: 'Scanner' },
-  { key: 'reports',      label: 'Reports' },
-  { key: 'users',        label: 'Users' },
-  { key: 'form_builder', label: 'Form Builder' },
+  { key:'dashboard',    label:'Dashboard' },
+  { key:'assets',       label:'Assets' },
+  { key:'downtime',     label:'Downtime' },
+  { key:'maintenance',  label:'Maintenance' },
+  { key:'prestart',     label:'Prestarts' },
+  { key:'scanner',      label:'Scanner' },
+  { key:'reports',      label:'Reports' },
+  { key:'users',        label:'Users' },
+  { key:'form_builder', label:'Form Builder' },
 ];
 
-const STATUS_COLORS = { pending: '#f0a500', active: '#16a34a', suspended: '#dc2626' };
+const CSS = `
+  @keyframes scan { 0%{top:-1px;opacity:0.7} 100%{top:100%;opacity:0} }
+  @keyframes flicker { 0%,98%{opacity:1} 99%{opacity:0.6} 100%{opacity:1} }
+  .ma-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    position: relative; overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .ma-card:hover { border-color: rgba(0,180,255,0.22); }
+  .ma-card.selected { border-color: rgba(0,212,255,0.4); box-shadow: 0 0 24px rgba(0,212,255,0.1); }
+  .ma-card::before {
+    content:''; position:absolute; top:0;left:0;right:0; height:1px;
+    background:linear-gradient(90deg,transparent,rgba(0,212,255,0.35),transparent);
+    opacity:0; transition:opacity 0.2s;
+  }
+  .ma-card:hover::before, .ma-card.selected::before { opacity:1; }
+  .ma-row { cursor:pointer; padding:18px 20px; transition:background 0.12s; }
+  .ma-row:hover { background:var(--surface-2); }
+  .feat-toggle {
+    padding:4px 11px; border-radius:4px; border:none; cursor:pointer;
+    font-size:10px; font-weight:700; letter-spacing:0.8px; text-transform:uppercase;
+    transition:all 0.15s; font-family:'Rajdhani',sans-serif;
+  }
+  .feat-on  { background:rgba(0,255,136,0.12); color:#00ff88; border:1px solid rgba(0,204,106,0.4); }
+  .feat-off { background:rgba(255,51,102,0.08); color:#ff3366; border:1px solid rgba(204,34,68,0.3); }
+  .feat-on:hover  { background:rgba(0,255,136,0.2); box-shadow:0 0 10px rgba(0,255,136,0.2); }
+  .feat-off:hover { background:rgba(255,51,102,0.15); box-shadow:0 0 10px rgba(255,51,102,0.15); }
+  .status-pill {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 9px; border-radius:4px;
+    font-size:10px; font-weight:700; letter-spacing:0.8px; text-transform:uppercase;
+    font-family:'Rajdhani',sans-serif;
+  }
+  .pill-active    { background:rgba(0,255,136,0.1);  color:#00ff88; border:1px solid rgba(0,204,106,0.4); }
+  .pill-pending   { background:rgba(255,170,0,0.1);  color:#ffaa00; border:1px solid rgba(204,136,0,0.4); }
+  .pill-suspended { background:rgba(255,51,102,0.1); color:#ff3366; border:1px solid rgba(204,34,68,0.4); }
+  .tab-btn {
+    padding:7px 16px; border-radius:6px; border:1px solid var(--border);
+    background:transparent; color:var(--text-muted); cursor:pointer;
+    font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+    transition:all 0.15s; font-family:'Rajdhani',sans-serif;
+  }
+  .tab-btn.active { background:var(--cyan-glow); color:var(--cyan); border-color:var(--cyan-dim); }
+  .tab-btn:hover:not(.active) { color:var(--text-mid); border-color:rgba(0,180,255,0.2); }
+  .ma-action {
+    padding:7px 14px; border-radius:6px; border:none; cursor:pointer;
+    font-size:11px; font-weight:700; letter-spacing:0.8px; text-transform:uppercase;
+    transition:all 0.15s; font-family:'Rajdhani',sans-serif;
+  }
+  .ma-action.approve  { background:rgba(0,255,136,0.12); color:#00ff88; border:1px solid rgba(0,204,106,0.4); }
+  .ma-action.reject   { background:rgba(255,51,102,0.1); color:#ff3366; border:1px solid rgba(204,34,68,0.3); }
+  .ma-action.suspend  { background:rgba(255,51,102,0.1); color:#ff3366; border:1px solid rgba(204,34,68,0.3); }
+  .ma-action.activate { background:rgba(0,255,136,0.12); color:#00ff88; border:1px solid rgba(0,204,106,0.4); }
+  .ma-action.pending  { background:rgba(255,170,0,0.1);  color:#ffaa00; border:1px solid rgba(204,136,0,0.3); }
+  .ma-action.export   { background:rgba(0,212,255,0.08); color:var(--cyan); border:1px solid var(--cyan-dim); }
+  .ma-action.danger   { background:rgba(255,51,102,0.08); color:#ff3366; border:1px solid rgba(204,34,68,0.3); }
+  .ma-action.restore  { background:rgba(170,85,255,0.1); color:#aa55ff; border:1px solid rgba(136,68,204,0.3); }
+  .ma-action:hover { filter:brightness(1.2); transform:translateY(-1px); }
+  .ma-action:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+`;
 
 function PinModal({ onConfirm, onCancel, actionLabel }) {
   const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
-
-  const handleConfirm = () => {
-    if (pin === MASTER_PIN) { onConfirm(); }
-    else { setError('Incorrect PIN'); setPin(''); }
+  const [err, setErr] = useState('');
+  const confirm = () => {
+    if (pin === MASTER_PIN) onConfirm();
+    else { setErr('Invalid authorization code'); setPin(''); }
   };
-
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-      <div style={{ background: '#ffffff', border: '1px solid #d6e6f2', borderRadius: '12px', padding: '28px', width: '320px', textAlign: 'center' }}>
-        <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔐</div>
-        <h3 style={{ color: '#1a2b3c', margin: '0 0 6px' }}>Confirm Action</h3>
-        <p style={{ color: '#7a92a8', fontSize: '13px', marginBottom: '20px' }}>{actionLabel}</p>
-        <input
-          type="password" placeholder="Enter PIN" value={pin}
-          onChange={e => { setPin(e.target.value); setError(''); }}
-          onKeyDown={e => e.key === 'Enter' && handleConfirm()}
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, backdropFilter:'blur(8px)' }}>
+      <div style={{ background:'var(--surface)', border:'1px solid rgba(0,212,255,0.3)', borderRadius:16, padding:36, width:360, textAlign:'center', boxShadow:'0 0 60px rgba(0,212,255,0.15)', position:'relative', overflow:'hidden' }}>
+        <div style={{ position:'absolute', top:0, left:0, right:0, height:1, background:'linear-gradient(90deg,transparent,var(--cyan),transparent)' }} />
+        <div style={{ fontSize:11, color:'var(--cyan)', letterSpacing:'3px', textTransform:'uppercase', fontFamily:'Rajdhani,sans-serif', fontWeight:700, marginBottom:8 }}>Authorization Required</div>
+        <div style={{ fontSize:15, color:'var(--text-mid)', marginBottom:24, fontFamily:'Rajdhani,sans-serif', lineHeight:1.5 }}>{actionLabel}</div>
+        <input type="password" placeholder="Enter PIN" value={pin}
+          onChange={e => { setPin(e.target.value); setErr(''); }}
+          onKeyDown={e => e.key==='Enter' && confirm()}
           autoFocus
-          style={{ width: '100%', padding: '12px', backgroundColor: '#E9F1FA', color: '#1a2b3c', border: '1px solid #00ABE4', borderRadius: '6px', fontSize: '18px', textAlign: 'center', letterSpacing: '6px', boxSizing: 'border-box', marginBottom: '8px' }}
+          style={{ width:'100%', padding:'14px', background:'var(--base)', color:'var(--text-bright)', border:`1px solid ${err?'var(--red-dim)':'rgba(0,212,255,0.25)'}`, borderRadius:8, fontSize:22, textAlign:'center', letterSpacing:'10px', fontFamily:'JetBrains Mono,monospace', boxSizing:'border-box', marginBottom:8 }}
         />
-        {error && <p style={{ color: '#dc2626', fontSize: '12px', marginBottom: '8px' }}>{error}</p>}
-        <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-          <button onClick={onCancel} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #d6e6f2', color: '#7a92a8', borderRadius: '6px', cursor: 'pointer' }}>Cancel</button>
-          <button onClick={handleConfirm} style={{ flex: 1, padding: '10px', background: '#00ABE4', border: 'none', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>Confirm</button>
+        {err && <div style={{ color:'var(--red)', fontSize:12, marginBottom:8, fontFamily:'Rajdhani,sans-serif' }}>{err}</div>}
+        <div style={{ display:'flex', gap:10, marginTop:12 }}>
+          <button onClick={onCancel} className="ma-action pending" style={{ flex:1 }}>Cancel</button>
+          <button onClick={confirm} className="ma-action approve" style={{ flex:1 }}>Confirm</button>
         </div>
       </div>
     </div>
@@ -52,330 +109,297 @@ function PinModal({ onConfirm, onCancel, actionLabel }) {
 function MasterAdmin() {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('all');
   const [saving, setSaving] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [search, setSearch] = useState('');
   const [pinAction, setPinAction] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => { fetchCompanies(); }, []);
+  useEffect(() => {
+    if (!document.getElementById('ma-css')) {
+      const s = document.createElement('style'); s.id='ma-css'; s.textContent=CSS; document.head.appendChild(s);
+    }
+    fetchCompanies();
+  }, []);
 
   const fetchCompanies = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('companies').select('*').order('created_at', { ascending: false });
-    if (!error) setCompanies(data || []);
+    const { data } = await supabase.from('companies').select('*').order('created_at', { ascending:false });
+    setCompanies(data || []);
     setLoading(false);
   };
 
-  const requirePin = (label, action) => {
-    setPinAction({ label, onConfirm: () => { setPinAction(null); action(); } });
-  };
+  const requirePin = (label, action) => setPinAction({ label, onConfirm:() => { setPinAction(null); action(); } });
 
   const updateCompany = async (id, updates) => {
     setSaving(true);
     const { error } = await supabase.from('companies').update(updates).eq('id', id);
-    if (error) { alert('Error: ' + error.message); }
+    if (error) alert('Error: ' + error.message);
     else {
       await fetchCompanies();
-      if (selectedCompany?.id === id) setSelectedCompany(prev => ({ ...prev, ...updates }));
+      if (selected?.id === id) setSelected(prev => ({ ...prev, ...updates }));
     }
     setSaving(false);
   };
 
   const setStatus = (id, status) => {
-    const labels = { active: 'Approve & activate this company', suspended: 'Suspend this company', pending: 'Set company to pending' };
-    requirePin(labels[status] || 'Change company status', () => updateCompany(id, { status }));
+    const labels = { active:'Activate this company', suspended:'Suspend this company', pending:'Set to pending review' };
+    requirePin(labels[status]||'Change status', () => updateCompany(id, { status }));
   };
 
-  const toggleFeature = (company, featureKey) => {
-    const current = company.features?.[featureKey] !== false;
-    requirePin(
-      `${current ? 'Disable' : 'Enable'} "${FEATURES.find(f => f.key === featureKey)?.label}" for ${company.name}`,
-      () => {
-        const updated = { ...company.features, [featureKey]: !current };
-        updateCompany(company.id, { features: updated });
-        if (selectedCompany?.id === company.id) setSelectedCompany(prev => ({ ...prev, features: updated }));
-      }
-    );
+  const toggleFeature = (company, key) => {
+    const current = company.features?.[key] !== false;
+    const feat = FEATURES.find(f => f.key===key)?.label;
+    requirePin(`${current?'Disable':'Enable'} "${feat}" for ${company.name}`, () => {
+      const updated = { ...company.features, [key]: !current };
+      updateCompany(company.id, { features:updated });
+      if (selected?.id === company.id) setSelected(prev => ({ ...prev, features:updated }));
+    });
   };
 
-  const saveAssetLimit = (company) => {
-    requirePin(`Set asset limit to ${company.asset_limit} for ${company.name}`, () => updateCompany(company.id, { asset_limit: company.asset_limit }));
-  };
-  // ── Export full company profile as JSON ─────────────────────────────────────
-  const exportCompanyProfile = async (company) => {
+  const saveAssetLimit = (company) => requirePin(`Set asset limit to ${company.asset_limit}`, () => updateCompany(company.id, { asset_limit:company.asset_limit }));
+
+  const exportProfile = async (company) => {
     try {
       const cid = company.id;
-      const safeQuery = async (table) => {
-        try { const { data } = await supabase.from(table).select('*').eq('company_id', cid); return data || []; }
-        catch(e) { return []; }
-      };
-      const [users, assets, maintenance, workOrders, downtime, formTemplates, formSubmissions, serviceTemplates, serviceSubmissions, oilSamples] = await Promise.all([
-        safeQuery('user_roles'),
-        safeQuery('assets'),
-        safeQuery('maintenance'),
-        safeQuery('work_orders'),
-        safeQuery('downtime'),
-        safeQuery('form_templates'),
-        safeQuery('form_submissions'),
-        safeQuery('service_sheet_templates'),
-        safeQuery('service_sheet_submissions'),
-        safeQuery('oil_samples'),
+      const q = async (t) => { try { const { data } = await supabase.from(t).select('*').eq('company_id', cid); return data||[]; } catch { return []; } };
+      const [users,assets,maint,wos,downtime,formT,formS,svcT,svcS,oil] = await Promise.all([
+        q('user_roles'),q('assets'),q('maintenance'),q('work_orders'),q('downtime'),
+        q('form_templates'),q('form_submissions'),q('service_sheet_templates'),q('service_sheet_submissions'),q('oil_samples'),
       ]);
-
-      const profile = {
-        exported_at: new Date().toISOString(),
-        exported_by: 'MechIQ Master Admin',
-        company,
-        users,
-        assets,
-        maintenance,
-        work_orders: workOrders,
-        downtime,
-        form_templates: formTemplates,
-        form_submissions: formSubmissions,
-        service_sheet_templates: serviceTemplates,
-        service_sheet_submissions: serviceSubmissions,
-        oil_samples: oilSamples,
-        note: 'Photos are stored in Supabase Storage. URLs are embedded in form_submissions.responses and asset records.',
-      };
-
-      const blob = new Blob([JSON.stringify(profile, null, 2)], { type: 'application/json' });
+      const profile = { exported_at:new Date().toISOString(), company, users, assets, maintenance:maint, work_orders:wos, downtime, form_templates:formT, form_submissions:formS, service_templates:svcT, service_submissions:svcS, oil_samples:oil };
+      const blob = new Blob([JSON.stringify(profile,null,2)], { type:'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `MechIQ_${company.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const a = document.createElement('a'); a.href=url;
+      a.download=`MechIQ_${company.name.replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.json`;
+      a.click(); URL.revokeObjectURL(url);
       return true;
-    } catch (err) {
-      alert('Export failed: ' + err.message);
-      return false;
-    }
+    } catch(e) { alert('Export failed: '+e.message); return false; }
   };
 
-  // ── Restore master admin row ──────────────────────────────────────────────────
-  const handleRestoreMaster = () => {
-    requirePin(
-      'Restore / re-create your Master Admin record',
-      async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { alert('Not logged in — please refresh and try again.'); return; }
-        // Upsert on email so it works whether the row is missing or just wrong
-        const { error } = await supabase.from('user_roles').upsert(
-          { email: user.email, name: user.email.split('@')[0], role: 'master', company_id: null },
-          { onConflict: 'email' }
-        );
-        if (error) { alert('Error restoring master admin: ' + error.message); }
-        else { alert('Master admin restored! Refresh the page to continue.'); }
-      }
+  const handleRestore = () => requirePin('Restore / re-create your Master Admin record', async () => {
+    const { data:{ user } } = await supabase.auth.getUser();
+    if (!user) { alert('Not logged in'); return; }
+    const { error } = await supabase.from('user_roles').upsert(
+      { email:user.email, name:user.email.split('@')[0], role:'master', company_id:null },
+      { onConflict:'email' }
     );
-  };
+    if (error) alert('Error: '+error.message);
+    else alert('Master admin restored — refresh to continue.');
+  });
 
-  // ── Delete company and all related data ──────────────────────────────────────
-  const handleDeleteCompany = (company) => {
-    requirePin(
-      `PERMANENTLY DELETE "${company.name}" — this cannot be undone`,
-      async () => {
-        setDeleting(true);
-        // First export the full profile
-        const exported = await exportCompanyProfile(company);
-        if (!exported) { setDeleting(false); return; }
+  const handleDelete = (company) => requirePin(`PERMANENTLY DELETE "${company.name}" — cannot be undone`, async () => {
+    setDeleting(true);
+    const exported = await exportProfile(company);
+    if (!exported) { setDeleting(false); return; }
+    const cid = company.id;
+    const tables = ['oil_samples','service_sheet_submissions','service_sheet_templates','form_submissions','form_templates','downtime','work_orders','maintenance','assets'];
+    for (const t of tables) await supabase.from(t).delete().eq('company_id', cid);
+    await supabase.from('user_roles').delete().eq('company_id', cid).neq('role','master');
+    const { error } = await supabase.from('companies').delete().eq('id', cid);
+    if (error) { alert('Error: '+error.message); setDeleting(false); return; }
+    setDeleting(false); setSelected(null); await fetchCompanies();
+    alert(`"${company.name}" deleted. Profile downloaded.`);
+  });
 
-        const cid = company.id;
-        const tables = [
-          'oil_samples', 'service_sheet_submissions', 'service_sheet_templates',
-          'form_submissions', 'form_templates', 'downtime',
-          'work_orders', 'maintenance', 'assets',
-        ];
-        for (const table of tables) {
-          const { error } = await supabase.from(table).delete().eq('company_id', cid);
-          if (error) console.warn(`Could not delete from ${table}:`, error.message);
-        }
-        // Delete user_roles for this company — but NEVER touch master roles (company_id = null)
-        await supabase.from('user_roles')
-          .delete()
-          .eq('company_id', cid)
-          .neq('role', 'master');
-
-        // Finally delete the company itself
-        const { error } = await supabase.from('companies').delete().eq('id', cid);
-        if (error) { alert('Error deleting company: ' + error.message); setDeleting(false); return; }
-
-        setDeleting(false);
-        setSelectedCompany(null);
-        await fetchCompanies();
-        alert(`"${company.name}" has been deleted. Profile saved to your Downloads folder.`);
-      }
-    );
-  };
-
-
-
-  const filteredCompanies = companies.filter(c => {
-    const matchTab = tab === 'all' || c.status === tab;
-    const matchSearch = !searchTerm ||
-      c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.contact_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.industry?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filtered = companies.filter(c => {
+    const matchTab = tab==='all' || c.status===tab;
+    const matchSearch = !search || c.name?.toLowerCase().includes(search.toLowerCase()) || c.contact_name?.toLowerCase().includes(search.toLowerCase()) || c.industry?.toLowerCase().includes(search.toLowerCase());
     return matchTab && matchSearch;
   });
 
-  const counts = {
-    all: companies.length,
-    pending: companies.filter(c => c.status === 'pending').length,
-    active: companies.filter(c => c.status === 'active').length,
-    suspended: companies.filter(c => c.status === 'suspended').length,
-  };
+  const counts = { all:companies.length, pending:companies.filter(c=>c.status==='pending').length, active:companies.filter(c=>c.status==='active').length, suspended:companies.filter(c=>c.status==='suspended').length };
 
-  const btnStyle = (color) => ({ padding: '6px 14px', borderRadius: '5px', border: 'none', backgroundColor: color, color: '#fff', cursor: 'pointer', fontSize: '12px', fontWeight: 600 });
+  const pillClass = (s) => `status-pill pill-${s||'pending'}`;
+  const statusDot = (s) => ({ active:'#00ff88', pending:'#ffaa00', suspended:'#ff3366' }[s]||'#7ab8e8');
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1100px', margin: '0 auto' }}>
+    <div style={{ maxWidth:1200, margin:'0 auto' }}>
       {pinAction && <PinModal actionLabel={pinAction.label} onConfirm={pinAction.onConfirm} onCancel={() => setPinAction(null)} />}
 
-      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+      {/* Header */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:28, flexWrap:'wrap', gap:12 }}>
         <div>
-          <h2 style={{ color: '#1a2b3c', margin: 0, fontFamily: "'Barlow Condensed', sans-serif", fontSize: '28px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase' }}>
-            ⚙️ Master Admin <span style={{ color: '#00ABE4' }}>Panel</span>
-          </h2>
-          <p style={{ color: '#7a92a8', margin: '4px 0 0', fontSize: '13px' }}>Manage company registrations, features and access · Mech IQ</p>
+          <div style={{ fontSize:10, color:'var(--purple)', letterSpacing:'3px', textTransform:'uppercase', fontFamily:'Rajdhani,sans-serif', fontWeight:700, marginBottom:4 }}>◈ MASTER CONTROL</div>
+          <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:38, fontWeight:900, color:'var(--text-bright)', letterSpacing:'2px', textTransform:'uppercase', margin:0, lineHeight:1 }}>Command Panel</h2>
+          <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:6, fontFamily:'Rajdhani,sans-serif' }}>Manage company registrations, access levels and platform features</div>
         </div>
-        <button
-          onClick={handleRestoreMaster}
-          title="Re-creates your master admin user_roles record if it was accidentally deleted"
-          style={{ padding: '8px 16px', background: '#f5f3ff', border: '1.5px solid #c4b5fd', color: '#7c3aed', borderRadius: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s', whiteSpace: 'nowrap', fontFamily: 'inherit' }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#7c3aed'; e.currentTarget.style.color = '#fff'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = '#f5f3ff'; e.currentTarget.style.color = '#7c3aed'; }}
-        >
-          🛡️ Restore Master Admin
+        <button className="ma-action restore" onClick={handleRestore} style={{ display:'flex', alignItems:'center', gap:7, padding:'10px 18px' }}>
+          <span style={{ fontSize:14 }}>⬡</span> Restore Master Admin
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+      {/* Stats */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:24 }}>
         {[
-          { label: 'Total', value: counts.all, color: '#00ABE4' },
-          { label: 'Pending', value: counts.pending, color: '#f0a500' },
-          { label: 'Active', value: counts.active, color: '#16a34a' },
-          { label: 'Suspended', value: counts.suspended, color: '#dc2626' },
+          { label:'Total Companies',  value:counts.all,       color:'var(--cyan)',   glow:'rgba(0,212,255,0.15)' },
+          { label:'Pending Approval', value:counts.pending,   color:'var(--amber)',  glow:'rgba(255,170,0,0.15)' },
+          { label:'Active',           value:counts.active,    color:'var(--green)',  glow:'rgba(0,255,136,0.15)' },
+          { label:'Suspended',        value:counts.suspended, color:'var(--red)',    glow:'rgba(255,51,102,0.15)' },
         ].map(s => (
-          <div key={s.label} style={{ backgroundColor: '#ffffff', border: '1px solid #d6e6f2', borderRadius: '8px', padding: '16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '28px', fontWeight: 900, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: '12px', color: '#7a92a8', marginTop: '4px' }}>{s.label}</div>
+          <div key={s.label} className="ma-card" style={{ padding:'20px 22px', boxShadow:`0 0 20px ${s.glow}`, borderColor:s.glow.replace('0.15','0.3') }}>
+            <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:s.color, opacity:0.6 }} />
+            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:48, fontWeight:800, color:s.color, lineHeight:1, textShadow:`0 0 20px ${s.glow.replace('0.15','0.5')}` }}>{s.value}</div>
+            <div style={{ fontSize:11, color:'var(--text-muted)', letterSpacing:'1px', textTransform:'uppercase', fontFamily:'Rajdhani,sans-serif', fontWeight:700, marginTop:6 }}>{s.label}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: selectedCompany ? '1fr 380px' : '1fr', gap: '20px' }}>
+      {/* Main grid */}
+      <div style={{ display:'grid', gridTemplateColumns:selected?'1fr 380px':'1fr', gap:20 }}>
+
+        {/* Left — company list */}
         <div>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
-            {['all', 'pending', 'active', 'suspended'].map(t => (
-              <button key={t} onClick={() => setTab(t)} style={{ padding: '6px 14px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, backgroundColor: tab === t ? '#00ABE4' : '#E9F1FA', color: tab === t ? '#fff' : '#3d5166' }}>
-                {t.charAt(0).toUpperCase() + t.slice(1)} ({counts[t]})
+          {/* Filters */}
+          <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap', alignItems:'center' }}>
+            {['all','pending','active','suspended'].map(t => (
+              <button key={t} className={`tab-btn${tab===t?' active':''}`} onClick={() => setTab(t)}>
+                {t.charAt(0).toUpperCase()+t.slice(1)} ({counts[t]})
               </button>
             ))}
-            <input placeholder="Search companies..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-              style={{ marginLeft: 'auto', padding: '6px 12px', backgroundColor: '#fff', color: '#1a2b3c', border: '1px solid #d6e6f2', borderRadius: '6px', fontSize: '13px', width: '180px' }} />
+            <div style={{ marginLeft:'auto', position:'relative' }}>
+              <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', fontSize:12, color:'var(--text-muted)' }}>⌕</span>
+              <input placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)}
+                style={{ paddingLeft:32, width:200, background:'var(--base)', color:'var(--text-bright)', border:'1px solid var(--border)', borderRadius:8, fontSize:13, padding:'8px 12px 8px 30px', fontFamily:'Rajdhani,sans-serif' }}
+              />
+            </div>
           </div>
 
-          {loading ? <p style={{ color: '#7a92a8' }}>Loading...</p> : (
-            filteredCompanies.length === 0 ? <p style={{ color: '#7a92a8' }}>No companies found.</p> :
-              filteredCompanies.map(c => (
-                <div key={c.id}
-                  style={{ backgroundColor: '#ffffff', border: `1px solid ${selectedCompany?.id === c.id ? '#00ABE4' : '#d6e6f2'}`, borderRadius: '8px', padding: '16px', marginBottom: '10px', cursor: 'pointer' }}
-                  onClick={() => setSelectedCompany(c)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                        <span style={{ color: '#1a2b3c', fontWeight: 700, fontSize: '15px' }}>{c.name}</span>
-                        <span style={{ padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 600, backgroundColor: STATUS_COLORS[c.status] + '22', color: STATUS_COLORS[c.status] }}>{c.status}</span>
-                        {c.plan && <span style={{ padding: '2px 8px', borderRadius: '10px', fontSize: '11px', backgroundColor: '#E9F1FA', color: '#3d5166' }}>{c.plan}</span>}
-                      </div>
-                      <div style={{ color: '#7a92a8', fontSize: '12px' }}>{c.industry} · {c.contact_name} · {c.phone}</div>
-                      {c.abn && <div style={{ color: '#7a92a8', fontSize: '11px', marginTop: '2px' }}>ABN: {c.abn}</div>}
+          {/* List */}
+          {loading ? (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {[0,1,2].map(i => <div key={i} className="ma-card" style={{ height:90, animation:'shimmer 1.5s infinite linear', background:'linear-gradient(90deg,var(--surface-2) 25%,var(--surface-3) 50%,var(--surface-2) 75%)', backgroundSize:'200% 100%' }} />)}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'60px 20px', color:'var(--text-muted)', fontFamily:'Rajdhani,sans-serif' }}>No companies found matching the current filter.</div>
+          ) : filtered.map((c,i) => (
+            <div key={c.id} className={`ma-card${selected?.id===c.id?' selected':''}`}
+              style={{ marginBottom:10, opacity:0, animation:`fadeUp 0.35s ease ${i*40}ms forwards` }}
+              onClick={() => setSelected(c)}>
+              <div className="ma-row">
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                      <div style={{ width:8, height:8, borderRadius:'50%', background:statusDot(c.status), boxShadow:`0 0 6px ${statusDot(c.status)}`, flexShrink:0 }} />
+                      <span style={{ color:'var(--text-bright)', fontWeight:700, fontSize:15, fontFamily:'Rajdhani,sans-serif', letterSpacing:'0.3px' }}>{c.name}</span>
+                      <span className={pillClass(c.status)}>{c.status||'pending'}</span>
+                      {c.plan && <span style={{ padding:'2px 8px', borderRadius:4, background:'var(--surface-2)', color:'var(--text-muted)', fontSize:10, fontWeight:600, border:'1px solid var(--border)', fontFamily:'Rajdhani,sans-serif', letterSpacing:'0.5px', textTransform:'uppercase' }}>{c.plan}</span>}
                     </div>
-                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '10px' }}>
-                      {c.status === 'pending' && (<><button style={btnStyle('#16a34a')} onClick={e => { e.stopPropagation(); setStatus(c.id, 'active'); }}>✓ Approve</button><button style={btnStyle('#dc2626')} onClick={e => { e.stopPropagation(); setStatus(c.id, 'suspended'); }}>✕ Reject</button></>)}
-                      {c.status === 'active' && <button style={btnStyle('#dc2626')} onClick={e => { e.stopPropagation(); setStatus(c.id, 'suspended'); }}>Suspend</button>}
-                      {c.status === 'suspended' && <button style={btnStyle('#16a34a')} onClick={e => { e.stopPropagation(); setStatus(c.id, 'active'); }}>Reactivate</button>}
+                    <div style={{ color:'var(--text-muted)', fontSize:12, fontFamily:'Rajdhani,sans-serif', display:'flex', gap:12, flexWrap:'wrap' }}>
+                      {c.industry && <span>{c.industry}</span>}
+                      {c.contact_name && <span>· {c.contact_name}</span>}
+                      {c.phone && <span>· {c.phone}</span>}
+                      {c.abn && <span style={{ fontFamily:'JetBrains Mono,monospace', fontSize:11 }}>· ABN {c.abn}</span>}
                     </div>
                   </div>
-                  <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {FEATURES.map(f => (
-                      <span key={f.key} style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '10px', backgroundColor: c.features?.[f.key] !== false ? '#e8eaed' : '#f0f0f0', color: c.features?.[f.key] !== false ? '#1a2b3c' : '#9aa0a8', border: `1px solid ${c.features?.[f.key] !== false ? '#c0c8d0' : '#dde0e3'}` }}>{f.label}</span>
-                    ))}
+                  <div style={{ display:'flex', gap:6, flexShrink:0 }} onClick={e => e.stopPropagation()}>
+                    {c.status==='pending' && (<>
+                      <button className="ma-action approve" onClick={() => setStatus(c.id,'active')}>✓ Approve</button>
+                      <button className="ma-action reject"  onClick={() => setStatus(c.id,'suspended')}>✕ Reject</button>
+                    </>)}
+                    {c.status==='active'    && <button className="ma-action suspend"  onClick={() => setStatus(c.id,'suspended')}>Suspend</button>}
+                    {c.status==='suspended' && <button className="ma-action activate" onClick={() => setStatus(c.id,'active')}>Reactivate</button>}
                   </div>
                 </div>
-              ))
-          )}
+                {/* Feature pills */}
+                <div style={{ display:'flex', gap:5, flexWrap:'wrap', marginTop:10 }}>
+                  {FEATURES.map(f => {
+                    const on = c.features?.[f.key] !== false;
+                    return (
+                      <span key={f.key} style={{ padding:'2px 7px', borderRadius:4, fontSize:10, fontWeight:600, fontFamily:'Rajdhani,sans-serif', letterSpacing:'0.5px', background:on?'rgba(0,212,255,0.07)':'var(--base)', color:on?'var(--cyan)':'var(--text-faint)', border:`1px solid ${on?'rgba(0,212,255,0.2)':'var(--border-dim)'}` }}>
+                        {f.label}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
 
-        {selectedCompany && (
-          <div style={{ backgroundColor: '#ffffff', border: '1px solid #d6e6f2', borderRadius: '10px', padding: '20px', height: 'fit-content', position: 'sticky', top: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ color: '#00ABE4', margin: 0, fontSize: '16px' }}>{selectedCompany.name}</h3>
-              <button onClick={() => setSelectedCompany(null)} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '18px', cursor: 'pointer' }}>✕</button>
+        {/* Right — detail panel */}
+        {selected && (
+          <div className="ma-card" style={{ height:'fit-content', position:'sticky', top:20 }}>
+            <div style={{ position:'absolute', top:0, left:0, right:0, height:1, background:'linear-gradient(90deg,transparent,var(--cyan),transparent)' }} />
+            <div style={{ padding:'20px 22px', borderBottom:'1px solid var(--border)' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div>
+                  <div style={{ fontSize:10, color:'var(--cyan)', letterSpacing:'2px', textTransform:'uppercase', fontFamily:'Rajdhani,sans-serif', fontWeight:700, marginBottom:4 }}>Company Detail</div>
+                  <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color:'var(--text-bright)', letterSpacing:'1px' }}>{selected.name}</div>
+                </div>
+                <button onClick={() => setSelected(null)} style={{ background:'transparent', border:'1px solid var(--border)', color:'var(--text-muted)', width:32, height:32, borderRadius:6, cursor:'pointer', fontSize:14, transition:'all 0.15s' }}>✕</button>
+              </div>
             </div>
-            <div style={{ marginBottom: '16px' }}>
+
+            <div style={{ padding:'18px 22px', borderBottom:'1px solid var(--border)' }}>
               {[
-                { label: 'Status', value: selectedCompany.status, color: STATUS_COLORS[selectedCompany.status] },
-                { label: 'Plan', value: selectedCompany.plan || '—' },
-                { label: 'Industry', value: selectedCompany.industry },
-                { label: 'Contact', value: selectedCompany.contact_name },
-                { label: 'Phone', value: selectedCompany.phone },
-                { label: 'ABN', value: selectedCompany.abn || '—' },
-                { label: 'Address', value: selectedCompany.address || '—' },
-                { label: 'Registered', value: selectedCompany.created_at ? new Date(selectedCompany.created_at).toLocaleDateString() : '—' },
+                { label:'Status',     value:selected.status,     color:statusDot(selected.status) },
+                { label:'Plan',       value:selected.plan||'—' },
+                { label:'Industry',   value:selected.industry },
+                { label:'Contact',    value:selected.contact_name },
+                { label:'Phone',      value:selected.phone },
+                { label:'ABN',        value:selected.abn||'—',   mono:true },
+                { label:'Address',    value:selected.address||'—' },
+                { label:'Registered', value:selected.created_at?new Date(selected.created_at).toLocaleDateString('en-AU'):'—' },
               ].map(row => (
-                <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px' }}>
-                  <span style={{ color: '#7a92a8' }}>{row.label}</span>
-                  <span style={{ color: row.color || '#fff', fontWeight: 500 }}>{row.value}</span>
+                <div key={row.label} style={{ display:'flex', justifyContent:'space-between', marginBottom:8, fontSize:13 }}>
+                  <span style={{ color:'var(--text-muted)', fontFamily:'Rajdhani,sans-serif', letterSpacing:'0.3px' }}>{row.label}</span>
+                  <span style={{ color:row.color||'var(--text-bright)', fontWeight:600, fontFamily:row.mono?'JetBrains Mono,monospace':'Rajdhani,sans-serif', fontSize:row.mono?11:13 }}>{row.value}</span>
                 </div>
               ))}
             </div>
-            <div style={{ marginBottom: '16px', borderTop: '1px solid #d6e6f2', paddingTop: '14px' }}>
-              <label style={{ color: '#7a92a8', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Asset Limit</label>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <input type="number" value={selectedCompany.asset_limit || 10}
-                  onChange={e => setSelectedCompany(prev => ({ ...prev, asset_limit: parseInt(e.target.value) }))}
-                  style={{ width: '80px', padding: '7px 10px', backgroundColor: '#E9F1FA', color: '#1a2b3c', border: '1px solid #00ABE4', borderRadius: '5px', fontSize: '14px' }} />
-                <button style={btnStyle('#00ABE4')} onClick={() => saveAssetLimit(selectedCompany)}>{saving ? '...' : '🔒 Save'}</button>
+
+            {/* Asset limit */}
+            <div style={{ padding:'16px 22px', borderBottom:'1px solid var(--border)' }}>
+              <div style={{ fontSize:10, color:'var(--text-muted)', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'Rajdhani,sans-serif', fontWeight:700, marginBottom:10 }}>Asset Limit</div>
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                <input type="number" value={selected.asset_limit||10}
+                  onChange={e => setSelected(prev => ({ ...prev, asset_limit:parseInt(e.target.value) }))}
+                  style={{ width:80, padding:'8px 10px', textAlign:'center' }}
+                />
+                <button className="ma-action export" onClick={() => saveAssetLimit(selected)}>{saving?'…':'Save Limit'}</button>
               </div>
             </div>
-            <div style={{ borderTop: '1px solid #d6e6f2', paddingTop: '14px', marginBottom: '16px' }}>
-              <div style={{ color: '#7a92a8', fontSize: '12px', marginBottom: '10px' }}>FEATURE ACCESS</div>
-              {FEATURES.map(f => {
-                const enabled = selectedCompany.features?.[f.key] !== false;
-                return (
-                  <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ color: '#fff', fontSize: '13px' }}>{f.label}</span>
-                    <button onClick={() => toggleFeature(selectedCompany, f.key)} style={{ padding: '4px 12px', borderRadius: '12px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 600, backgroundColor: enabled ? '#e8eaed' : '#f0f0f0', color: enabled ? '#1a2b3c' : '#9aa0a8', border: `1px solid ${enabled ? '#c0c8d0' : '#dde0e3'}` }}>
-                      {enabled ? '✓ ON' : '✕ OFF'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ borderTop: '1px solid #d6e6f2', paddingTop: '14px' }}>
-              <div style={{ color: '#7a92a8', fontSize: '12px', marginBottom: '10px' }}>ACCOUNT ACTIONS</div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {selectedCompany.status !== 'active' && <button style={btnStyle('#16a34a')} onClick={() => setStatus(selectedCompany.id, 'active')}>🔒 Activate</button>}
-                {selectedCompany.status !== 'suspended' && <button style={btnStyle('#dc2626')} onClick={() => setStatus(selectedCompany.id, 'suspended')}>🔒 Suspend</button>}
-                {selectedCompany.status !== 'pending' && <button style={btnStyle('#f0a500')} onClick={() => setStatus(selectedCompany.id, 'pending')}>🔒 Set Pending</button>}
+
+            {/* Features */}
+            <div style={{ padding:'16px 22px', borderBottom:'1px solid var(--border)' }}>
+              <div style={{ fontSize:10, color:'var(--text-muted)', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'Rajdhani,sans-serif', fontWeight:700, marginBottom:12 }}>Feature Access</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {FEATURES.map(f => {
+                  const on = selected.features?.[f.key] !== false;
+                  return (
+                    <div key={f.key} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <span style={{ color:'var(--text-mid)', fontSize:13, fontFamily:'Rajdhani,sans-serif' }}>{f.label}</span>
+                      <button className={`feat-toggle feat-${on?'on':'off'}`} onClick={() => toggleFeature(selected, f.key)}>
+                        {on?'✓ Active':'✕ Locked'}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            <div style={{ borderTop: '1px solid #d6e6f2', paddingTop: '14px', marginTop: '4px' }}>
-              <div style={{ color: '#7a92a8', fontSize: '12px', marginBottom: '10px' }}>DATA</div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button style={btnStyle('#3d5166')} onClick={() => exportCompanyProfile(selectedCompany)}>Export Profile</button>
-                <button style={{ ...btnStyle('#dc2626'), opacity: deleting ? 0.6 : 1 }} disabled={deleting} onClick={() => handleDeleteCompany(selectedCompany)}>
-                  {deleting ? 'Deleting...' : 'Delete Company'}
-                </button>
+
+            {/* Actions */}
+            <div style={{ padding:'16px 22px', borderBottom:'1px solid var(--border)' }}>
+              <div style={{ fontSize:10, color:'var(--text-muted)', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'Rajdhani,sans-serif', fontWeight:700, marginBottom:10 }}>Account Actions</div>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {selected.status!=='active'    && <button className="ma-action activate" onClick={() => setStatus(selected.id,'active')}>Activate</button>}
+                {selected.status!=='suspended' && <button className="ma-action suspend"  onClick={() => setStatus(selected.id,'suspended')}>Suspend</button>}
+                {selected.status!=='pending'   && <button className="ma-action pending"  onClick={() => setStatus(selected.id,'pending')}>Set Pending</button>}
               </div>
-              <p style={{ fontSize: '11px', color: '#7a92a8', marginTop: '8px', lineHeight: '1.5' }}>
-                Delete exports a full JSON backup to Downloads first, then permanently removes all company data.
-              </p>
+            </div>
+
+            {/* Data */}
+            <div style={{ padding:'16px 22px' }}>
+              <div style={{ fontSize:10, color:'var(--text-muted)', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'Rajdhani,sans-serif', fontWeight:700, marginBottom:10 }}>Data Management</div>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                <button className="ma-action export" onClick={() => exportProfile(selected)}>Export JSON</button>
+                <button className="ma-action danger" disabled={deleting} onClick={() => handleDelete(selected)}>{deleting?'Deleting…':'Delete Company'}</button>
+              </div>
+              <div style={{ fontSize:11, color:'var(--text-faint)', marginTop:10, lineHeight:1.6, fontFamily:'Rajdhani,sans-serif' }}>
+                Delete exports a full data backup first, then permanently removes all company records.
+              </div>
             </div>
           </div>
         )}
