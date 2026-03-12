@@ -15,7 +15,6 @@ import AssetPage from './MachineProfile';
 import MasterAdmin from './MasterAdmin';
 import { supabase } from './supabase';
 import Settings from './Settings';
-import OilSampling from './OilSampling';
 
 function App() {
   const [currentPage, setCurrentPageRaw] = useState('dashboard');
@@ -35,13 +34,6 @@ function App() {
     setCurrentPageRaw(page);
     setCurrentSubPage(subPage);
   };
-
-  // Apply saved theme on boot
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('mechiq_theme') || 'light';
-    document.body.classList.remove('theme-light','theme-dark','theme-navy','theme-contrast');
-    if (savedTheme !== 'light') document.body.classList.add('theme-' + savedTheme);
-  }, []);
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -185,12 +177,7 @@ function App() {
         // Placeholder until Data Export component is built
         return <Users companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
       case 'settings':
-        // Placeholder until Settings component is built
-        return (
-          <div style={{ padding: '40px', color: '#7a92a8', textAlign: 'center' }}>
-            Settings page coming soon.
-          </div>
-        );
+        return <Settings userRole={effectiveUserRole} initialTab={currentSubPage} />;
       case 'master':
         return <MasterAdmin />;
       default:
@@ -221,7 +208,7 @@ function App() {
         onSelectCompany={handleSelectCompany}
         onExitCompany={handleExitCompany}
       />
-      <main className="main-content">{renderPage()}</main>
+      <div className="main-content">{renderPage()}</div>
     </div>
   );
 }
