@@ -20,10 +20,10 @@ const CSS = `
   }
   .r-card {
     background: var(--surface);
-    border: 1px solid #eaf3fb;
+    border: 1px solid var(--border);
     border-radius: 14px;
     padding: 22px 24px;
-    box-shadow: 0 2px 10px rgba(0,212,255,0.06);
+    box-shadow: var(--shadow-sm);
   }
   .r-input {
     padding: 9px 12px; border: 1px solid rgba(0,180,255,0.12); border-radius: 8px;
@@ -54,7 +54,7 @@ const CSS = `
   }
   .r-tab.active { background: var(--surface); color: var(--accent); box-shadow: 0 1px 6px rgba(0,0,0,0.1); }
   .r-row { transition: background 0.1s; }
-  .r-row:hover td { background: #f4f8fd !important; }
+  .r-row:hover td { background: var(--surface-2) !important; }
   .r-bar {
     height: 8px; border-radius: 99px; animation: barGrow 0.8s cubic-bezier(0.16,1,0.3,1);
     transition: width 0.8s cubic-bezier(0.16,1,0.3,1);
@@ -66,7 +66,7 @@ function SectionHead({ title, count, action }) {
   return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, paddingBottom:13, borderBottom:'1.5px solid #eaf3fb' }}>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:16, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:'var(--text-primary)' }}>{title}</span>
+        <span style={{ fontFamily:"var(--font-display)", fontSize:16, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:'var(--text-primary)' }}>{title}</span>
         {count !== undefined && <span style={{ background:'rgba(0,212,255,0.1)', color:'var(--accent)', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20 }}>{count}</span>}
       </div>
       {action}
@@ -353,7 +353,7 @@ function Reports({ companyId, userRole, initialTab }) {
       {/* ── Page header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:24 }}>
         <div>
-          <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0, lineHeight:1 }}>Reports</h2>
+          <h2 style={{ fontFamily:"var(--font-display)", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0, lineHeight:1 }}>Reports</h2>
           <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0', fontWeight:500 }}>Downtime analysis, machine availability & export</p>
         </div>
         <div style={{ display:'flex', gap:8 }}>
@@ -378,7 +378,7 @@ function Reports({ companyId, userRole, initialTab }) {
             <div key={s.label} className="r-card" style={{ padding:'16px 20px', opacity:0, animation:`fadeUp 0.4s ease ${i*60}ms forwards` }}>
               <div style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)', letterSpacing:'1.2px', textTransform:'uppercase', marginBottom:10 }}>{s.label}</div>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:34, fontWeight:800, color:s.color, background:s.bg, padding:'2px 10px', borderRadius:8, lineHeight:1.2 }}>{s.value}</span>
+                <span style={{ fontFamily:"var(--font-display)", fontSize:34, fontWeight:800, color:s.color, background:s.bg, padding:'2px 10px', borderRadius:8, lineHeight:1.2 }}>{s.value}</span>
               </div>
               <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6 }}>{s.sub}</div>
             </div>
@@ -419,7 +419,7 @@ function Reports({ companyId, userRole, initialTab }) {
               count={downtimeData.length}
               action={
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                  <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:20, fontWeight:800, color:'#ea580c' }}>
+                  <span style={{ fontFamily:"var(--font-display)", fontSize:20, fontWeight:800, color:'#ea580c' }}>
                     ${totalDownCost.toLocaleString('en-AU',{minimumFractionDigits:0})} total cost
                   </span>
                   <button className="r-btn" onClick={() => setShowForm(s=>!s)}>{showForm ? '✕ Cancel' : '+ Log Downtime'}</button>
@@ -470,7 +470,7 @@ function Reports({ companyId, userRole, initialTab }) {
                         <Td style={{ whiteSpace:'nowrap' }}>{d.date}</Td>
                         <Td><Chip text={d.category} color="#3d5166" bg="#f0f5fa" /></Td>
                         <Td><Chip text={`${d.hours}h`} color="#d97706" bg="#fef3c7" /></Td>
-                        <Td><span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:14, fontWeight:800, color:'#ea580c' }}>${parseFloat(d.cost||0).toLocaleString('en-AU',{minimumFractionDigits:0})}</span></Td>
+                        <Td><span style={{ fontFamily:"var(--font-display)", fontSize:14, fontWeight:800, color:'#ea580c' }}>${parseFloat(d.cost||0).toLocaleString('en-AU',{minimumFractionDigits:0})}</span></Td>
                         <Td style={{ maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.description}</Td>
                         <Td style={{ color:'var(--text-muted)' }}>{d.reported_by||'—'}</Td>
                         <Td>
@@ -497,7 +497,7 @@ function Reports({ companyId, userRole, initialTab }) {
               { label:'Cost in Period',     value:`$${filteredCost.toLocaleString('en-AU',{minimumFractionDigits:0})}`, color:'#ea580c', bg:'#ffedd5' },
             ].map((s,i) => (
               <div key={s.label} className="r-card" style={{ padding:'14px 20px', display:'flex', alignItems:'center', gap:12, opacity:0, animation:`fadeUp 0.4s ease ${i*60}ms forwards` }}>
-                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:30, fontWeight:800, color:s.color, background:s.bg, padding:'2px 12px', borderRadius:8, lineHeight:1.3 }}>{s.value}</span>
+                <span style={{ fontFamily:"var(--font-display)", fontSize:30, fontWeight:800, color:s.color, background:s.bg, padding:'2px 12px', borderRadius:8, lineHeight:1.3 }}>{s.value}</span>
                 <span style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary)' }}>{s.label}</span>
               </div>
             ))}
@@ -535,7 +535,7 @@ function Reports({ companyId, userRole, initialTab }) {
                         <Td style={{ whiteSpace:'nowrap' }}>{d.date}</Td>
                         <Td><Chip text={d.category} /></Td>
                         <Td><Chip text={`${d.hours}h`} color="#d97706" bg="#fef3c7" /></Td>
-                        <Td><span style={{ fontWeight:800, color:'#ea580c', fontFamily:"'Barlow Condensed',sans-serif", fontSize:14 }}>${parseFloat(d.cost||0).toLocaleString('en-AU',{minimumFractionDigits:0})}</span></Td>
+                        <Td><span style={{ fontWeight:800, color:'#ea580c', fontFamily:"var(--font-display)", fontSize:14 }}>${parseFloat(d.cost||0).toLocaleString('en-AU',{minimumFractionDigits:0})}</span></Td>
                         <Td>{d.description}</Td>
                       </tr>
                     ))}
@@ -558,7 +558,7 @@ function Reports({ companyId, userRole, initialTab }) {
               { label:'Total Prestarts',         value:availabilityData.reduce((sum,a)=>sum+a.prestartCount,0), color:'var(--purple)', bg:'var(--purple-bg)' },
             ].map((s,i) => (
               <div key={s.label} className="r-card" style={{ padding:'14px 20px', display:'flex', alignItems:'center', gap:12 }}>
-                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:30, fontWeight:800, color:s.color, background:s.bg, padding:'2px 12px', borderRadius:8, lineHeight:1.3 }}>{s.value}</span>
+                <span style={{ fontFamily:"var(--font-display)", fontSize:30, fontWeight:800, color:s.color, background:s.bg, padding:'2px 12px', borderRadius:8, lineHeight:1.3 }}>{s.value}</span>
                 <span style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary)' }}>{s.label}</span>
               </div>
             ))}

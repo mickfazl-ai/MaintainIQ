@@ -34,8 +34,8 @@ const CSS = `
     overflow: hidden; padding: 0 16px; user-select: none; gap: 1px;
   }
   .sidebar-brand .brand-word {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 22px; font-weight: 900; letter-spacing: 2px;
+    font-family: var(--font-display);
+    font-size: 20px; font-weight: 900; letter-spacing: 0.5px;
     text-transform: uppercase; line-height: 1; white-space: nowrap;
   }
   .brand-mech { color: var(--sidebar-text, #e5e7eb); }
@@ -53,7 +53,7 @@ const CSS = `
     display: flex; align-items: center; gap: 11px;
     padding: 0 16px; cursor: pointer;
     color: var(--sidebar-text-muted, #9ca3af);
-    font-size: 12.5px; font-weight: 600; font-family: 'Inter', sans-serif;
+    font-size: 12.5px; font-weight: 600; font-family: var(--font-body);
     letter-spacing: 0.2px;
     transition: color 0.15s, background 0.15s;
     white-space: nowrap; overflow: hidden; user-select: none;
@@ -96,7 +96,7 @@ const CSS = `
     transform: translateY(-50%);
     background: #1f2937; color: #f9fafb;
     padding: 5px 10px; border-radius: 7px;
-    font-size: 12px; font-weight: 600; font-family: 'Inter', sans-serif;
+    font-size: 12px; font-weight: 600; font-family: var(--font-body);
     white-space: nowrap; pointer-events: none; opacity: 0;
     transition: opacity 0.15s; z-index: 9999;
     box-shadow: 0 4px 12px rgba(0,0,0,0.25);
@@ -124,7 +124,7 @@ const CSS = `
     border-bottom: 1px solid var(--border-light, #f0f6fc);
     transition: background 0.12s, color 0.12s; white-space: nowrap;
     display: flex; align-items: center; gap: 8px;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body);
   }
   .sidebar-flyout-item:last-child { border-bottom: none; }
   .sidebar-flyout-item:hover { background: var(--blue-light, #e9f1fa); color: var(--accent); }
@@ -139,7 +139,7 @@ const CSS = `
     height: 36px; display: flex; align-items: center;
     gap: 10px; padding: 0 16px 0 40px; cursor: pointer;
     color: var(--sidebar-text-muted, #9ca3af);
-    font-size: 12px; font-weight: 500; font-family: 'Inter', sans-serif;
+    font-size: 12px; font-weight: 500; font-family: var(--font-body);
     white-space: nowrap; overflow: hidden;
     transition: color 0.12s, background 0.12s; user-select: none;
   }
@@ -168,18 +168,19 @@ const CSS = `
 
   .topbar {
     position: fixed; left: 56px; top: 0; right: 0; height: 56px;
-    background: rgba(4,9,15,0.92);
-    border-bottom: 1px solid rgba(0,180,255,0.10);
+    background: var(--topbar-bg);
+    border-bottom: 1px solid var(--topbar-border);
     display: flex; align-items: center; padding: 0 24px; gap: 12px;
-    z-index: 200; transition: left 0.22s cubic-bezier(0.16,1,0.3,1);
-    backdrop-filter: blur(20px);
+    z-index: 200; transition: left 0.22s cubic-bezier(0.16,1,0.3,1), background 0.25s ease, border-color 0.25s ease;
+    backdrop-filter: blur(16px);
   }
   .topbar.sb-expanded { left: 220px; }
   .topbar.has-banner  { top: 34px; }
   .topbar-title {
-    font-family: 'Barlow Condensed', sans-serif; font-size: 20px;
-    font-weight: 900; text-transform: uppercase; letter-spacing: 2.5px;
-    color: #e8f4ff; flex: 1;
+    font-family: var(--font-display); font-size: 18px;
+    font-weight: 800; letter-spacing: 0.2px;
+    color: var(--text-primary); flex: 1;
+    transition: color 0.25s ease;
   }
   .topbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 
@@ -209,23 +210,23 @@ const CSS = `
     color: var(--text-dark, #1a2b3c);
     border-bottom: 1px solid var(--border-light, #f0f6fc);
     transition: background 0.12s; display: flex; align-items: center; gap: 8px;
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body);
   }
   .company-switcher-item:last-child { border-bottom: none; }
-  .company-switcher-item:hover { background: #eef5fd; }
-  .company-switcher-item.active { background: #e0f4ff; color: var(--accent); font-weight: 700; }
+  .company-switcher-item:hover { background: var(--surface-2); }
+  .company-switcher-item.active { background: var(--accent-light); color: var(--accent); font-weight: 700; }
   .company-switcher-item.exit { color: #dc2626; background: #fef2f2; font-weight: 700; }
   .company-switcher-item.exit:hover { background: #fee2e2; }
   .nav-pill {
     padding: 5px 14px; border-radius: 7px; border: none;
     font-size: 11px; font-weight: 700; cursor: pointer;
     text-transform: uppercase; letter-spacing: 1px;
-    transition: all 0.15s; font-family: 'Inter', sans-serif; white-space: nowrap;
+    transition: all 0.15s; font-family: var(--font-body); white-space: nowrap;
   }
   .nav-pill-primary { background: #00ABE4; color: #fff; box-shadow: 0 2px 8px rgba(0,171,228,0.28); }
   .nav-pill-primary:hover { background: #0096cc; transform: translateY(-1px); }
   .nav-pill-ghost { background: transparent; color: var(--text-muted); border: 1.5px solid #dde8f2; }
-  .nav-pill-ghost:hover { border-color: var(--accent); color: var(--accent); background: #eef5fd; }
+  .nav-pill-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--surface-2); }
 
   .sidebar-overlay {
     display: none; position: fixed; inset: 0;
@@ -593,13 +594,16 @@ function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session
               )}
             </div>
           )}
-          {/* User info in topbar (non-master) */}
-          {!isMaster && (
-            <>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{displayName}</span>
-              <RoleBadge role={userRole?.role || 'operator'} />
-            </>
-          )}
+          {/* User info in topbar */}
+          <div style={{ display:'flex', alignItems:'center', gap:9, padding:'4px 10px 4px 6px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface-2)', cursor:'default' }}>
+            <div style={{ width:28, height:28, borderRadius:8, background:'linear-gradient(135deg,var(--accent),var(--accent-dark))', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'#fff', flexShrink:0 }}>
+              {(displayName||'?')[0].toUpperCase()}
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+              <span style={{ fontSize:12, fontWeight:600, color:'var(--text-primary)', lineHeight:1.2 }}>{displayName}</span>
+              {!isMaster && <RoleBadge role={userRole?.role || 'operator'} />}
+            </div>
+          </div>
         </div>
       </div>
     </>

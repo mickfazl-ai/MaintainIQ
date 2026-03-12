@@ -165,7 +165,7 @@ function QRModal({ asset, onClose }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(10,20,40,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)' }}>
       <div style={{ background: 'var(--surface)', border: '1px solid rgba(0,212,255,0.25)', borderRadius: '16px', padding: '28px', width: '400px', boxShadow: '0 24px 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,212,255,0.08)', animation: 'fadeUp 0.3s ease' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, textTransform: 'uppercase', letterSpacing: '1px' }}>QR Label Preview</h3>
+          <h3 style={{ fontFamily: "var(--font-display)", fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, textTransform: 'uppercase', letterSpacing: '1px' }}>QR Label Preview</h3>
           <button onClick={onClose} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', width: '30px', height: '30px', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>✕</button>
         </div>
         <div ref={ref} style={{ position: 'absolute', left: '-9999px' }}><QRCodeCanvas value={qrVal} size={300} level="H" /></div>
@@ -667,7 +667,7 @@ function OnboardingTab({ userRole, onComplete, toast }) {
     return (
       <div style={{ textAlign: 'center', padding: '10px 0', animation: 'fadeUp 0.4s ease' }}>
         <div style={{ width: '72px', height: '72px', background: 'var(--green-bg)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '2px solid var(--green-border)', boxShadow: '0 0 24px rgba(0,255,136,0.3)' }}><div style={{ width: '28px', height: '14px', borderLeft: '4px solid var(--green)', borderBottom: '4px solid var(--green)', transform: 'rotate(-45deg) translate(2px, -4px)' }} /></div>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>{savedAsset.asset_number} Onboarded!</div>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '4px' }}>{savedAsset.asset_number} Onboarded!</div>
         <div style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '28px', fontFamily:'var(--font-display)' }}>{savedAsset.name} has been registered in your fleet</div>
         <div style={{ display: 'inline-block', padding: '20px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '18px', marginBottom: '24px', boxShadow: '0 0 20px rgba(0,212,255,0.08)' }}>
           <div ref={qrRef}><QRCodeCanvas value={qrVal} size={180} level="H" /></div>
@@ -690,7 +690,7 @@ function OnboardingTab({ userRole, onComplete, toast }) {
   return (
     <div style={{ maxWidth: '700px', margin: '0 auto' }}>
       <div style={{ marginBottom: '24px' }}>
-        <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '30px', fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '2px' }}>Asset Onboarding</h2>
+        <h2 style={{ fontFamily: "var(--font-display)", fontSize: '30px', fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '2px' }}>Asset Onboarding</h2>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily:'var(--font-display)' }}>Register any asset, vehicle or equipment and generate its QR tag.</p>
       </div>
       <StepBar current={step} />
@@ -719,7 +719,7 @@ function TrackerPlaceholder() {
   return (
     <div style={{ textAlign: 'center', padding: '80px 20px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px' }}>
       <div style={{ fontSize: '48px', marginBottom: '14px' }}>📡</div>
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing:'1.5px' }}>GPS Tracker</div>
+      <div style={{ fontFamily: "var(--font-display)", fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing:'1.5px' }}>GPS Tracker</div>
       <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '280px', margin: '0 auto' }}>Live asset tracking is coming soon. Connect telematics hardware to see real-time locations.</div>
     </div>
   );
@@ -753,7 +753,7 @@ function Assets({ userRole, onViewAsset, initialTab }) {
       <Toasts toasts={toasts} />
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h2 style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: '38px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0, lineHeight: 1 }}>Assets</h2>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: '38px', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '2px', textTransform: 'uppercase', margin: 0, lineHeight: 1 }}>Assets</h2>
         </div>
         {renderTab()}
       </div>

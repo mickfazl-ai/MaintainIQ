@@ -14,6 +14,8 @@ import Scanner from './Scanner';
 import AssetPage from './MachineProfile';
 import MasterAdmin from './MasterAdmin';
 import { supabase } from './supabase';
+import Settings from './Settings';
+import OilSampling from './OilSampling';
 
 function App() {
   const [currentPage, setCurrentPageRaw] = useState('dashboard');
@@ -33,6 +35,13 @@ function App() {
     setCurrentPageRaw(page);
     setCurrentSubPage(subPage);
   };
+
+  // Apply saved theme on boot
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('mechiq_theme') || 'light';
+    document.body.classList.remove('theme-light','theme-dark','theme-navy','theme-contrast');
+    if (savedTheme !== 'light') document.body.classList.add('theme-' + savedTheme);
+  }, []);
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -212,7 +221,7 @@ function App() {
         onSelectCompany={handleSelectCompany}
         onExitCompany={handleExitCompany}
       />
-      <div className="main-content">{renderPage()}</div>
+      <main className="main-content">{renderPage()}</main>
     </div>
   );
 }

@@ -68,7 +68,7 @@ function TabBar({ tabs, active, onChange }) {
 function StatPill({ label, value, color, bg }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:10, background:C.surface, border:`1px solid ${C.borderLight}`, borderRadius:10, padding:'10px 16px', boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
-      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:28, fontWeight:800, color, background:bg, padding:'2px 10px', borderRadius:7 }}>{value}</span>
+      <span style={{ fontFamily:"var(--font-display)", fontSize:28, fontWeight:800, color, background:bg, padding:'2px 10px', borderRadius:7 }}>{value}</span>
       <span style={{ fontSize:12, fontWeight:600, color:C.textMid }}>{label}</span>
     </div>
   );
@@ -156,7 +156,7 @@ function SectionHead({ title, count, action }) {
   return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, paddingBottom:12, borderBottom:`1.5px solid ${C.borderLight}` }}>
       <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:16, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:C.textDark }}>{title}</span>
+        <span style={{ fontFamily:"var(--font-display)", fontSize:16, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:C.textDark }}>{title}</span>
         {count !== undefined && <span style={{ background:C.accent+'20', color:C.accent, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20 }}>{count}</span>}
       </div>
       {action}

@@ -222,7 +222,7 @@ function MasterAdmin() {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:28, flexWrap:'wrap', gap:12 }}>
         <div>
           <div style={{ fontSize:10, color:'var(--purple)', letterSpacing:'3px', textTransform:'uppercase', fontFamily:'var(--font-display)', fontWeight:700, marginBottom:4 }}>◈ MASTER CONTROL</div>
-          <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:38, fontWeight:900, color:'var(--text-primary)', letterSpacing:'2px', textTransform:'uppercase', margin:0, lineHeight:1 }}>Command Panel</h2>
+          <h2 style={{ fontFamily:"var(--font-display)", fontSize:38, fontWeight:900, color:'var(--text-primary)', letterSpacing:'2px', textTransform:'uppercase', margin:0, lineHeight:1 }}>Command Panel</h2>
           <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:6, fontFamily:'var(--font-display)' }}>Manage company registrations, access levels and platform features</div>
         </div>
         <button className="ma-action restore" onClick={handleRestore} style={{ display:'flex', alignItems:'center', gap:7, padding:'10px 18px' }}>
@@ -240,7 +240,7 @@ function MasterAdmin() {
         ].map(s => (
           <div key={s.label} className="ma-card" style={{ padding:'20px 22px', boxShadow:`0 0 20px ${s.glow}`, borderColor:s.glow.replace('0.15','0.3') }}>
             <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:s.color, opacity:0.6 }} />
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:48, fontWeight:800, color:s.color, lineHeight:1, textShadow:`0 0 20px ${s.glow.replace('0.15','0.5')}` }}>{s.value}</div>
+            <div style={{ fontFamily:"var(--font-display)", fontSize:48, fontWeight:800, color:s.color, lineHeight:1, textShadow:`0 0 20px ${s.glow.replace('0.15','0.5')}` }}>{s.value}</div>
             <div style={{ fontSize:11, color:'var(--text-muted)', letterSpacing:'1px', textTransform:'uppercase', fontFamily:'var(--font-display)', fontWeight:700, marginTop:6 }}>{s.label}</div>
           </div>
         ))}
@@ -326,7 +326,7 @@ function MasterAdmin() {
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div>
                   <div style={{ fontSize:10, color:'var(--accent)', letterSpacing:'2px', textTransform:'uppercase', fontFamily:'var(--font-display)', fontWeight:700, marginBottom:4 }}>Company Detail</div>
-                  <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:22, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px' }}>{selected.name}</div>
+                  <div style={{ fontFamily:"var(--font-display)", fontSize:22, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px' }}>{selected.name}</div>
                 </div>
                 <button onClick={() => setSelected(null)} style={{ background:'transparent', border:'1px solid var(--border)', color:'var(--text-muted)', width:32, height:32, borderRadius:6, cursor:'pointer', fontSize:14, transition:'all 0.15s' }}>✕</button>
               </div>

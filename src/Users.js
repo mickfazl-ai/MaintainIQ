@@ -21,10 +21,10 @@ const CSS = `
   }
   .u-card {
     background: var(--surface);
-    border: 1px solid #eaf3fb;
+    border: 1px solid var(--border);
     border-radius: 14px;
     padding: 24px;
-    box-shadow: 0 2px 10px rgba(0,100,180,0.07);
+    box-shadow: var(--shadow-sm);
   }
   .u-input {
     width: 100%; padding: 10px 13px;
@@ -56,7 +56,7 @@ const CSS = `
   }
   .u-btn-danger:hover { background: #fee2e2; border-color: #dc2626; }
   .u-row { transition: background 0.1s; }
-  .u-row:hover td { background: #f4f8fd !important; }
+  .u-row:hover td { background: var(--surface-2) !important; }
   .u-role-select {
     padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
     border: 1px solid var(--border); background: var(--surface); color: var(--text-primary);
@@ -209,7 +209,7 @@ function Users({ companyId, userRole }) {
         {/* ── Page header ── */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:28 }}>
           <div>
-            <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0, lineHeight:1 }}>User Management</h2>
+            <h2 style={{ fontFamily:"var(--font-display)", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0, lineHeight:1 }}>User Management</h2>
             <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0', fontWeight:500 }}>{users.length} team member{users.length !== 1 ? 's' : ''} in your organisation</p>
           </div>
           {userRole?.role === 'admin' && (
@@ -229,7 +229,7 @@ function Users({ companyId, userRole }) {
               { label:'Technicians',  value:users.filter(u=>u.role==='technician'||u.role==='operator').length, color:'var(--green)', bg:'var(--green-bg)' },
             ].map((s, i) => (
               <div key={s.label} className="u-card" style={{ padding:'16px 20px', display:'flex', alignItems:'center', gap:14, opacity:0, animation:`fadeUp 0.4s ease ${i*60}ms forwards` }}>
-                <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:36, fontWeight:800, color:s.color, background:s.bg, padding:'2px 12px', borderRadius:8, lineHeight:1.2 }}>{s.value}</span>
+                <span style={{ fontFamily:"var(--font-display)", fontSize:36, fontWeight:800, color:s.color, background:s.bg, padding:'2px 12px', borderRadius:8, lineHeight:1.2 }}>{s.value}</span>
                 <span style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary)', lineHeight:1.3 }}>{s.label}</span>
               </div>
             ))}
@@ -277,7 +277,7 @@ function Users({ companyId, userRole }) {
         <div className="u-card">
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, paddingBottom:14, borderBottom:'1.5px solid #eaf3fb' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:16, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:'var(--text-primary)' }}>Team Members</span>
+              <span style={{ fontFamily:"var(--font-display)", fontSize:16, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:'var(--text-primary)' }}>Team Members</span>
               <span style={{ background:'#e0f4ff', color:'var(--accent)', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20 }}>{users.length}</span>
             </div>
           </div>

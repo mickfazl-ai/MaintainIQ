@@ -211,7 +211,7 @@ const FORMAT_CSS = `
   .fmt-apply-btn {
     position:relative; overflow:hidden; border:none;
     padding:13px 36px; border-radius:12px; font-size:15px; font-weight:900;
-    cursor:pointer; letter-spacing:0.5px; font-family:'Barlow Condensed',sans-serif;
+    cursor:pointer; letter-spacing:0.5px; font-family:var(--font-display);
     text-transform:uppercase; transition:all 0.2s; color:#fff;
   }
   .fmt-apply-btn::after {
@@ -258,7 +258,7 @@ function ThemeCardMini({ t }) {
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'4px'}}>
         {[['24','100%'],['3','13%'],['87%','87%']].map(([v,w],i)=>(
           <div key={i} style={{background:t.surface,borderRadius:'4px',padding:'5px',borderTop:`2px solid ${t.accent}`}}>
-            <div style={{fontSize:'10px',fontWeight:800,color:t.text,fontFamily:"'Barlow Condensed',sans-serif",lineHeight:1}}>{v}</div>
+            <div style={{fontSize:'10px',fontWeight:800,color:t.text,fontFamily:"var(--font-display)",lineHeight:1}}>{v}</div>
             <div style={{height:'3px',background:t.border+'55',borderRadius:'99px',marginTop:'3px'}}>
               <div style={{width:w,height:'100%',background:t.accent,borderRadius:'99px'}}/>
             </div>
@@ -277,8 +277,8 @@ function LivePreview({ t, density, fontSize }) {
     <div className="fmt-live-preview" key={t.id} style={{border:`1px solid ${t.border}`,borderRadius:'16px',overflow:'hidden',boxShadow:'0 8px 32px rgba(0,0,0,0.10)'}}>
       {/* Navbar */}
       <div style={{background:t.surface,borderBottom:`2.5px solid ${t.accent}`,padding:'0 14px',height:'38px',display:'flex',alignItems:'center',gap:'7px',boxShadow:'0 2px 6px rgba(0,0,0,0.06)'}}>
-        <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'15px',fontWeight:900,color:t.text,letterSpacing:'2px'}}>MECH</span>
-        <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'15px',fontWeight:900,color:t.accent,letterSpacing:'2px'}}>IQ</span>
+        <span style={{fontFamily:"var(--font-display)",fontSize:'15px',fontWeight:900,color:t.text,letterSpacing:'2px'}}>MECH</span>
+        <span style={{fontFamily:"var(--font-display)",fontSize:'15px',fontWeight:900,color:t.accent,letterSpacing:'2px'}}>IQ</span>
         <div style={{display:'flex',gap:'3px',marginLeft:'8px'}}>
           {['Dashboard','Assets','Maintenance','Reports'].map((lbl,i)=>(
             <div key={lbl} style={{padding:'3px 8px',borderRadius:'4px',background:i===0?t.accent:'transparent',color:i===0?'#fff':t.accent+'aa',fontSize:'9px',fontWeight:700}}>{lbl}</div>
@@ -296,7 +296,7 @@ function LivePreview({ t, density, fontSize }) {
           {[['Fleet','24','100%'],['Down','3','13%'],['Overdue','7','29%'],['Util','87%','87%']].map(([l,v,w])=>(
             <div key={l} style={{background:t.surface,borderRadius:'7px',padding:sp,borderTop:`2px solid ${t.accent}`,boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
               <div style={{fontSize:'8px',fontWeight:700,color:t.accent+'aa',letterSpacing:'0.6px',textTransform:'uppercase',marginBottom:'3px'}}>{l}</div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'20px',fontWeight:800,color:t.text,lineHeight:1}}>{v}</div>
+              <div style={{fontFamily:"var(--font-display)",fontSize:'20px',fontWeight:800,color:t.text,lineHeight:1}}>{v}</div>
               <div style={{height:'3px',background:t.border,borderRadius:'99px',marginTop:'5px'}}>
                 <div style={{width:w,height:'100%',background:t.accent,borderRadius:'99px'}}/>
               </div>
@@ -306,7 +306,7 @@ function LivePreview({ t, density, fontSize }) {
         {/* Two-panel */}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'7px'}}>
           <div style={{background:t.surface,borderRadius:'7px',padding:sp,boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-            <div style={{fontSize:'9px',fontWeight:800,color:t.text,letterSpacing:'0.7px',textTransform:'uppercase',marginBottom:'7px',fontFamily:"'Barlow Condensed',sans-serif"}}>Activity</div>
+            <div style={{fontSize:'9px',fontWeight:800,color:t.text,letterSpacing:'0.7px',textTransform:'uppercase',marginBottom:'7px',fontFamily:"var(--font-display)"}}>Activity</div>
             {[['🔴','CAT 320 — downtime'],['⚠️','D9 service overdue'],['🔧','Work order #42']].map(([ic,tx],i)=>(
               <div key={i} style={{display:'flex',gap:'5px',alignItems:'center',padding:'3px 0',borderBottom:`1px solid ${t.border}`}}>
                 <span style={{fontSize:'10px'}}>{ic}</span>
@@ -315,7 +315,7 @@ function LivePreview({ t, density, fontSize }) {
             ))}
           </div>
           <div style={{background:t.surface,borderRadius:'7px',padding:sp,boxShadow:'0 1px 3px rgba(0,0,0,0.04)'}}>
-            <div style={{fontSize:'9px',fontWeight:800,color:t.text,letterSpacing:'0.7px',textTransform:'uppercase',marginBottom:'7px',fontFamily:"'Barlow Condensed',sans-serif"}}>Service Intervals</div>
+            <div style={{fontSize:'9px',fontWeight:800,color:t.text,letterSpacing:'0.7px',textTransform:'uppercase',marginBottom:'7px',fontFamily:"var(--font-display)"}}>Service Intervals</div>
             {[['CAT 320',78,'var(--amber)'],['D9 Dozer',45,t.accent],['Generator',92,'var(--red)']].map(([nm,pct,cl])=>(
               <div key={nm} style={{marginBottom:'7px'}}>
                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:'2px'}}>
@@ -398,7 +398,7 @@ function Format({ userRole }) {
 
       {/* ── Page title ── */}
       <div style={{marginBottom:'28px'}}>
-        <h2 style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'30px',fontWeight:900,color:'var(--text-primary)',textTransform:'uppercase',letterSpacing:'1px',margin:'0 0 4px'}}>
+        <h2 style={{fontFamily:"var(--font-display)",fontSize:'30px',fontWeight:900,color:'var(--text-primary)',textTransform:'uppercase',letterSpacing:'1px',margin:'0 0 4px'}}>
           Format <span style={{color:activeT.accent}}>&</span> Theme
         </h2>
         <p style={{fontSize:'13px',color:'var(--text-muted)',margin:0}}>Personalise MechIQ's look, feel and data display. Changes apply instantly across the entire app.</p>

@@ -15,10 +15,10 @@ const CSS = `
   }
   .ps-card {
     background: var(--surface);
-    border: 1px solid #eaf3fb;
+    border: 1px solid var(--border);
     border-radius: 14px;
     padding: 22px 24px;
-    box-shadow: 0 2px 10px rgba(0,100,180,0.07);
+    box-shadow: var(--shadow-sm);
     margin-bottom: 16px;
   }
   .ps-input {
@@ -63,13 +63,13 @@ const CSS = `
   }
   .ps-template-new:hover { border-color: var(--accent); }
   .ps-check-row { transition: background 0.1s; }
-  .ps-check-row:hover td { background: #f4f8fd !important; }
+  .ps-check-row:hover td { background: var(--surface-2) !important; }
   .ps-status-ok     { background: #dcfce7; color: #16a34a; }
   .ps-status-defect { background: #fee2e2; color: #dc2626; }
   .ps-status-na     { background: #f0f5fa; color: var(--text-muted); }
   .ps-status-empty  { background: #f8fbfe; color: #b0c4d4; }
   .ps-history-row { transition: background 0.1s; }
-  .ps-history-row:hover td { background: #f4f8fd !important; }
+  .ps-history-row:hover td { background: var(--surface-2) !important; }
 `;
 
 const iStyle = {
@@ -82,7 +82,7 @@ function SectionHead({ title, sub, action }) {
   return (
     <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:16, paddingBottom:13, borderBottom:'1.5px solid #eaf3fb' }}>
       <div>
-        <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:16, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:'var(--text-primary)', display:'block' }}>{title}</span>
+        <span style={{ fontFamily:"var(--font-display)", fontSize:16, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:'var(--text-primary)', display:'block' }}>{title}</span>
         {sub && <span style={{ fontSize:11, color:'var(--text-muted)', marginTop:2, display:'block' }}>{sub}</span>}
       </div>
       {action}
@@ -271,7 +271,7 @@ function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
     <div style={{ animation:'fadeUp 0.4s ease both' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:24 }}>
         <div>
-          <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Select Checklist</h2>
+          <h2 style={{ fontFamily:"var(--font-display)", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Select Checklist</h2>
           <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0' }}>Asset: <strong style={{ color:'var(--accent)' }}>{form.asset}</strong></p>
         </div>
         <button className="ps-btn-ghost" onClick={goBack}>← Back</button>
@@ -279,7 +279,7 @@ function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
         {templates.map(t => (
           <div key={t.id} className="ps-template-card" onClick={() => { setSelectedTemplate(t); setView('fill'); }}>
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:800, color:'var(--text-primary)', marginBottom:6 }}>{t.name}</div>
+            <div style={{ fontFamily:"var(--font-display)", fontSize:18, fontWeight:800, color:'var(--text-primary)', marginBottom:6 }}>{t.name}</div>
             <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:12, lineHeight:1.5 }}>{t.description}</div>
             <div style={{ fontSize:11, color:'var(--text-faint)', marginBottom:16 }}>{t.sections?.length||0} sections · {t.sections?.reduce((s,sec)=>s+sec.items.length,0)||0} items</div>
             <button className="ps-btn" style={{ width:'100%' }}>Start Prestart →</button>
@@ -301,7 +301,7 @@ function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
         {/* Header */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:20 }}>
           <div>
-            <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:28, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>{selectedTemplate.name}</h2>
+            <h2 style={{ fontFamily:"var(--font-display)", fontSize:28, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>{selectedTemplate.name}</h2>
             <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0' }}>{answered}/{totalItems} items answered · {defectCount > 0 ? <span style={{ color:'var(--red)', fontWeight:700 }}>{defectCount} defects found</span> : 'no defects'}</p>
           </div>
           <button className="ps-btn-ghost" onClick={goBack}>← Back</button>
@@ -412,7 +412,7 @@ function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
     <div style={{ animation:'fadeUp 0.4s ease both' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:24 }}>
         <div>
-          <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Form Builder</h2>
+          <h2 style={{ fontFamily:"var(--font-display)", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Form Builder</h2>
           <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0' }}>Create a reusable checklist template</p>
         </div>
         <button className="ps-btn-ghost" onClick={() => setView('list')}>← Back</button>
@@ -454,7 +454,7 @@ function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
     <div style={{ animation:'fadeUp 0.4s ease both' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:24 }}>
         <div>
-          <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Prestart History</h2>
+          <h2 style={{ fontFamily:"var(--font-display)", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Prestart History</h2>
           <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0' }}>{submissions.length} total submission{submissions.length!==1?'s':''}</p>
         </div>
         <button className="ps-btn-ghost" onClick={() => setView('list')}>← Back</button>
@@ -512,7 +512,7 @@ function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:24 }}>
         <div>
-          <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Prestarts & Checklists</h2>
+          <h2 style={{ fontFamily:"var(--font-display)", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0 }}>Prestarts & Checklists</h2>
           <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0' }}>{templates.length} template{templates.length!==1?'s':''} · {submissions.length} submission{submissions.length!==1?'s':''}</p>
         </div>
         <div style={{ display:'flex', gap:8 }}>
@@ -529,7 +529,7 @@ function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
           { label:'Defects Found',value:submissions.filter(s=>s.defects_found).length,  color:'var(--red)', bg:'var(--red-bg)' },
         ].map((s,i) => (
           <div key={s.label} className="ps-card" style={{ padding:'14px 20px', display:'flex', alignItems:'center', gap:14, marginBottom:0, opacity:0, animation:`fadeUp 0.4s ease ${i*60}ms forwards` }}>
-            <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:34, fontWeight:800, color:s.color, background:s.bg, padding:'2px 12px', borderRadius:8, lineHeight:1.3 }}>{s.value}</span>
+            <span style={{ fontFamily:"var(--font-display)", fontSize:34, fontWeight:800, color:s.color, background:s.bg, padding:'2px 12px', borderRadius:8, lineHeight:1.3 }}>{s.value}</span>
             <span style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary)' }}>{s.label}</span>
           </div>
         ))}
@@ -551,7 +551,7 @@ function Prestart({ userRole, preloadAsset, preloadAssetId, onClearPreload }) {
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
           {templates.map((t,i) => (
             <div key={t.id} className="ps-template-card" style={{ opacity:0, animation:`fadeUp 0.4s ease ${i*60}ms forwards` }} onClick={() => { setSelectedTemplate(t); setView('fill'); }}>
-              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, fontWeight:800, color:'var(--text-primary)', marginBottom:6 }}>{t.name}</div>
+              <div style={{ fontFamily:"var(--font-display)", fontSize:18, fontWeight:800, color:'var(--text-primary)', marginBottom:6 }}>{t.name}</div>
               <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:10, lineHeight:1.5 }}>{t.description}</div>
               <div style={{ fontSize:11, color:'var(--text-faint)', marginBottom:16 }}>
                 {t.sections?.length||0} sections · {t.sections?.reduce((s,sec)=>s+sec.items.length,0)||0} items

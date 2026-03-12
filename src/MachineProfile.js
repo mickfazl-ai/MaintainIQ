@@ -18,13 +18,13 @@ const CSS = `
   }
   .mp-card {
     background: var(--surface);
-    border: 1px solid #eaf3fb;
+    border: 1px solid var(--border);
     border-radius: 14px;
     padding: 20px 22px;
-    box-shadow: 0 2px 10px rgba(0,100,180,0.07);
+    box-shadow: var(--shadow-sm);
   }
   .mp-row { transition: background 0.1s; }
-  .mp-row:hover { background: #f4f8fd; }
+  .mp-row:hover { background: var(--surface-2); }
   .mp-start-btn {
     width: 100%; padding: 14px; background: linear-gradient(135deg, var(--accent), #0096cc);
     color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: 800;
@@ -58,7 +58,7 @@ function StatusPill({ status }) {
 function SectionHead({ title, count }) {
   return (
     <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14, paddingBottom:12, borderBottom:'1.5px solid #eaf3fb' }}>
-      <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:15, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:'var(--text-primary)' }}>{title}</span>
+      <span style={{ fontFamily:"var(--font-display)", fontSize:15, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:'var(--text-primary)' }}>{title}</span>
       {count !== undefined && <span style={{ background:'#e0f4ff', color:'var(--accent)', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20 }}>{count}</span>}
     </div>
   );
@@ -159,7 +159,7 @@ function AssetPage({ assetId, userRole, onStartPrestart }) {
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:20 }}>
           <div style={{ flex:1, minWidth:200 }}>
             <div style={{ fontSize:12, fontWeight:700, color:'var(--accent)', letterSpacing:'1px', marginBottom:4 }}>{asset.asset_number||'AST-0000'}</div>
-            <h2 style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:34, fontWeight:800, color:'var(--text-primary)', margin:'0 0 6px', letterSpacing:'0.5px', textTransform:'uppercase' }}>{asset.name}</h2>
+            <h2 style={{ fontFamily:"var(--font-display)", fontSize:34, fontWeight:800, color:'var(--text-primary)', margin:'0 0 6px', letterSpacing:'0.5px', textTransform:'uppercase' }}>{asset.name}</h2>
             <p style={{ fontSize:13, color:'var(--text-muted)', margin:'0 0 12px' }}>{asset.type}{asset.location ? ` · ${asset.location}` : ''}</p>
             <StatusPill status={asset.status} />
             <div style={{ display:'flex', gap:24, marginTop:18, flexWrap:'wrap' }}>
@@ -171,7 +171,7 @@ function AssetPage({ assetId, userRole, onStartPrestart }) {
               ].map(s => (
                 <div key={s.label}>
                   <div style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)', letterSpacing:'1px', textTransform:'uppercase', marginBottom:3 }}>{s.label}</div>
-                  <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:20, fontWeight:800, color:s.color }}>{s.value}</div>
+                  <div style={{ fontFamily:"var(--font-display)", fontSize:20, fontWeight:800, color:s.color }}>{s.value}</div>
                 </div>
               ))}
             </div>
@@ -261,7 +261,7 @@ function AssetPage({ assetId, userRole, onStartPrestart }) {
                 <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.description}</div>
                 <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:1 }}>{d.date} · {d.category}</div>
               </div>
-              <span style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:16, fontWeight:800, color:'#ea580c', flexShrink:0 }}>{d.hours}h</span>
+              <span style={{ fontFamily:"var(--font-display)", fontSize:16, fontWeight:800, color:'#ea580c', flexShrink:0 }}>{d.hours}h</span>
             </div>
           ))}
         </div>
