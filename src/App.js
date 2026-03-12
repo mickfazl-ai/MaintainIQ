@@ -13,6 +13,7 @@ import Forms from './Forms';
 import Scanner from './Scanner';
 import AssetPage from './MachineProfile';
 import MasterAdmin from './MasterAdmin';
+import Settings from './Settings';
 import { supabase } from './supabase';
 
 function App() {
@@ -172,16 +173,10 @@ function App() {
         return <Reports companyId={effectiveCompanyId} userRole={effectiveUserRole} initialTab={currentSubPage} />;
       case 'users':
         return <Users companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
-      case 'export':
-        // Placeholder until Data Export component is built
-        return <Users companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
+      case 'admin':
+        return <Settings userRole={effectiveUserRole} initialTab={currentSubPage || 'company'} key={currentSubPage} adminMode />;
       case 'settings':
-        // Placeholder until Settings component is built
-        return (
-          <div style={{ padding: '40px', color: '#7a92a8', textAlign: 'center' }}>
-            Settings page coming soon.
-          </div>
-        );
+        return <Settings userRole={effectiveUserRole} initialTab={currentSubPage || 'format'} key={currentSubPage} personalMode />;
       case 'master':
         return <MasterAdmin />;
       default:
