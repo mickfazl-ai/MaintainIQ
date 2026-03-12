@@ -328,8 +328,7 @@ function Dashboard({ companyId }) {
         {/* ── Header ── */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:28, opacity:hVis?1:0, transform:hVis?'none':'translateY(-6px)', transition:'opacity 0.4s, transform 0.4s' }}>
           <div>
-            <h2 style={{ fontFamily:'var(--font-display)', fontSize:34, fontWeight:900, color:'var(--text-primary)', letterSpacing:'1.5px', textTransform:'uppercase', margin:0, lineHeight:1 }}>Dashboard</h2>
-            <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0', fontWeight:400 }}>
+            <p style={{ fontSize:13, color:'var(--text-muted)', margin:'0 0 0', fontWeight:400 }}>
               {now.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
             </p>
           </div>

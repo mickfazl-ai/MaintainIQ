@@ -147,7 +147,7 @@ const CSS = `
     color: var(--sidebar-text, #e5e7eb);
     background: var(--sidebar-hover, rgba(255,255,255,0.04));
   }
-  .sidebar-sub-item.active { color: var(--accent); font-weight: 700; }
+  .sidebar-sub-item.active { color: var(--accent); font-weight: 700; background: rgba(14,165,233,0.10); border-right: 2px solid var(--accent); }
   .sub-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex-shrink: 0; opacity: 0.7; }
 
   .sidebar-footer {
@@ -564,7 +564,16 @@ function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session
       {/* Top bar */}
       <div className={`topbar${expanded ? ' sb-expanded' : ''}${hasBanner ? ' has-banner' : ''}`}>
         <button className="topbar-hamburger" onClick={() => setMobileOpen(o => !o)}>{IC.hamburger}</button>
-        <div className="topbar-title">{PAGE_TITLES[currentPage] || currentPage}</div>
+        <div className="topbar-title">
+          {(() => {
+            if (currentSubPage) {
+              const allSubs = NAV_STRUCTURE.flatMap(i => i.children || []);
+              const match = allSubs.find(c => c.id === currentPage && c.subPage === currentSubPage);
+              if (match) return match.label;
+            }
+            return PAGE_TITLES[currentPage] || currentPage;
+          })()}
+        </div>
         <div className="topbar-right">
           {isMaster && (
             <div ref={switcherRef} style={{ position: 'relative' }}>

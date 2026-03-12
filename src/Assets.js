@@ -1150,7 +1150,7 @@ function Assets({ userRole, onViewAsset, initialTab }) {
       <div>
         {/* Header */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-          <h2 style={{ fontFamily:"var(--font-display)", fontSize:'38px', fontWeight:900, color:'var(--text-primary)', letterSpacing:'2px', textTransform:'uppercase', margin:0, lineHeight:1 }}>Assets</h2>
+          <h2 style={{ fontFamily:"var(--font-display)", fontSize:'38px', fontWeight:900, color:'var(--text-primary)', letterSpacing:'2px', textTransform:'uppercase', margin:0, lineHeight:1 }}>{TABS.find(t => t.id === activeTab)?.label || 'Fleet Units'}</h2>
         </div>
 
         {/* Tab bar */}

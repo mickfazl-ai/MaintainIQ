@@ -214,7 +214,7 @@ function OilSampling({ userRole }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <div>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px' }}>Oil Sampling</h2>
+
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>AI-powered oil analysis results — automatically extracted from lab reports</p>
         </div>
         <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'right', backgroundColor: 'var(--surface-2)', padding: '8px 14px', borderRadius: '8px' }}>
