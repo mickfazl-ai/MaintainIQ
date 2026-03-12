@@ -38,7 +38,7 @@ const CSS = `
     font-size: 20px; font-weight: 900; letter-spacing: 0.5px;
     text-transform: uppercase; line-height: 1; white-space: nowrap;
   }
-  .brand-mech { color: var(--sidebar-text, #e5e7eb); }
+  .brand-mech { color: #ffffff; }
   .brand-iq   { color: var(--accent); }
 
   .sidebar-nav {
@@ -52,19 +52,19 @@ const CSS = `
     position: relative; width: 100%; height: 42px;
     display: flex; align-items: center; gap: 11px;
     padding: 0 16px; cursor: pointer;
-    color: var(--sidebar-text-muted, #9ca3af);
+    color: #c8d8e8;
     font-size: 12.5px; font-weight: 600; font-family: var(--font-body);
     letter-spacing: 0.2px;
     transition: color 0.15s, background 0.15s;
     white-space: nowrap; overflow: hidden; user-select: none;
   }
   .sidebar-item:hover {
-    color: var(--sidebar-text, #e5e7eb);
-    background: var(--sidebar-hover, rgba(255,255,255,0.06));
+    color: #ffffff;
+    background: var(--sidebar-hover, rgba(255,255,255,0.08));
   }
   .sidebar-item.active {
-    color: #fff;
-    background: var(--sidebar-active, rgba(0,171,228,0.15));
+    color: #ffffff;
+    background: var(--sidebar-active, rgba(14,165,233,0.18));
   }
   .sidebar-item.active .sbi-icon { color: var(--accent); }
   .sidebar-item.active::before {
@@ -138,7 +138,7 @@ const CSS = `
   .sidebar-sub-item {
     height: 36px; display: flex; align-items: center;
     gap: 10px; padding: 0 16px 0 40px; cursor: pointer;
-    color: var(--sidebar-text-muted, #9ca3af);
+    color: #c8d8e8;
     font-size: 12px; font-weight: 500; font-family: var(--font-body);
     white-space: nowrap; overflow: hidden;
     transition: color 0.12s, background 0.12s; user-select: none;
@@ -157,7 +157,7 @@ const CSS = `
   .sidebar-toggle {
     width: 100%; height: 38px;
     display: flex; align-items: center; justify-content: center;
-    cursor: pointer; color: var(--sidebar-text-muted, #9ca3af);
+    cursor: pointer; color: #c8d8e8;
     transition: color 0.15s, background 0.15s;
     background: none; border: none; font-size: 16px; flex-shrink: 0;
   }
@@ -530,7 +530,7 @@ function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session
                   {displayName[0]?.toUpperCase()}
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sidebar-text, #e5e7eb)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{displayName}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{displayName}</div>
                   <RoleBadge role={isMaster ? 'master' : (userRole?.role || 'operator')} />
                 </div>
               </div>

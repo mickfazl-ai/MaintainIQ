@@ -1072,7 +1072,21 @@ function Settings({ userRole, initialTab }) {
       </div>
 
       {/* Sub-nav tabs */}
-      
+      <div style={{ display:'flex', gap:2, borderBottom:'2px solid var(--border)', marginBottom:28, overflowX:'auto' }}>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setActiveTab(t.id)}
+            style={{
+              padding:'10px 18px', background:'none', border:'none',
+              borderBottom: activeTab===t.id ? '2px solid var(--accent)' : '2px solid transparent',
+              marginBottom:-2, fontSize:13, fontWeight:600,
+              color: activeTab===t.id ? 'var(--accent)' : 'var(--text-muted)',
+              cursor:'pointer', transition:'all .15s', whiteSpace:'nowrap',
+              fontFamily:'var(--font-body)', display:'flex', alignItems:'center', gap:7
+            }}>
+            <span>{t.icon}</span>{t.label}
+          </button>
+        ))}
+      </div>
 
       {/* Tab content */}
       {tabContent[activeTab]}
