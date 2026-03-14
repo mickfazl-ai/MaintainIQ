@@ -703,7 +703,7 @@ function OnboardingTab({ userRole, onComplete, toast }) {
     <div style={{ maxWidth: '860px', margin: '0 auto' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'20px', flexWrap:'wrap', gap:10 }}>
         <div>
-          <h2 style={{ fontFamily:"var(--font-display)", fontSize:'28px', fontWeight:900, color:'var(--text-primary)', margin:'0 0 3px', textTransform:'uppercase', letterSpacing:'2px' }}>Asset Onboarding</h2>
+
           <p style={{ fontSize:'13px', color:'var(--text-muted)', margin:0 }}>Register any asset, vehicle or equipment and generate its QR tag.</p>
         </div>
         <span style={{ padding:'5px 14px', borderRadius:20, background:'var(--accent-light)', color:'var(--accent)', fontSize:12, fontWeight:700 }}>
@@ -926,7 +926,7 @@ function TrackerPlaceholder({ userRole }) {
       {/* Header row */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:12 }}>
         <div>
-          <h2 style={{ fontSize:22, fontWeight:800, color:'var(--text-primary)', margin:'0 0 3px' }}>Fleet Tracker</h2>
+
           <p style={{ fontSize:13, color:'var(--text-muted)', margin:0 }}>
             GPS · Wi‑Fi · Cell triangulation · {withGPS.length}/{assets.length} assets reporting live location
           </p>
@@ -1148,11 +1148,6 @@ function Assets({ userRole, onViewAsset, initialTab }) {
     <>
       <Toasts toasts={toasts} />
       <div>
-        {/* Header */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-          <h2 style={{ fontFamily:"var(--font-display)", fontSize:'38px', fontWeight:900, color:'var(--text-primary)', letterSpacing:'2px', textTransform:'uppercase', margin:0, lineHeight:1 }}>Assets</h2>
-        </div>
-
         {renderTab()}
       </div>
     </>
