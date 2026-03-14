@@ -434,13 +434,6 @@ function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session
     }
   };
 
-  // Re-run layout on window resize
-  React.useEffect(() => {
-    const onResize = () => updateLayout(expanded, hasBanner);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [expanded, hasBanner]);
-
   useEffect(() => {
     try { localStorage.setItem('mechiq_sidebar_expanded', String(expanded)); } catch {}
     updateLayout(expanded, hasBanner);
@@ -477,6 +470,13 @@ function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session
 
   const displayName = userRole?.name || session?.user?.email?.split('@')[0] || 'User';
   const hasBanner = isMaster && viewingCompany;
+
+  // Re-run layout on window resize
+  React.useEffect(() => {
+    const onResize = () => updateLayout(expanded, hasBanner);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [expanded, hasBanner]);
 
   return (
     <>
