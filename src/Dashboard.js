@@ -266,6 +266,129 @@ function KPICard({ label, value, accent, sub, trend, delay=0, urgent=false, warn
   );
 }
 
+/* ── Accordion Card ── */
+function AccordionCard({ title, count, color, bg, border, icon, loading, children, urgent }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div style={{
+      background: 'var(--surface)', border: `1px solid ${open ? border : 'var(--border)'}`,
+      borderRadius: 14, overflow: 'hidden',
+      transition: 'border-color 0.2s, box-shadow 0.2s',
+      boxShadow: open ? 'var(--shadow-md)' : 'var(--shadow-xs)',
+      animation: urgent ? 'pulse-red 2.5s ease-in-out infinite' : 'none',
+    }}>
+      {/* Header — always visible, tappable */}
+      <button onClick={() => setOpen(o => !o)} style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 14,
+        padding: '16px 18px', background: 'none', border: 'none', cursor: 'pointer',
+        textAlign: 'left',
+      }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: bg, border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+          {icon}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 2 }}>{title}</div>
+          <div style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1, fontFamily: 'var(--font-display)' }}>
+            {loading ? '…' : count}
+          </div>
+        </div>
+        <div style={{ fontSize: 18, color: 'var(--text-faint)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>▾</div>
+      </button>
+      {/* Expandable content */}
+      {open && (
+        <div style={{ borderTop: `1px solid var(--border)`, padding: '12px 18px 16px' }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AccordionCards({ loading, assets, maint, wos, PCOLOR, StatusBadge }) {
+  const today = new Date().toISOString().split('T')[0];
+  const breakdowns = assets.filter(a => a.status === 'Down');
+  const dueToday   = maint.filter(m => m.next_service_date === today);
+  const overdue    = maint.filter(m => m.status === 'Overdue');
+  const priority   = wos.filter(w => w.priority === 'Critical' || w.priority === 'High');
+
+  const emptyRow = (msg) => (
+    <div style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-faint)', fontSize: 13 }}>✓ {msg}</div>
+  );
+
+  const listTable = (rows, cols, rowFn) => (
+    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <thead><tr>
+        {cols.map(h => <th key={h} style={{ textAlign:'left', padding:'0 10px 8px 0', fontSize:10, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', borderBottom:'1px solid var(--border)' }}>{h}</th>)}
+      </tr></thead>
+      <tbody>{rows.map((r, i) => rowFn(r, i))}</tbody>
+    </table>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+
+      {/* Breakdowns */}
+      <AccordionCard title="Current Breakdowns" count={breakdowns.length} color="var(--red)" bg="var(--red-bg)" border="var(--red-border)" icon="🔴" loading={loading} urgent={breakdowns.length > 0}>
+        {breakdowns.length === 0 ? emptyRow('No breakdowns — all assets operational') :
+          listTable(breakdowns, ['Asset','Number','Location'], (a, i) => (
+            <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
+              <td style={{ padding:'9px 10px 9px 0', fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{a.name||'—'}</td>
+              <td style={{ padding:'9px 10px 9px 0', fontSize:12, color:'var(--accent)', fontFamily:'var(--font-mono)' }}>{a.asset_number||'—'}</td>
+              <td style={{ padding:'9px 0', fontSize:12, color:'var(--text-muted)' }}>{a.location||'—'}</td>
+            </tr>
+          ))
+        }
+      </AccordionCard>
+
+      {/* Service Due Today */}
+      <AccordionCard title="Service Due Today" count={dueToday.length} color="var(--accent)" bg="var(--accent-light)" border="rgba(14,165,233,0.3)" icon="📅" loading={loading}>
+        {dueToday.length === 0 ? emptyRow('Nothing due today') :
+          listTable(dueToday, ['Asset','Service','Assigned'], (m, i) => (
+            <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
+              <td style={{ padding:'9px 10px 9px 0', fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{m.asset_name||m.asset||'—'}</td>
+              <td style={{ padding:'9px 10px 9px 0', fontSize:12, color:'var(--text-muted)' }}>{m.service_type||m.task||'Service'}</td>
+              <td style={{ padding:'9px 0', fontSize:12, color:'var(--text-muted)' }}>{m.assigned_to||'Unassigned'}</td>
+            </tr>
+          ))
+        }
+      </AccordionCard>
+
+      {/* Overdue Services */}
+      <AccordionCard title="Overdue Services" count={overdue.length} color="var(--amber)" bg="var(--amber-bg)" border="var(--amber-border)" icon="⚠️" loading={loading} urgent={overdue.length > 0}>
+        {overdue.length === 0 ? emptyRow('All services on schedule') :
+          listTable(overdue, ['Asset','Service','Due'], (m, i) => (
+            <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
+              <td style={{ padding:'9px 10px 9px 0', fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{m.asset_name||m.asset||'—'}</td>
+              <td style={{ padding:'9px 10px 9px 0', fontSize:12, color:'var(--text-muted)' }}>{m.service_type||m.task||'Service'}</td>
+              <td style={{ padding:'9px 0', fontSize:12, fontWeight:600, color:'var(--amber)', fontFamily:'var(--font-mono)' }}>{m.next_service_date||m.next_due||'—'}</td>
+            </tr>
+          ))
+        }
+      </AccordionCard>
+
+      {/* Priority Jobs */}
+      <AccordionCard title="Priority Jobs" count={priority.length} color="var(--red)" bg="var(--red-bg)" border="var(--red-border)" icon="🔥" loading={loading} urgent={priority.length > 0}>
+        {priority.length === 0 ? emptyRow('No critical or high priority jobs') :
+          listTable(priority, ['Job','Asset','Priority','Status'], (w, i) => {
+            const pc = PCOLOR[w.priority] || 'var(--text-muted)';
+            return (
+              <tr key={w.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                <td style={{ padding:'9px 10px 9px 0', fontSize:12, fontWeight:600, color:'var(--text-primary)', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{w.title||w.defect_description?.slice(0,30)||'—'}</td>
+                <td style={{ padding:'9px 10px 9px 0', fontSize:11, color:'var(--text-muted)', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{w.asset_name||w.asset||'—'}</td>
+                <td style={{ padding:'9px 10px 9px 0' }}>
+                  <span style={{ padding:'2px 7px', borderRadius:4, fontSize:10, fontWeight:700, color:pc, background:`${pc}14`, border:`1px solid ${pc}28` }}>{w.priority}</span>
+                </td>
+                <td style={{ padding:'9px 0' }}><StatusBadge status={w.status} /></td>
+              </tr>
+            );
+          })
+        }
+      </AccordionCard>
+
+    </div>
+  );
+}
+
 /* ── Main Dashboard ── */
 function Dashboard({ companyId }) {
   const [stats, setStats]   = useState(null);
@@ -341,151 +464,17 @@ function Dashboard({ companyId }) {
         {/* ── Fleet health ── */}
         {!loading && stats && <FleetHealthBar running={stats.running} down={stats.down} maintenance={stats.maintenance} total={stats.total} />}
 
-        {/* ── 4 Focus Tables ── */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(min(100%, 460px), 1fr))', gap:16 }}>
+        {/* ── Accordion Summary Cards ── */}
+        <AccordionCards
+          loading={loading}
+          assets={assets}
+          maint={maint}
+          wos={wos}
+          PCOLOR={PCOLOR}
+          StatusBadge={StatusBadge}
+        />
 
-          {/* 1. Current Breakdowns */}
-          <div className="panel">
-            <div className="panel-title" style={{ color:'var(--red)' }}>
-              <span style={{ width:8, height:8, borderRadius:'50%', background:'var(--red)', display:'inline-block', animation:'pulse-red 2s infinite', flexShrink:0 }} />
-              Current Breakdowns
-              <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'var(--red-bg)', color:'var(--red)', border:'1px solid var(--red-border)' }}>
-                {loading ? '…' : assets.filter(a=>a.status==='Down').length}
-              </span>
-            </div>
-            {loading ? [0,1,2].map(i=><div key={i} style={{padding:'12px 0',borderBottom:'1px solid var(--border)'}}><Sk w="60%" h="13px" /><div style={{marginTop:6}}><Sk w="40%" h="11px" /></div></div>) :
-              assets.filter(a=>a.status==='Down').length === 0
-                ? <EmptyState icon="✅" title="No breakdowns" desc="All assets are operational." />
-                : <table style={{width:'100%',borderCollapse:'collapse'}}>
-                    <thead><tr>
-                      {['Asset','Number','Location'].map(h=><th key={h} style={{textAlign:'left',padding:'0 12px 10px 0',fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',borderBottom:'1px solid var(--border)'}}>{h}</th>)}
-                    </tr></thead>
-                    <tbody>
-                      {assets.filter(a=>a.status==='Down').map((a,i)=>(
-                        <tr key={a.id} className="wo-row" style={{borderBottom:'1px solid var(--border)',opacity:0,animation:`fadeUp 0.3s ease ${i*50}ms forwards`}}>
-                          <td style={{padding:'10px 12px 10px 0'}}>
-                            <div style={{display:'flex',alignItems:'center',gap:8}}>
-                              <div style={{width:7,height:7,borderRadius:'50%',background:'var(--red)',flexShrink:0,animation:'pulse-red 2s infinite'}} />
-                              <span style={{fontSize:13,fontWeight:600,color:'var(--text-primary)'}}>{a.name||'—'}</span>
-                            </div>
-                          </td>
-                          <td style={{padding:'10px 12px 10px 0',fontSize:12,color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{a.asset_number||'—'}</td>
-                          <td style={{padding:'10px 0',fontSize:12,color:'var(--text-muted)'}}>{a.location||'—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-            }
-          </div>
-
-          {/* 2. Service Due Today */}
-          <div className="panel">
-            <div className="panel-title" style={{ color:'var(--accent)' }}>
-              <span style={{ fontSize:14 }}>📅</span>
-              Service Due Today
-              <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'var(--accent-light)', color:'var(--accent)', border:'1px solid rgba(14,165,233,0.25)' }}>
-                {loading ? '…' : maint.filter(m => m.next_service_date === new Date().toISOString().split('T')[0]).length}
-              </span>
-            </div>
-            {loading ? [0,1,2].map(i=><div key={i} style={{padding:'12px 0',borderBottom:'1px solid var(--border)'}}><Sk w="65%" h="13px" /><div style={{marginTop:6}}><Sk w="45%" h="11px" /></div></div>) : (() => {
-              const today = new Date().toISOString().split('T')[0];
-              const due = maint.filter(m => m.next_service_date === today);
-              return due.length === 0
-                ? <EmptyState icon="✓" title="Nothing due today" desc="No services scheduled for today." />
-                : <table style={{width:'100%',borderCollapse:'collapse'}}>
-                    <thead><tr>
-                      {['Asset','Service','Assigned'].map(h=><th key={h} style={{textAlign:'left',padding:'0 12px 10px 0',fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',borderBottom:'1px solid var(--border)'}}>{h}</th>)}
-                    </tr></thead>
-                    <tbody>
-                      {due.map((m,i)=>(
-                        <tr key={m.id} className="wo-row" style={{borderBottom:'1px solid var(--border)',opacity:0,animation:`fadeUp 0.3s ease ${i*50}ms forwards`}}>
-                          <td style={{padding:'10px 12px 10px 0',fontSize:13,fontWeight:600,color:'var(--text-primary)'}}>{m.asset_name||m.asset||'—'}</td>
-                          <td style={{padding:'10px 12px 10px 0',fontSize:12,color:'var(--text-muted)'}}>{m.service_type||m.task||'Service'}</td>
-                          <td style={{padding:'10px 0',fontSize:12,color:'var(--text-muted)'}}>{m.assigned_to||'Unassigned'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>;
-            })()}
-          </div>
-
-          {/* 3. Overdue Services */}
-          <div className="panel">
-            <div className="panel-title" style={{ color:'var(--amber)' }}>
-              <span style={{ fontSize:14 }}>⚠️</span>
-              Overdue Services
-              <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'var(--amber-bg)', color:'var(--amber)', border:'1px solid var(--amber-border)' }}>
-                {loading ? '…' : maint.filter(m=>m.status==='Overdue').length}
-              </span>
-            </div>
-            {loading ? [0,1,2].map(i=><div key={i} style={{padding:'12px 0',borderBottom:'1px solid var(--border)'}}><Sk w="60%" h="13px" /><div style={{marginTop:6}}><Sk w="40%" h="11px" /></div></div>) :
-              maint.filter(m=>m.status==='Overdue').length === 0
-                ? <EmptyState icon="✓" title="No overdue services" desc="All services are on schedule." />
-                : <table style={{width:'100%',borderCollapse:'collapse'}}>
-                    <thead><tr>
-                      {['Asset','Service','Due Date'].map(h=><th key={h} style={{textAlign:'left',padding:'0 12px 10px 0',fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',borderBottom:'1px solid var(--border)'}}>{h}</th>)}
-                    </tr></thead>
-                    <tbody>
-                      {maint.filter(m=>m.status==='Overdue').map((m,i)=>(
-                        <tr key={m.id} className="wo-row" style={{borderBottom:'1px solid var(--border)',opacity:0,animation:`fadeUp 0.3s ease ${i*50}ms forwards`}}>
-                          <td style={{padding:'10px 12px 10px 0'}}>
-                            <div style={{display:'flex',alignItems:'center',gap:8}}>
-                              <div style={{width:7,height:7,borderRadius:'50%',background:'var(--amber)',flexShrink:0}} />
-                              <span style={{fontSize:13,fontWeight:600,color:'var(--text-primary)'}}>{m.asset_name||m.asset||'—'}</span>
-                            </div>
-                          </td>
-                          <td style={{padding:'10px 12px 10px 0',fontSize:12,color:'var(--text-muted)'}}>{m.service_type||m.task||'Service'}</td>
-                          <td style={{padding:'10px 0',fontSize:12,color:'var(--amber)',fontWeight:600,fontFamily:'var(--font-mono)'}}>{m.next_service_date||m.next_due||'—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-            }
-          </div>
-
-          {/* 4. Priority Jobs */}
-          <div className="panel">
-            <div className="panel-title" style={{ color:'var(--red)' }}>
-              <span style={{ fontSize:14 }}>🔥</span>
-              Priority Jobs
-              <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'var(--red-bg)', color:'var(--red)', border:'1px solid var(--red-border)' }}>
-                {loading ? '…' : wos.filter(w=>w.priority==='Critical'||w.priority==='High').length}
-              </span>
-            </div>
-            {loading ? [0,1,2].map(i=><div key={i} style={{padding:'12px 0',borderBottom:'1px solid var(--border)'}}><Sk w="65%" h="13px" /><div style={{marginTop:6}}><Sk w="45%" h="11px" /></div></div>) :
-              wos.filter(w=>w.priority==='Critical'||w.priority==='High').length === 0
-                ? <EmptyState icon="✓" title="No priority jobs" desc="No critical or high priority work orders open." />
-                : <table style={{width:'100%',borderCollapse:'collapse'}}>
-                    <thead><tr>
-                      {['Job','Asset','Priority','Status'].map(h=><th key={h} style={{textAlign:'left',padding:'0 10px 10px 0',fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',borderBottom:'1px solid var(--border)'}}>{h}</th>)}
-                    </tr></thead>
-                    <tbody>
-                      {wos.filter(w=>w.priority==='Critical'||w.priority==='High').map((w,i)=>{
-                        const pc = PCOLOR[w.priority]||'var(--text-muted)';
-                        return (
-                          <tr key={w.id} className="wo-row" style={{borderBottom:'1px solid var(--border)',opacity:0,animation:`fadeUp 0.3s ease ${i*50}ms forwards`}}>
-                            <td style={{padding:'10px 10px 10px 0'}}>
-                              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                                <div style={{width:3,height:24,borderRadius:99,background:pc,flexShrink:0}} />
-                                <span style={{fontSize:12,fontWeight:600,color:'var(--text-primary)',maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{w.title||w.defect_description?.slice(0,35)||'—'}</span>
-                              </div>
-                            </td>
-                            <td style={{padding:'10px 10px 10px 0',fontSize:11,color:'var(--text-muted)',maxWidth:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{w.asset_name||w.asset||'—'}</td>
-                            <td style={{padding:'10px 10px 10px 0'}}>
-                              <span style={{padding:'2px 7px',borderRadius:4,fontSize:10,fontWeight:700,color:pc,background:`${pc}14`,border:`1px solid ${pc}28`}}>{w.priority}</span>
-                            </td>
-                            <td style={{padding:'10px 0'}}><StatusBadge status={w.status} /></td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-            }
-          </div>
-
-        </div>
-
-        {/* ── Service Intervals ── */}
+                {/* ── Service Intervals ── */}
         <div className="panel" style={{ marginTop:16 }}>
           <div className="panel-title">Service Intervals <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text-faint)', fontWeight:400, letterSpacing:0, textTransform:'none', fontFamily:'var(--font-body)' }}>Hours to next service</span></div>
           {loading ? [0,1,2,3].map(i => (

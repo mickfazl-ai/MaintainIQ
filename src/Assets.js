@@ -136,7 +136,7 @@ function AssetCardSkeleton() {
           <Sk w="60px" h="22px" r="20px" />
         </div>
         <Sk w="38%" h="11px" style={{ marginBottom: '12px' }} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px', marginBottom: '14px' }}>
           <Sk h="11px" /><Sk h="11px" /><Sk h="11px" /><Sk h="11px" />
         </div>
         <div style={{ display: 'flex', gap: '8px', paddingTop: '14px', borderTop: '1px solid var(--border)' }}>
@@ -334,7 +334,7 @@ function UnitsTab({ userRole, onViewAsset, toast }) {
           <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily:'var(--font-display)', letterSpacing:'1px', textTransform:'uppercase' }}>
             Quick Add Asset
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '12px', marginBottom: '14px' }}>
             {[
               ['Asset Name', 'name', 'text', 'e.g. CAT 320 Excavator'],
               ['Type', 'type', 'text', 'e.g. Excavator, Vehicle…'],
@@ -424,7 +424,7 @@ function FieldGroup({ title, optional, children }) {
         <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', letterSpacing: '1.5px', textTransform: 'uppercase', fontFamily:'var(--font-display)' }}>{title}</span>
         {optional && <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)', background: '#e0f4ff', padding: '2px 8px', borderRadius: '10px' }}>Optional</span>}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>{children}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px' }}>{children}</div>
     </div>
   );
 }
@@ -965,7 +965,7 @@ function TrackerPlaceholder({ userRole }) {
       </div>
 
       {/* Main grid: sidebar + map */}
-      <div style={{ display:'grid', gridTemplateColumns:'290px 1fr', gap:16, alignItems:'start' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'minmax(0,290px) 1fr', gap:16, alignItems:'start' }} className="tracker-grid">
 
         {/* Asset list */}
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', maxHeight:540, display:'flex', flexDirection:'column' }}>
