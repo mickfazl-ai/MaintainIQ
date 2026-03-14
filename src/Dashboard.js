@@ -341,154 +341,163 @@ function Dashboard({ companyId }) {
         {/* ── Fleet health ── */}
         {!loading && stats && <FleetHealthBar running={stats.running} down={stats.down} maintenance={stats.maintenance} total={stats.total} />}
 
-        {/* ── KPI Grid ── */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16, marginBottom:16 }}>
+        {/* ── 4 Focus Tables ── */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(min(100%, 460px), 1fr))', gap:16 }}>
+
+          {/* 1. Current Breakdowns */}
+          <div className="panel">
+            <div className="panel-title" style={{ color:'var(--red)' }}>
+              <span style={{ width:8, height:8, borderRadius:'50%', background:'var(--red)', display:'inline-block', animation:'pulse-red 2s infinite', flexShrink:0 }} />
+              Current Breakdowns
+              <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'var(--red-bg)', color:'var(--red)', border:'1px solid var(--red-border)' }}>
+                {loading ? '…' : assets.filter(a=>a.status==='Down').length}
+              </span>
+            </div>
+            {loading ? [0,1,2].map(i=><div key={i} style={{padding:'12px 0',borderBottom:'1px solid var(--border)'}}><Sk w="60%" h="13px" /><div style={{marginTop:6}}><Sk w="40%" h="11px" /></div></div>) :
+              assets.filter(a=>a.status==='Down').length === 0
+                ? <EmptyState icon="✅" title="No breakdowns" desc="All assets are operational." />
+                : <table style={{width:'100%',borderCollapse:'collapse'}}>
+                    <thead><tr>
+                      {['Asset','Number','Location'].map(h=><th key={h} style={{textAlign:'left',padding:'0 12px 10px 0',fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',borderBottom:'1px solid var(--border)'}}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {assets.filter(a=>a.status==='Down').map((a,i)=>(
+                        <tr key={a.id} className="wo-row" style={{borderBottom:'1px solid var(--border)',opacity:0,animation:`fadeUp 0.3s ease ${i*50}ms forwards`}}>
+                          <td style={{padding:'10px 12px 10px 0'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8}}>
+                              <div style={{width:7,height:7,borderRadius:'50%',background:'var(--red)',flexShrink:0,animation:'pulse-red 2s infinite'}} />
+                              <span style={{fontSize:13,fontWeight:600,color:'var(--text-primary)'}}>{a.name||'—'}</span>
+                            </div>
+                          </td>
+                          <td style={{padding:'10px 12px 10px 0',fontSize:12,color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{a.asset_number||'—'}</td>
+                          <td style={{padding:'10px 0',fontSize:12,color:'var(--text-muted)'}}>{a.location||'—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+            }
+          </div>
+
+          {/* 2. Service Due Today */}
+          <div className="panel">
+            <div className="panel-title" style={{ color:'var(--accent)' }}>
+              <span style={{ fontSize:14 }}>📅</span>
+              Service Due Today
+              <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'var(--accent-light)', color:'var(--accent)', border:'1px solid rgba(14,165,233,0.25)' }}>
+                {loading ? '…' : maint.filter(m => m.next_service_date === new Date().toISOString().split('T')[0]).length}
+              </span>
+            </div>
+            {loading ? [0,1,2].map(i=><div key={i} style={{padding:'12px 0',borderBottom:'1px solid var(--border)'}}><Sk w="65%" h="13px" /><div style={{marginTop:6}}><Sk w="45%" h="11px" /></div></div>) : (() => {
+              const today = new Date().toISOString().split('T')[0];
+              const due = maint.filter(m => m.next_service_date === today);
+              return due.length === 0
+                ? <EmptyState icon="✓" title="Nothing due today" desc="No services scheduled for today." />
+                : <table style={{width:'100%',borderCollapse:'collapse'}}>
+                    <thead><tr>
+                      {['Asset','Service','Assigned'].map(h=><th key={h} style={{textAlign:'left',padding:'0 12px 10px 0',fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',borderBottom:'1px solid var(--border)'}}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {due.map((m,i)=>(
+                        <tr key={m.id} className="wo-row" style={{borderBottom:'1px solid var(--border)',opacity:0,animation:`fadeUp 0.3s ease ${i*50}ms forwards`}}>
+                          <td style={{padding:'10px 12px 10px 0',fontSize:13,fontWeight:600,color:'var(--text-primary)'}}>{m.asset_name||m.asset||'—'}</td>
+                          <td style={{padding:'10px 12px 10px 0',fontSize:12,color:'var(--text-muted)'}}>{m.service_type||m.task||'Service'}</td>
+                          <td style={{padding:'10px 0',fontSize:12,color:'var(--text-muted)'}}>{m.assigned_to||'Unassigned'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>;
+            })()}
+          </div>
+
+          {/* 3. Overdue Services */}
+          <div className="panel">
+            <div className="panel-title" style={{ color:'var(--amber)' }}>
+              <span style={{ fontSize:14 }}>⚠️</span>
+              Overdue Services
+              <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'var(--amber-bg)', color:'var(--amber)', border:'1px solid var(--amber-border)' }}>
+                {loading ? '…' : maint.filter(m=>m.status==='Overdue').length}
+              </span>
+            </div>
+            {loading ? [0,1,2].map(i=><div key={i} style={{padding:'12px 0',borderBottom:'1px solid var(--border)'}}><Sk w="60%" h="13px" /><div style={{marginTop:6}}><Sk w="40%" h="11px" /></div></div>) :
+              maint.filter(m=>m.status==='Overdue').length === 0
+                ? <EmptyState icon="✓" title="No overdue services" desc="All services are on schedule." />
+                : <table style={{width:'100%',borderCollapse:'collapse'}}>
+                    <thead><tr>
+                      {['Asset','Service','Due Date'].map(h=><th key={h} style={{textAlign:'left',padding:'0 12px 10px 0',fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',borderBottom:'1px solid var(--border)'}}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {maint.filter(m=>m.status==='Overdue').map((m,i)=>(
+                        <tr key={m.id} className="wo-row" style={{borderBottom:'1px solid var(--border)',opacity:0,animation:`fadeUp 0.3s ease ${i*50}ms forwards`}}>
+                          <td style={{padding:'10px 12px 10px 0'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:8}}>
+                              <div style={{width:7,height:7,borderRadius:'50%',background:'var(--amber)',flexShrink:0}} />
+                              <span style={{fontSize:13,fontWeight:600,color:'var(--text-primary)'}}>{m.asset_name||m.asset||'—'}</span>
+                            </div>
+                          </td>
+                          <td style={{padding:'10px 12px 10px 0',fontSize:12,color:'var(--text-muted)'}}>{m.service_type||m.task||'Service'}</td>
+                          <td style={{padding:'10px 0',fontSize:12,color:'var(--amber)',fontWeight:600,fontFamily:'var(--font-mono)'}}>{m.next_service_date||m.next_due||'—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+            }
+          </div>
+
+          {/* 4. Priority Jobs */}
+          <div className="panel">
+            <div className="panel-title" style={{ color:'var(--red)' }}>
+              <span style={{ fontSize:14 }}>🔥</span>
+              Priority Jobs
+              <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:'var(--red-bg)', color:'var(--red)', border:'1px solid var(--red-border)' }}>
+                {loading ? '…' : wos.filter(w=>w.priority==='Critical'||w.priority==='High').length}
+              </span>
+            </div>
+            {loading ? [0,1,2].map(i=><div key={i} style={{padding:'12px 0',borderBottom:'1px solid var(--border)'}}><Sk w="65%" h="13px" /><div style={{marginTop:6}}><Sk w="45%" h="11px" /></div></div>) :
+              wos.filter(w=>w.priority==='Critical'||w.priority==='High').length === 0
+                ? <EmptyState icon="✓" title="No priority jobs" desc="No critical or high priority work orders open." />
+                : <table style={{width:'100%',borderCollapse:'collapse'}}>
+                    <thead><tr>
+                      {['Job','Asset','Priority','Status'].map(h=><th key={h} style={{textAlign:'left',padding:'0 10px 10px 0',fontSize:10,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px',borderBottom:'1px solid var(--border)'}}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {wos.filter(w=>w.priority==='Critical'||w.priority==='High').map((w,i)=>{
+                        const pc = PCOLOR[w.priority]||'var(--text-muted)';
+                        return (
+                          <tr key={w.id} className="wo-row" style={{borderBottom:'1px solid var(--border)',opacity:0,animation:`fadeUp 0.3s ease ${i*50}ms forwards`}}>
+                            <td style={{padding:'10px 10px 10px 0'}}>
+                              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                                <div style={{width:3,height:24,borderRadius:99,background:pc,flexShrink:0}} />
+                                <span style={{fontSize:12,fontWeight:600,color:'var(--text-primary)',maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{w.title||w.defect_description?.slice(0,35)||'—'}</span>
+                              </div>
+                            </td>
+                            <td style={{padding:'10px 10px 10px 0',fontSize:11,color:'var(--text-muted)',maxWidth:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{w.asset_name||w.asset||'—'}</td>
+                            <td style={{padding:'10px 10px 10px 0'}}>
+                              <span style={{padding:'2px 7px',borderRadius:4,fontSize:10,fontWeight:700,color:pc,background:`${pc}14`,border:`1px solid ${pc}28`}}>{w.priority}</span>
+                            </td>
+                            <td style={{padding:'10px 0'}}><StatusBadge status={w.status} /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+            }
+          </div>
+
+        </div>
+
+        {/* ── Service Intervals ── */}
+        <div className="panel" style={{ marginTop:16 }}>
+          <div className="panel-title">Service Intervals <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text-faint)', fontWeight:400, letterSpacing:0, textTransform:'none', fontFamily:'var(--font-body)' }}>Hours to next service</span></div>
           {loading ? [0,1,2,3].map(i => (
-            <div key={i} className="kpi-card">
-              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}><Sk w="55%" h="11px" /><Sk w="34px" h="34px" r="8px" /></div>
-              <Sk w="40%" h="46px" r="6px" style={{ marginBottom:12 }} /><Sk w="65%" h="11px" />
+            <div key={i} style={{ marginBottom:16 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}><Sk w="50%" h="12px" /><Sk w="22%" h="11px" /></div>
+              <Sk w="100%" h="6px" r="99px" />
             </div>
-          )) : (<>
-            <KPICard label="Total Fleet"      value={stats.total}        accent={A.cyan}  sub="registered assets"   delay={0}   />
-            <KPICard label="Units Down"       value={stats.down}         accent={A.red}   sub="need attention"      delay={80}  urgent={stats.down>0}    trend={stats.down>0?12:0} />
-            <KPICard label="Overdue Services" value={stats.overdue}      accent={A.amber} sub="past due"            delay={160} warn={stats.overdue>0} />
-            <KPICard label="Fleet Utilisation"value={`${stats.util}%`}  accent={A.green} sub="currently running"   delay={240} trend={stats.util>80?-4:6} />
-          </>)}
-        </div>
-
-        {/* ── Secondary strip ── */}
-        {!loading && stats && (
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:24 }}>
-            {[
-              { label:'Running Now',       value:stats.running, color:'var(--green)', bg:'var(--green-bg)' },
-              { label:'Services Due Soon', value:stats.dueSoon, color:'var(--amber)', bg:'var(--amber-bg)' },
-              { label:'Open Work Orders',  value:stats.openWOs, color:'var(--accent)', bg:'var(--accent-light)' },
-            ].map((s,i) => (
-              <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 18px', display:'flex', alignItems:'center', justifyContent:'space-between', opacity:0, animation:`fadeUp 0.4s ease ${260+i*60}ms forwards`, boxShadow:'var(--shadow-xs)', transition:'box-shadow 0.2s' }}>
-                <span style={{ fontSize:13, fontWeight:500, color:'var(--text-secondary)' }}>{s.label}</span>
-                <span style={{ fontFamily:'var(--font-display)', fontSize:30, fontWeight:800, color:s.color, background:s.bg, padding:'2px 12px', borderRadius:6 }}>{s.value}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── Activity + Intervals ── */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
-          <div className="panel">
-            <div className="panel-title">Activity Feed <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text-faint)', fontWeight:400, letterSpacing:0, textTransform:'none', fontFamily:'var(--font-body)' }}>Real-time events</span></div>
-            {loading ? [0,1,2,3,4].map(i => (
-              <div key={i} className="activity-row">
-                <Sk w="38px" h="38px" r="8px" />
-                <div style={{ flex:1 }}><Sk w="65%" h="12px" style={{ marginBottom:6 }} /><Sk w="42%" h="11px" /></div>
-              </div>
-            )) : activity.length === 0 ? (
-              <EmptyState icon="✓" title="All clear" desc="No recent downtime or overdue services." />
-            ) : activity.map((a,i) => (
-              <div key={i} className="activity-row" style={{ opacity:0, animation:`fadeUp 0.3s ease ${i*50}ms forwards` }}>
-                <div style={{ width:38, height:38, borderRadius:8, background:`${a.c}12`, border:`1px solid ${a.c}22`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <span style={{ fontSize:9, fontWeight:800, color:a.c, letterSpacing:'0.3px', fontFamily:'var(--font-display)' }}>{a.label}</span>
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.title}</div>
-                  <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>{a.sub}</div>
-                </div>
-                <div style={{ fontSize:11, color:'var(--text-faint)', whiteSpace:'nowrap', marginTop:2 }}>{a.time}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="panel">
-            <div className="panel-title">Service Intervals <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text-faint)', fontWeight:400, letterSpacing:0, textTransform:'none', fontFamily:'var(--font-body)' }}>Hours to next service</span></div>
-            {loading ? [0,1,2,3,4].map(i => (
-              <div key={i} style={{ marginBottom:16 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}><Sk w="50%" h="12px" /><Sk w="22%" h="11px" /></div>
-                <Sk w="100%" h="6px" r="99px" />
-              </div>
-            )) : progressAssets.length === 0 ? (
-              <EmptyState icon="⚙" title="No interval data" desc="Assets with hours tracked will appear here." />
-            ) : progressAssets.map(a => (
-              <ProgressBar key={a.id} label={a.asset_number ? `${a.asset_number} — ${a.name}` : (a.name||'Asset')} current={a.current_hours} max={a.next_service_hours} />
-            ))}
-          </div>
-        </div>
-
-        {/* ── Work Orders ── */}
-        <div className="panel" style={{ marginBottom:20 }}>
-          <div className="panel-title">Open Work Orders <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text-faint)', fontWeight:400, letterSpacing:0, textTransform:'none', fontFamily:'var(--font-body)' }}>Requires action</span></div>
-          {loading ? [0,1,2].map(r => (
-            <div key={r} style={{ display:'grid', gridTemplateColumns:'3fr 2fr 1fr 1fr', gap:14, padding:'12px 0', borderBottom:'1px solid var(--border)' }}>
-              {[0,1,2,3].map(i => <Sk key={i} h="12px" w={['78%','60%','50%','55%'][i]} />)}
-            </div>
-          )) : wos.length === 0 ? (
-            <EmptyState icon="✓" title="No open work orders" desc="All work is complete." />
-          ) : (
-            <table style={{ width:'100%', borderCollapse:'collapse' }}>
-              <thead>
-                <tr>
-                  {['Work Order','Asset','Priority','Status'].map(h => (
-                    <th key={h} style={{ textAlign:'left', padding:'0 14px 11px 0', fontSize:11, fontWeight:600, color:'var(--text-muted)', letterSpacing:'0.4px', textTransform:'uppercase', borderBottom:'1px solid var(--border)' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {wos.map((wo,i) => {
-                  const pc = PCOLOR[wo.priority]||'var(--text-muted)';
-                  return (
-                    <tr key={wo.id} className="wo-row" style={{ borderBottom:'1px solid var(--border)', opacity:0, animation:`fadeUp 0.3s ease ${i*50+100}ms forwards` }}>
-                      <td style={{ padding:'11px 14px 11px 0' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                          <div style={{ width:3, height:26, borderRadius:99, background:pc, flexShrink:0 }} />
-                          <span style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{wo.title||wo.description?.slice(0,45)||'—'}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding:'11px 14px 11px 0', fontSize:12, color:'var(--text-muted)' }}>{wo.asset_name||wo.asset||'—'}</td>
-                      <td style={{ padding:'11px 14px 11px 0' }}>
-                        <span style={{ padding:'3px 8px', borderRadius:4, fontSize:11, fontWeight:600, color:pc, background:`${pc}14`, border:`1px solid ${pc}28` }}>{wo.priority||'—'}</span>
-                      </td>
-                      <td style={{ padding:'11px 0' }}><StatusBadge status={wo.status} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* ── Downtime log ── */}
-        <div className="panel">
-          <div className="panel-title">Downtime Log <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text-faint)', fontWeight:400, letterSpacing:0, textTransform:'none', fontFamily:'var(--font-body)' }}>Last 8 events</span></div>
-          {loading ? [0,1,2,3].map(r => (
-            <div key={r} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 3fr', gap:12, padding:'12px 0', borderBottom:'1px solid var(--border)' }}>
-              {[0,1,2,3,4].map(i => <Sk key={i} h="12px" w={['75%','55%','60%','40%','85%'][i]} />)}
-            </div>
-          )) : dt.length === 0 ? (
-            <EmptyState icon="✓" title="No downtime recorded" desc="Downtime events will be logged here." />
-          ) : (
-            <table style={{ width:'100%', borderCollapse:'collapse' }}>
-              <thead>
-                <tr>
-                  {['Asset','Date','Category','Hours','Description'].map(h => (
-                    <th key={h} style={{ textAlign:'left', padding:'0 12px 11px 0', fontSize:11, fontWeight:600, color:'var(--text-muted)', letterSpacing:'0.4px', textTransform:'uppercase', borderBottom:'1px solid var(--border)' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {dt.map((d,i) => (
-                  <tr key={d.id} className="wo-row" style={{ borderBottom:'1px solid var(--border)', opacity:0, animation:`fadeUp 0.3s ease ${i*40+80}ms forwards` }}>
-                    <td style={{ padding:'11px 12px 11px 0', fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{d.asset}</td>
-                    <td style={{ padding:'11px 12px 11px 0', fontSize:12, color:'var(--text-muted)', whiteSpace:'nowrap', fontFamily:'var(--font-mono)' }}>{d.date}</td>
-                    <td style={{ padding:'11px 12px 11px 0' }}>
-                      <span style={{ padding:'3px 8px', borderRadius:4, background:'var(--surface-2)', color:'var(--text-secondary)', fontSize:11, fontWeight:500, border:'1px solid var(--border)' }}>{d.category}</span>
-                    </td>
-                    <td style={{ padding:'11px 12px 11px 0' }}>
-                      <span style={{ padding:'3px 8px', borderRadius:4, background:'var(--amber-bg)', color:'var(--amber)', fontSize:11, fontWeight:600, border:'1px solid var(--amber-border)', fontFamily:'var(--font-mono)' }}>{d.hours}h</span>
-                    </td>
-                    <td style={{ padding:'11px 0', fontSize:12, color:'var(--text-muted)', maxWidth:260, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          )) : progressAssets.length === 0 ? (
+            <EmptyState icon="⚙" title="No interval data" desc="Assets with hours tracked will appear here." />
+          ) : progressAssets.map(a => (
+            <ProgressBar key={a.id} label={a.asset_number ? `${a.asset_number} — ${a.name}` : (a.name||'Asset')} current={a.current_hours} max={a.next_service_hours} />
+          ))}
         </div>
 
       </div>
