@@ -15,7 +15,6 @@ import AssetPage from './MachineProfile';
 import MasterAdmin from './MasterAdmin';
 import Settings from './Settings';
 import Chat from './Chat';
-import Parts from './Parts';
 import { supabase } from './supabase';
 
 function App() {
@@ -125,6 +124,7 @@ function App() {
     setCurrentPage('master');
   };
 
+  const isDemo = userRole?.company_id === 'demo-company-0000-0000-000000000001' || userRole?.email === 'demo@mechiq.com.au';
   const effectiveCompanyId = viewingCompany?.id || userRole?.company_id;
   const effectiveUserRole = viewingCompany
     ? { ...userRole, role: 'admin', company_id: viewingCompany.id, company_features: viewingCompany.features || {} }
@@ -135,13 +135,13 @@ function App() {
 
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard companyId={effectiveCompanyId} />;
+        return <Dashboard isDemo={isDemo} companyId={effectiveCompanyId} />;
       case 'assets':
-        return <Assets userRole={effectiveUserRole} onViewAsset={handleViewAsset} initialTab={currentSubPage || 'units'} key={currentSubPage} />;
+        return <Assets isDemo={isDemo} userRole={effectiveUserRole} onViewAsset={handleViewAsset} initialTab={currentSubPage || 'units'} key={currentSubPage} />;
       case 'downtime':
         return <Downtime userRole={effectiveUserRole} />;
       case 'maintenance':
-        return <Maintenance userRole={effectiveUserRole} initialTab={currentSubPage} />;
+        return <Maintenance isDemo={isDemo} userRole={effectiveUserRole} initialTab={currentSubPage} />;
       case 'forms':
         return (
           <Forms
@@ -172,17 +172,15 @@ function App() {
           </div>
         );
       case 'reports':
-        return <Reports companyId={effectiveCompanyId} userRole={effectiveUserRole} initialTab={currentSubPage} />;
+        return <Reports isDemo={isDemo} companyId={effectiveCompanyId} userRole={effectiveUserRole} initialTab={currentSubPage} />;
       case 'users':
-        return <Users companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
+        return <Users isDemo={isDemo} companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
       case 'admin':
         return <Settings userRole={effectiveUserRole} initialTab={currentSubPage || 'company'} key={currentSubPage} adminMode />;
       case 'settings':
         return <Settings userRole={effectiveUserRole} initialTab={currentSubPage || 'format'} key={currentSubPage} personalMode />;
-      case 'parts':
-        return <Parts userRole={effectiveUserRole} />;
       case 'chat':
-        return <Chat userRole={effectiveUserRole} />;
+        return <Chat isDemo={isDemo} userRole={effectiveUserRole} />;
       case 'master':
         return <MasterAdmin />;
       default:
@@ -212,8 +210,30 @@ function App() {
         viewingCompany={viewingCompany}
         onSelectCompany={handleSelectCompany}
         onExitCompany={handleExitCompany}
+        isDemo={isDemo}
       />
-      <div className="main-content">{renderPage()}</div>
+      {isDemo && (
+        <div style={{
+          position: 'fixed', top: 56, left: 0, right: 0, zIndex: 199,
+          background: 'linear-gradient(90deg, #0ea5e9, #0284c7)',
+          padding: '10px 20px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 16 }}>🎯</span>
+            <div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>You're in Demo Mode</span>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginLeft: 8 }}>Read-only — no changes will be saved</span>
+            </div>
+          </div>
+          <a href="mailto:info@mechiq.com.au?subject=MechIQ Demo Enquiry" style={{
+            padding: '6px 16px', background: '#fff', color: '#0ea5e9',
+            borderRadius: 8, fontSize: 12, fontWeight: 800, textDecoration: 'none',
+            whiteSpace: 'nowrap',
+          }}>Get Started →</a>
+        </div>
+      )}
+      <div className="main-content" style={isDemo ? { marginTop: 96 } : {}}>{renderPage()}</div>
     </div>
   );
 }
