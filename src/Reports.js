@@ -132,6 +132,7 @@ const CHART_COLORS = ['var(--accent)','#ea580c','var(--amber)','var(--green)','v
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
 function Reports({ companyId, userRole, initialTab }) {
+  const showCost = userRole?.company_features?.cost_analysis === true;
   const [activeTab, setActiveTab] = useState(initialTab || 'downtime-log');
   const [downtimeData, setDowntimeData] = useState([]);
   const [assetCount, setAssetCount] = useState(0);
@@ -353,7 +354,7 @@ function Reports({ companyId, userRole, initialTab }) {
       {/* ── Page header ── */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:24 }}>
         <div>
-          <h2 style={{ fontFamily:"var(--font-display)", fontSize:32, fontWeight:800, color:'var(--text-primary)', letterSpacing:'1px', textTransform:'uppercase', margin:0, lineHeight:1 }}>Reports</h2>
+
           <p style={{ fontSize:13, color:'var(--text-muted)', margin:'5px 0 0', fontWeight:500 }}>Downtime analysis, machine availability & export</p>
         </div>
         <div style={{ display:'flex', gap:8 }}>
@@ -364,14 +365,14 @@ function Reports({ companyId, userRole, initialTab }) {
 
       {/* ── KPI strip ── */}
       {loading ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:24 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:12, marginBottom:24 }}>
           {[0,1,2,3].map(i => <div key={i} className="r-card" style={{ padding:'18px 20px' }}><Sk w="50%" h="11px" /><div style={{marginTop:10}}><Sk w="35%" h="32px" r="6px" /></div></div>)}
         </div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:24 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:12, marginBottom:24 }}>
           {[
             { label:'Total Downtime', value:`${totalHours}h`, color:'var(--red)', bg:'var(--red-bg)', sub:'all time' },
-            { label:'Total Cost',     value:`$${parseFloat(totalCost).toLocaleString('en-AU',{minimumFractionDigits:0})}`, color:'#ea580c', bg:'#ffedd5', sub:'all time' },
+            ...(showCost ? [{ label:'Total Cost', value:`$${parseFloat(totalCost).toLocaleString('en-AU',{minimumFractionDigits:0})}`, color:'#ea580c', bg:'#ffedd5', sub:'all time' }] : []),
             { label:'Total Assets',   value:assetCount, color:'var(--accent)', bg:'rgba(0,212,255,0.1)', sub:'registered' },
             { label:'Avg Utilisation',value:`${avgUtilisation}%`, color:getUtilColour(parseFloat(avgUtilisation)), bg: parseFloat(avgUtilisation)>=80?'var(--green-bg)':parseFloat(avgUtilisation)>=50?'var(--amber-bg)':'var(--red-bg)', sub:'fleet average' },
           ].map((s,i) => (
@@ -414,7 +415,7 @@ function Reports({ companyId, userRole, initialTab }) {
               action={
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                   <span style={{ fontFamily:"var(--font-display)", fontSize:20, fontWeight:800, color:'#ea580c' }}>
-                    ${totalDownCost.toLocaleString('en-AU',{minimumFractionDigits:0})} total cost
+                    {showCost ? `$${totalDownCost.toLocaleString('en-AU',{minimumFractionDigits:0})} total cost` : ''}
                   </span>
                   <button className="r-btn" onClick={() => setShowForm(s=>!s)}>{showForm ? '✕ Cancel' : '+ Log Downtime'}</button>
                 </div>
@@ -464,7 +465,7 @@ function Reports({ companyId, userRole, initialTab }) {
                         <Td style={{ whiteSpace:'nowrap' }}>{d.date}</Td>
                         <Td><Chip text={d.category} color="#3d5166" bg="#f0f5fa" /></Td>
                         <Td><Chip text={`${d.hours}h`} color="#d97706" bg="#fef3c7" /></Td>
-                        <Td><span style={{ fontFamily:"var(--font-display)", fontSize:14, fontWeight:800, color:'#ea580c' }}>${parseFloat(d.cost||0).toLocaleString('en-AU',{minimumFractionDigits:0})}</span></Td>
+                        {showCost && <Td><span style={{ fontFamily:"var(--font-display)", fontSize:14, fontWeight:800, color:'#ea580c' }}>${parseFloat(d.cost||0).toLocaleString('en-AU',{minimumFractionDigits:0})}</span></Td>}
                         <Td style={{ maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.description}</Td>
                         <Td style={{ color:'var(--text-muted)' }}>{d.reported_by||'—'}</Td>
                         <Td>
@@ -488,7 +489,7 @@ function Reports({ companyId, userRole, initialTab }) {
             {[
               { label:'Events in Period',   value:filteredData.length,                          color:'var(--accent)', bg:'rgba(0,212,255,0.1)' },
               { label:'Hours Lost',         value:`${filteredHours.toFixed(1)}h`,               color:'var(--amber)', bg:'var(--amber-bg)' },
-              { label:'Cost in Period',     value:`$${filteredCost.toLocaleString('en-AU',{minimumFractionDigits:0})}`, color:'#ea580c', bg:'#ffedd5' },
+              ...(showCost ? [{ label:'Cost in Period', value:`$${filteredCost.toLocaleString('en-AU',{minimumFractionDigits:0})}`, color:'#ea580c', bg:'#ffedd5' }] : []),
             ].map((s,i) => (
               <div key={s.label} className="r-card" style={{ padding:'14px 20px', display:'flex', alignItems:'center', gap:12, opacity:0, animation:`fadeUp 0.4s ease ${i*60}ms forwards` }}>
                 <span style={{ fontFamily:"var(--font-display)", fontSize:30, fontWeight:800, color:s.color, background:s.bg, padding:'2px 12px', borderRadius:8, lineHeight:1.3 }}>{s.value}</span>
@@ -529,7 +530,7 @@ function Reports({ companyId, userRole, initialTab }) {
                         <Td style={{ whiteSpace:'nowrap' }}>{d.date}</Td>
                         <Td><Chip text={d.category} /></Td>
                         <Td><Chip text={`${d.hours}h`} color="#d97706" bg="#fef3c7" /></Td>
-                        <Td><span style={{ fontWeight:800, color:'#ea580c', fontFamily:"var(--font-display)", fontSize:14 }}>${parseFloat(d.cost||0).toLocaleString('en-AU',{minimumFractionDigits:0})}</span></Td>
+                        {showCost && <Td><span style={{ fontWeight:800, color:'#ea580c', fontFamily:"var(--font-display)", fontSize:14 }}>${parseFloat(d.cost||0).toLocaleString('en-AU',{minimumFractionDigits:0})}</span></Td>}
                         <Td>{d.description}</Td>
                       </tr>
                     ))}

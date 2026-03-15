@@ -241,9 +241,13 @@ const CSS = `
   }
   .topbar-hamburger {
     display: none; background: none; border: none;
-    color: var(--text-muted, #7a92a8); cursor: pointer; padding: 4px;
-    align-items: center;
+    color: var(--text-muted, #7a92a8); cursor: pointer;
+    padding: 10px 12px; margin: -10px -4px;
+    align-items: center; border-radius: 8px;
+    min-width: 44px; min-height: 44px;
+    justify-content: center;
   }
+  .topbar-hamburger:active { background: rgba(255,255,255,0.08); }
 `;
 
 // ─── SVG Icons ─────────────────────────────────────────────────────────────────

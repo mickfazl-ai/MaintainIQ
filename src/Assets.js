@@ -191,7 +191,7 @@ function QRModal({ asset, onClose }) {
 const TYPE_ICON = { 'Mobile Plant': '🚜', 'Fixed Plant': '🏭', 'Drilling Plant': '⛏️', 'Small Machinery': '⚙️', 'Vehicle': '🚗', 'Truck': '🚛', 'Excavator': '🚜', 'Generator': '⚡', 'Compressor': '💨' };
 function getIcon(type) { return TYPE_ICON[type] || '🔧'; }
 
-function AssetCard({ asset, index, onView, onDelete, onQR, userRole }) {
+function AssetCard({ asset, index, onView, onDelete, onQR, onQuickLog, userRole }) {
   const [hovered, setHovered] = useState(false);
   const s = STATUS[asset.status] || { color: 'var(--text-muted)', bg: '#f1f5f9' };
   const canDelete = userRole?.role !== 'technician' && userRole?.role !== 'operator';
@@ -236,9 +236,14 @@ function AssetCard({ asset, index, onView, onDelete, onQR, userRole }) {
       </div>
 
       {/* Actions */}
-      <div className="card-actions" style={{ padding: '0 18px 16px', display: 'flex', gap: '8px' }}>
+      <div className="card-actions" style={{ padding: '0 18px 16px', display: 'flex', gap: '8px', flexWrap:'wrap' }}>
         <button onClick={() => onView(asset.id)} className="nav-pill nav-pill-primary" style={{ fontSize: '11px', padding: '6px 14px' }}>View →</button>
         <button onClick={() => onQR(asset)} className="nav-pill nav-pill-ghost" style={{ fontSize: '11px', padding: '6px 12px' }}>QR</button>
+        {asset.status === 'Down' || asset.status === 'Maintenance' ? (
+          <button onClick={() => onQuickLog && onQuickLog(asset, 'Running')} style={{ fontSize:'11px', padding:'6px 12px', background:'var(--green-bg)', color:'var(--green)', border:'1px solid var(--green-border)', borderRadius:8, fontWeight:700, cursor:'pointer', transition:'all 0.15s' }}>✓ Running</button>
+        ) : (
+          <button onClick={() => onQuickLog && onQuickLog(asset, 'Down')} style={{ fontSize:'11px', padding:'6px 12px', background:'var(--red-bg)', color:'var(--red)', border:'1px solid var(--red-border)', borderRadius:8, fontWeight:700, cursor:'pointer', transition:'all 0.15s' }}>🔴 Log Down</button>
+        )}
         {canDelete && (
           <button onClick={() => onDelete(asset.id, asset.name)} style={{ marginLeft: 'auto', padding: '6px 12px', background: 'transparent', border: '1px solid var(--red-border)', color: 'var(--red)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', fontFamily:'var(--font-display)', letterSpacing:'0.5px', textTransform:'uppercase' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--red-bg)'; }}
@@ -275,6 +280,29 @@ function UnitsTab({ userRole, onViewAsset, toast }) {
     const { error } = await supabase.from('assets').insert([{ ...newAsset, company_id: userRole.company_id }]);
     if (error) { toast('Error adding asset: ' + error.message, 'error'); }
     else { toast('Asset added successfully', 'success'); fetchAssets(); setNewAsset({ name: '', type: '', location: '', status: 'Running', hourly_rate: '', target_hours: 8 }); setShowForm(false); }
+  };
+
+  const handleQuickLog = async (asset, newStatus) => {
+    try {
+      await supabase.from('assets').update({ status: newStatus }).eq('id', asset.id);
+      if (newStatus === 'Down' || newStatus === 'Maintenance') {
+        const now = new Date();
+        await supabase.from('downtime').insert({
+          asset: asset.name,
+          date: now.toISOString().split('T')[0],
+          start_time: now.toTimeString().slice(0,5),
+          end_time: '',
+          category: newStatus === 'Maintenance' ? 'Scheduled Maintenance' : 'Unplanned',
+          description: `Machine ${newStatus === 'Down' ? 'reported down' : 'placed in maintenance'} at ${now.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'})}`,
+          reported_by: userRole?.name || userRole?.email || '',
+          hours: 0,
+          company_id: userRole.company_id,
+          source: 'quick_log',
+        });
+      }
+      toast(newStatus === 'Running' ? `${asset.name} marked running` : `${asset.name} logged as ${newStatus}`, newStatus === 'Running' ? 'success' : 'warning');
+      fetchAssets();
+    } catch { toast('Failed to update status', 'error'); }
   };
 
   const handleDelete = async (id, name) => {
@@ -380,7 +408,7 @@ function UnitsTab({ userRole, onViewAsset, toast }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
           {filtered.map((asset, i) => (
             <AssetCard key={asset.id} asset={asset} index={i}
-              onView={onViewAsset} onDelete={handleDelete}
+              onView={onViewAsset} onDelete={handleDelete} onQuickLog={handleQuickLog}
               onQR={setPrintAsset} userRole={userRole} />
           ))}
         </div>
