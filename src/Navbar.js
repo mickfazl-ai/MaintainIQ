@@ -267,6 +267,7 @@ const IC = {
   expand:       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>,
   hamburger:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
   chat:         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>,
+  parts:        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>,
   logout:       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
 };
 
@@ -296,6 +297,7 @@ const NAV_STRUCTURE = [
   },
   { id: 'scanner',      label: 'Scanner',      ik: 'scanner',      roles: ['technician','operator'], feature: 'scanner' },
   { id: 'chat',         label: 'Messages',     ik: 'chat',         roles: ['admin','supervisor','technician','operator'], feature: null },
+  { id: 'parts',        label: 'Parts',        ik: 'parts',        roles: ['admin','supervisor','technician'], feature: null },
   { id: 'oil_sampling', label: 'Oil Sampling', ik: 'oil_sampling', roles: ['admin','supervisor'], feature: 'oil_sampling' },
   { id: 'reports',      label: 'Reports',      ik: 'reports',      roles: ['admin','supervisor'], feature: 'reports',
     children: [
@@ -405,11 +407,11 @@ const PAGE_TITLES = {
   dashboard: 'Dashboard', assets: 'Assets', maintenance: 'Maintenance',
   forms: 'Forms', scanner: 'Scanner', oil_sampling: 'Oil Sampling',
   reports: 'Reports', admin: 'Admin', settings: 'Settings', master: 'Master Admin',
-  users: 'Users', export: 'Data Export', chat: 'Messages',
+  users: 'Users', export: 'Data Export', chat: 'Messages', parts: 'Parts',
 };
 
 // ─── Main Navbar ───────────────────────────────────────────────────────────────
-function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session, userRole, viewingCompany, onSelectCompany, onExitCompany, isDemo }) {
+function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session, userRole, viewingCompany, onSelectCompany, onExitCompany }) {
   const [expanded, setExpanded] = useState(() => {
     try { return localStorage.getItem('mechiq_sidebar_expanded') !== 'false'; } catch { return true; }
   });
@@ -546,7 +548,7 @@ function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session
                 </div>
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{displayName}</div>
-                  {isDemo ? <span style={{ fontSize: 9, fontWeight: 800, color: '#0ea5e9', background: '#e0f4ff', padding: '2px 6px', borderRadius: 4, letterSpacing: '0.5px' }}>DEMO</span> : <RoleBadge role={isMaster ? 'master' : (userRole?.role || 'operator')} />}
+                  <RoleBadge role={isMaster ? 'master' : (userRole?.role || 'operator')} />
                 </div>
               </div>
               <a
@@ -602,7 +604,7 @@ function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session
           })()}
         </div>
         <div className="topbar-right">
-          {isMaster && !isDemo && (
+          {isMaster && (
             <div ref={switcherRef} style={{ position: 'relative' }}>
               <button onClick={() => setSwitcherOpen(o => !o)} className="nav-pill nav-pill-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 {viewingCompany ? '🏢' : '🔭'}
