@@ -535,19 +535,19 @@ export default function Parts({ userRole }) {
     const cid = userRole.company_id;
     try {
       const { data: p, error: pe } = await supabase.from('parts').select('*').eq('company_id', cid).order('name');
-      if (pe) console.error('parts error:', pe);
+      if (pe) console.error('parts:', pe.message);
       setParts(p || []);
 
       const { data: a } = await supabase.from('assets').select('id,name,asset_number').eq('company_id', cid).order('name');
       setAssets(a || []);
 
-      const { data: w } = await supabase.from('work_orders').select('id,title,defect_description').eq('company_id', cid).neq('status','Complete').order('created_at',{ascending:false}).limit(50);
+      const { data: w } = await supabase.from('work_orders').select('id,title,defect_description').eq('company_id', cid).order('created_at', { ascending: false }).limit(50);
       setWorkOrders(w || []);
 
-      const { data: t, error: te } = await supabase.from('parts_transactions').select('id,type,quantity,asset_id,work_order_id,notes,performed_by,created_at,part_id').eq('company_id', cid).order('created_at',{ascending:false}).limit(100);
-      if (te) console.error('transactions error:', te);
+      const { data: t, error: te } = await supabase.from('parts_transactions').select('id,type,quantity,asset_id,work_order_id,notes,performed_by,created_at,part_id').eq('company_id', cid).order('created_at', { ascending: false }).limit(100);
+      if (te) console.error('transactions:', te.message);
       setTransactions(t || []);
-    } catch (err) {
+    } catch(err) {
       console.error('Parts load error:', err);
     }
     setLoading(false);
@@ -732,9 +732,9 @@ export default function Parts({ userRole }) {
                     const [label, color, bg] = typeMap[t.type] || ['—', 'var(--text-muted)', 'var(--surface-2)'];
                     return (
                       <tr key={t.id} style={{ opacity: 0, animation: `fadeUp 0.25s ease ${i * 20}ms forwards` }}>
-                        <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t.parts?.name || '—'}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{parts.find(p => p.id === t.part_id)?.name || '—'}</td>
                         <td><span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, color, background: bg, border: `1px solid ${color}33` }}>{label}</span></td>
-                        <td style={{ fontWeight: 700, color, fontFamily: 'var(--font-mono)' }}>{t.type === 'out' ? '-' : '+'}{t.quantity} {t.parts?.unit || ''}</td>
+                        <td style={{ fontWeight: 700, color, fontFamily: 'var(--font-mono)' }}>{t.type === 'out' ? '-' : '+'}{t.quantity} {parts.find(p => p.id === t.part_id)?.unit || ''}</td>
                         <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{assets.find(a => a.id === t.asset_id)?.name || '—'}</td>
                         <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{workOrders.find(w => w.id === t.work_order_id)?.title?.slice(0, 25) || (t.work_order_id ? 'WO' : '—')}</td>
                         <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t.performed_by || '—'}</td>
