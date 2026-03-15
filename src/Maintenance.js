@@ -168,6 +168,7 @@ function SectionHead({ title, count, action }) {
 // ─── Main ──────────────────────────────────────────────────────────────────────
 function Maintenance({ userRole, initialTab }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'scheduled');
+  // Tab driven by sidebar subPage prop
   const [tasks, setTasks] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
   const [assets, setAssets] = useState([]);
@@ -275,13 +276,7 @@ function Maintenance({ userRole, initialTab }) {
   const openWOs   = workOrders.filter(w => w.status !== 'Complete');
   const closedWOs = workOrders.filter(w => w.status === 'Complete');
 
-  const TABS = [
-    { id:'scheduled',   label:'Scheduled Service' },
-    { id:'work_orders', label:'Work Orders' },
-    { id:'pm_tasks',    label:'PM Tasks' },
-    { id:'schedules',   label:'Service Schedules' },
-    { id:'calendar',    label:'📅 Calendar' },
-  ];
+
 
   const btnPrimary = { padding:'8px 18px', background:C.accent, color:'var(--text-primary)', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit', boxShadow:`0 3px 10px ${C.accent}44`, letterSpacing:'0.5px' };
   const btnGhost   = { padding:'8px 16px', background:C.surface, color:C.textMid, border:`1.5px solid ${C.border}`, borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' };
@@ -289,8 +284,7 @@ function Maintenance({ userRole, initialTab }) {
   return (
     <div style={{ animation:'fadeUp 0.35s ease both' }}>
 
-      {/* ── Tab bar ── */}
-      <TabBar tabs={TABS} active={activeTab} onChange={t => { setActiveTab(t); setShowForm(false); setShowWOForm(false); }} />
+
 
       {/* ══ SCHEDULED SERVICE ══ */}
       {activeTab === 'scheduled' && (

@@ -287,6 +287,8 @@ const NAV_STRUCTURE = [
       { id: 'maintenance', subPage: 'scheduled',   label: 'Scheduled Service', roles: ['admin','supervisor','technician'] },
       { id: 'maintenance', subPage: 'work_orders', label: 'Work Orders',       roles: ['admin','supervisor','technician'] },
       { id: 'maintenance', subPage: 'pm_tasks',    label: 'PM Tasks',          roles: ['admin','supervisor','technician'] },
+      { id: 'maintenance', subPage: 'schedules',   label: 'Service Schedules', roles: ['admin','supervisor','technician'] },
+      { id: 'maintenance', subPage: 'calendar',    label: 'Calendar',          roles: ['admin','supervisor','technician'] },
     ],
   },
   { id: 'forms',        label: 'Forms',        ik: 'forms',        roles: ['admin','supervisor','technician','operator'], feature: 'prestart',
