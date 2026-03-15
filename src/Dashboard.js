@@ -307,8 +307,8 @@ function AccordionCard({ title, count, color, bg, border, icon, loading, childre
 function AccordionCards({ loading, assets, maint, wos, PCOLOR, StatusBadge }) {
   const today = new Date().toISOString().split('T')[0];
   const breakdowns = assets.filter(a => a.status === 'Down');
-  const dueToday   = maint.filter(m => m.next_service_date === today);
-  const overdue    = maint.filter(m => m.status === 'Overdue');
+  const dueToday   = maint.filter(m => m.next_due === today);
+  const overdue    = maint.filter(m => m.status === 'Overdue' || (m.next_due && m.next_due < today && m.status !== 'Completed'));
   const priority   = wos.filter(w => w.priority === 'Critical' || w.priority === 'High');
 
   const emptyRow = (msg) => (
@@ -345,8 +345,8 @@ function AccordionCards({ loading, assets, maint, wos, PCOLOR, StatusBadge }) {
         {dueToday.length === 0 ? emptyRow('Nothing due today') :
           listTable(dueToday, ['Asset','Service','Assigned'], (m, i) => (
             <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
-              <td style={{ padding:'9px 10px 9px 0', fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{m.asset_name||m.asset||'—'}</td>
-              <td style={{ padding:'9px 10px 9px 0', fontSize:12, color:'var(--text-muted)' }}>{m.service_type||m.task||'Service'}</td>
+              <td style={{ padding:'9px 10px 9px 0', fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{m.asset||'—'}</td>
+              <td style={{ padding:'9px 10px 9px 0', fontSize:12, color:'var(--text-muted)' }}>{m.task||'Service'}</td>
               <td style={{ padding:'9px 0', fontSize:12, color:'var(--text-muted)' }}>{m.assigned_to||'Unassigned'}</td>
             </tr>
           ))
@@ -358,9 +358,9 @@ function AccordionCards({ loading, assets, maint, wos, PCOLOR, StatusBadge }) {
         {overdue.length === 0 ? emptyRow('All services on schedule') :
           listTable(overdue, ['Asset','Service','Due'], (m, i) => (
             <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
-              <td style={{ padding:'9px 10px 9px 0', fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{m.asset_name||m.asset||'—'}</td>
-              <td style={{ padding:'9px 10px 9px 0', fontSize:12, color:'var(--text-muted)' }}>{m.service_type||m.task||'Service'}</td>
-              <td style={{ padding:'9px 0', fontSize:12, fontWeight:600, color:'var(--amber)', fontFamily:'var(--font-mono)' }}>{m.next_service_date||m.next_due||'—'}</td>
+              <td style={{ padding:'9px 10px 9px 0', fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{m.asset||'—'}</td>
+              <td style={{ padding:'9px 10px 9px 0', fontSize:12, color:'var(--text-muted)' }}>{m.task||'Service'}</td>
+              <td style={{ padding:'9px 0', fontSize:12, fontWeight:600, color:'var(--amber)', fontFamily:'var(--font-mono)' }}>{m.next_due||'—'}</td>
             </tr>
           ))
         }
@@ -415,12 +415,12 @@ function Dashboard({ companyId }) {
       const [{ data:aD }, { data:dD }, { data:mD }, { data:wD }] = await Promise.all([
         supabase.from('assets').select('*').eq('company_id', companyId),
         supabase.from('downtime').select('*').eq('company_id', companyId).order('created_at',{ascending:false}).limit(8),
-        supabase.from('maintenance').select('*').eq('company_id', companyId).order('next_service_date').limit(8),
+        supabase.from('maintenance').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(20),
         supabase.from('work_orders').select('*').eq('company_id', companyId).neq('status','Complete').order('created_at',{ascending:false}).limit(6),
       ]);
       const a = aD||[];
       setAssets(a); setDT(dD||[]); setMaint(mD||[]); setWOs(wD||[]);
-      const ov = (mD||[]).filter(m=>m.status==='Overdue').length;
+      const ov = (mD||[]).filter(m=>m.status==='Overdue'||(m.next_due&&m.next_due<new Date().toISOString().split('T')[0]&&m.status!=='Completed')).length;
       const dn = a.filter(x=>x.status==='Down').length;
       setStats({ total:a.length, running:a.filter(x=>x.status==='Running').length, down:dn, maintenance:a.filter(x=>x.status==='Maintenance').length, overdue:ov, dueSoon:(mD||[]).filter(m=>m.status==='Due Soon').length, openWOs:(wD||[]).length, util:a.length>0?Math.round((a.filter(x=>x.status==='Running').length/a.length)*100):0 });
       if (isRefresh) toast('Dashboard refreshed','success');
@@ -434,7 +434,7 @@ function Dashboard({ companyId }) {
   const progressAssets = assets.filter(a=>a.current_hours&&a.next_service_hours).slice(0,6);
   const activity = [
     ...(dt.slice(0,3).map(d=>({ c:'var(--red)',   label:'Offline',  title:d.asset,                    sub:d.category||'Unplanned downtime',  time:ago(d.created_at) }))),
-    ...(maint.filter(m=>m.status==='Overdue').slice(0,2).map(m=>({ c:'var(--amber)', label:'Overdue',  title:m.asset_name||m.asset,           sub:m.service_type||'Scheduled service', time:m.next_service_date||'' }))),
+    ...(maint.filter(m=>m.status==='Overdue').slice(0,2).map(m=>({ c:'var(--amber)', label:'Overdue',  title:m.asset||m.name||'Maintenance',           sub:m.task||'Scheduled service', time:m.next_due||'' }))),
     ...(wos.filter(w=>w.priority==='Critical').slice(0,2).map(w=>({ c:'var(--red)',   label:'Critical', title:w.title||'Critical work order',   sub:w.asset_name||'',                    time:ago(w.created_at) }))),
   ].slice(0,6);
 
