@@ -284,6 +284,23 @@ function UnitsTab({ userRole, onViewAsset, toast }) {
 
   const handleQuickLog = async (asset, newStatus) => {
     try {
+      let description = '';
+      let category = newStatus === 'Maintenance' ? 'Scheduled Maintenance' : 'Unplanned';
+      if (newStatus === 'Down' || newStatus === 'Maintenance') {
+        const reason = window.prompt(
+          newStatus === 'Down'
+            ? `Why is ${asset.name} going down?\n(e.g. hydraulic leak, engine fault, tyre blowout)`
+            : `What maintenance is being done on ${asset.name}?\n(e.g. 500hr service, track adjustment)`
+        );
+        if (reason === null) return; // user cancelled
+        description = reason.trim() || (newStatus === 'Down' ? 'Machine reported down' : 'Machine placed in maintenance');
+        // Auto-detect category from reason
+        const r = description.toLowerCase();
+        if (r.includes('service') || r.includes('oil') || r.includes('filter')) category = 'Scheduled Maintenance';
+        else if (r.includes('hydraulic') || r.includes('hose') || r.includes('cylinder')) category = 'Hydraulic';
+        else if (r.includes('electric') || r.includes('battery') || r.includes('starter')) category = 'Electrical';
+        else if (r.includes('tyre') || r.includes('tire') || r.includes('track')) category = 'Mechanical';
+      }
       await supabase.from('assets').update({ status: newStatus }).eq('id', asset.id);
       if (newStatus === 'Down' || newStatus === 'Maintenance') {
         const now = new Date();
@@ -292,17 +309,28 @@ function UnitsTab({ userRole, onViewAsset, toast }) {
           date: now.toISOString().split('T')[0],
           start_time: now.toTimeString().slice(0,5),
           end_time: '',
-          category: newStatus === 'Maintenance' ? 'Scheduled Maintenance' : 'Unplanned',
-          description: `Machine ${newStatus === 'Down' ? 'reported down' : 'placed in maintenance'} at ${now.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'})}`,
+          category,
+          description,
           reported_by: userRole?.name || userRole?.email || '',
           hours: 0,
           company_id: userRole.company_id,
           source: 'quick_log',
         });
       }
+      if (newStatus === 'Running') {
+        const { data: open } = await supabase.from('downtime')
+          .select('id,date,start_time').eq('company_id', userRole.company_id)
+          .eq('asset', asset.name).eq('end_time', '').order('created_at',{ascending:false}).limit(1);
+        if (open?.[0]) {
+          const now = new Date();
+          const start = new Date(`${open[0].date}T${open[0].start_time||'00:00'}`);
+          const hrs = Math.max(0, (now - start) / 3600000).toFixed(1);
+          await supabase.from('downtime').update({ end_time: now.toTimeString().slice(0,5), hours: hrs }).eq('id', open[0].id);
+        }
+      }
       toast(newStatus === 'Running' ? `${asset.name} marked running` : `${asset.name} logged as ${newStatus}`, newStatus === 'Running' ? 'success' : 'warning');
       fetchAssets();
-    } catch { toast('Failed to update status', 'error'); }
+    } catch(e) { toast('Failed to update status: ' + e.message, 'error'); }
   };
 
   const handleDelete = async (id, name) => {

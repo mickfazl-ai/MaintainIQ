@@ -94,13 +94,26 @@ export default function Downtime({ userRole }) {
       await supabase.from('assets').update({ status: newStatus }).eq('id', asset.id);
       const now = new Date();
       if (newStatus === 'Down' || newStatus === 'Maintenance') {
+        const reason = window.prompt(
+          newStatus === 'Down'
+            ? `Why is ${asset.name} going down?\n(e.g. hydraulic leak, engine fault, tyre blowout)`
+            : `What maintenance is being done on ${asset.name}?`
+        );
+        if (reason === null) { setSaving(null); return; }
+        const description = reason.trim() || (newStatus === 'Down' ? 'Machine reported down' : 'Machine placed in maintenance');
+        const r = description.toLowerCase();
+        const category = newStatus === 'Maintenance' ? 'Scheduled Maintenance'
+          : r.includes('hydraulic')||r.includes('hose') ? 'Hydraulic'
+          : r.includes('electric')||r.includes('battery') ? 'Electrical'
+          : r.includes('tyre')||r.includes('track') ? 'Mechanical'
+          : 'Unplanned';
         await supabase.from('downtime').insert({
           asset: asset.name,
           date: now.toISOString().split('T')[0],
           start_time: now.toTimeString().slice(0,5),
           end_time: '',
-          category: newStatus === 'Maintenance' ? 'Scheduled Maintenance' : 'Unplanned',
-          description: `${newStatus === 'Down' ? 'Machine reported down' : 'Machine placed in maintenance'} at ${now.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'})}`,
+          category,
+          description,
           reported_by: userRole.name || userRole.email,
           hours: 0,
           company_id: userRole.company_id,

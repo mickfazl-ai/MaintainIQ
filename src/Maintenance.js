@@ -175,16 +175,69 @@ function Maintenance({ userRole, initialTab }) {
   const [showWOForm, setShowWOForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editingWO, setEditingWO] = useState(null);
+  const [schedules, setSchedules] = useState([]);
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [calMonth, setCalMonth] = useState(new Date());
+  const [newSchedule, setNewSchedule] = useState({ asset_id:'', asset_name:'', service_name:'', interval_type:'hours', interval_value:'', last_service_value:'', last_service_date:'', notes:'' });
   const [newTask, setNewTask] = useState({ asset:'', task:'', frequency:'', next_due:'', assigned_to:'' });
   const [newWO, setNewWO] = useState({ asset:'', defect_description:'', priority:'Medium', assigned_to:'', due_date:'', estimated_hours:'', comments:'' });
 
   useEffect(() => { if (initialTab) setActiveTab(initialTab); }, [initialTab]);
-  useEffect(() => { if (userRole?.company_id) { fetchTasks(); fetchWorkOrders(); fetchAssets(); fetchUsers(); } }, [userRole]);
+  useEffect(() => { if (userRole?.company_id) { fetchTasks(); fetchWorkOrders(); fetchAssets(); fetchUsers(); fetchSchedules(); } }, [userRole]);
 
   const fetchTasks = async () => { setLoading(true); const { data } = await supabase.from('maintenance').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false }); setTasks(data || []); setLoading(false); };
   const fetchWorkOrders = async () => { const { data } = await supabase.from('work_orders').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false }); setWorkOrders(data || []); };
   const fetchAssets = async () => { const { data } = await supabase.from('assets').select('name').eq('company_id', userRole.company_id); setAssets(data || []); };
   const fetchUsers = async () => { const { data } = await supabase.from('user_roles').select('name').eq('company_id', userRole.company_id); setUsers(data || []); };
+  const fetchSchedules = async () => { const { data } = await supabase.from('service_schedules').select('*').eq('company_id', userRole.company_id).order('next_due_date'); setSchedules(data || []); };
+  
+  const handleAddSchedule = async () => {
+    if (!newSchedule.asset_name || !newSchedule.service_name || !newSchedule.interval_value) { alert('Fill in asset, service name and interval'); return; }
+    const last = parseFloat(newSchedule.last_service_value) || 0;
+    const interval = parseFloat(newSchedule.interval_value) || 0;
+    const nextVal = last + interval;
+    let nextDate = null;
+    if (newSchedule.interval_type === 'days' || newSchedule.interval_type === 'months') {
+      const d = newSchedule.last_service_date ? new Date(newSchedule.last_service_date) : new Date();
+      if (newSchedule.interval_type === 'days') d.setDate(d.getDate() + interval);
+      else d.setMonth(d.getMonth() + interval);
+      nextDate = d.toISOString().split('T')[0];
+    }
+    const { error } = await supabase.from('service_schedules').insert({
+      ...newSchedule,
+      company_id: userRole.company_id,
+      interval_value: interval,
+      last_service_value: last,
+      next_due_value: nextVal,
+      next_due_date: nextDate,
+    });
+    if (error) alert('Error: ' + error.message);
+    else { fetchSchedules(); setNewSchedule({ asset_id:'', asset_name:'', service_name:'', interval_type:'hours', interval_value:'', last_service_value:'', last_service_date:'', notes:'' }); setShowScheduleForm(false); }
+  };
+
+  const aiSuggestSchedules = async (assetName, assetType) => {
+    setAiLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const resp = await fetch('/api/ai-insight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: `You are a heavy equipment maintenance expert. For a ${assetName} (type: ${assetType}), list the standard service intervals. Return ONLY a JSON array, no markdown. Each item: {"service_name":"","interval_type":"hours","interval_value":0,"notes":""}. Include oil changes, filter changes, major services, inspections. Use hours for heavy equipment, km for vehicles/trucks.` }]
+        })
+      });
+      const data = await resp.json();
+      const text = data.content?.[0]?.text || '[]';
+      const clean = text.replace(/\`\`\`json|\`\`\`/g, '').trim();
+      const suggestions = JSON.parse(clean);
+      return suggestions;
+    } catch(e) { alert('AI error: ' + e.message); return []; }
+    finally { setAiLoading(false); }
+  };
 
   const handleAdd = async () => {
     if (newTask.asset && newTask.task && newTask.next_due) {
@@ -225,6 +278,8 @@ function Maintenance({ userRole, initialTab }) {
     { id:'scheduled',   label:'Scheduled Service' },
     { id:'work_orders', label:'Work Orders' },
     { id:'pm_tasks',    label:'PM Tasks' },
+    { id:'schedules',   label:'Service Schedules' },
+    { id:'calendar',    label:'📅 Calendar' },
   ];
 
   const btnPrimary = { padding:'8px 18px', background:C.accent, color:'var(--text-primary)', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit', boxShadow:`0 3px 10px ${C.accent}44`, letterSpacing:'0.5px' };
@@ -444,6 +499,249 @@ function Maintenance({ userRole, initialTab }) {
           </div>
         </Modal>
       )}
+
+      {/* ── Service Schedules Tab ── */}
+      {activeTab === 'schedules' && (
+        <div>
+          <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap', alignItems:'center' }}>
+            <button onClick={() => setShowScheduleForm(s=>!s)} style={{ padding:'9px 18px', background:showScheduleForm?'var(--surface-2)':'var(--accent)', color:showScheduleForm?'var(--text-secondary)':'#fff', border:'1px solid '+(showScheduleForm?'var(--border)':'var(--accent)'), borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+              {showScheduleForm ? '✕ Close' : '+ Add Schedule'}
+            </button>
+          </div>
+
+          {showScheduleForm && (
+            <div style={{ ...card, marginBottom:20, borderLeft:'3px solid var(--accent)' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                <span style={{ fontSize:14, fontWeight:800, color:C.textDark }}>New Service Schedule</span>
+                {aiLoading && <span style={{ fontSize:12, color:'var(--accent)' }}>🤖 AI thinking…</span>}
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:12, marginBottom:12 }}>
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:5 }}>Asset *</div>
+                  <select style={iStyle} value={newSchedule.asset_name} onChange={e => {
+                    const name = e.target.value;
+                    const asset = assets.find(a => a.name === name);
+                    setNewSchedule(s => ({ ...s, asset_name: name, asset_id: asset?.id || '' }));
+                  }}>
+                    <option value="">Select asset…</option>
+                    {assets.map(a => <option key={a.name}>{a.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:5 }}>Service Name *</div>
+                  <input style={iStyle} placeholder="e.g. Engine Oil Change" value={newSchedule.service_name} onChange={e => setNewSchedule(s=>({...s,service_name:e.target.value}))} />
+                </div>
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:5 }}>Interval Type</div>
+                  <select style={iStyle} value={newSchedule.interval_type} onChange={e => setNewSchedule(s=>({...s,interval_type:e.target.value}))}>
+                    <option value="hours">Hours</option>
+                    <option value="km">Kilometres</option>
+                    <option value="days">Days</option>
+                    <option value="months">Months</option>
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:5 }}>Every (value) *</div>
+                  <input style={iStyle} type="number" placeholder={newSchedule.interval_type==='hours'?'e.g. 500':'e.g. 10000'} value={newSchedule.interval_value} onChange={e => setNewSchedule(s=>({...s,interval_value:e.target.value}))} />
+                </div>
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:5 }}>Last Service {newSchedule.interval_type==='hours'?'Hours':newSchedule.interval_type==='km'?'KM':'Date'}</div>
+                  {newSchedule.interval_type==='hours'||newSchedule.interval_type==='km'
+                    ? <input style={iStyle} type="number" placeholder="0" value={newSchedule.last_service_value} onChange={e => setNewSchedule(s=>({...s,last_service_value:e.target.value}))} />
+                    : <input style={iStyle} type="date" value={newSchedule.last_service_date} onChange={e => setNewSchedule(s=>({...s,last_service_date:e.target.value}))} />
+                  }
+                </div>
+                <div>
+                  <div style={{ fontSize:10, fontWeight:700, color:C.textMuted, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:5 }}>Notes</div>
+                  <input style={iStyle} placeholder="Optional notes" value={newSchedule.notes} onChange={e => setNewSchedule(s=>({...s,notes:e.target.value}))} />
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                <button onClick={handleAddSchedule} style={{ padding:'9px 22px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}>Save Schedule</button>
+                {newSchedule.asset_name && (
+                  <button onClick={async () => {
+                    const asset = assets.find(a => a.name === newSchedule.asset_name);
+                    const suggestions = await aiSuggestSchedules(newSchedule.asset_name, asset?.type || '');
+                    if (suggestions.length > 0) {
+                      const rows = suggestions.map(s => ({
+                        company_id: userRole.company_id,
+                        asset_name: newSchedule.asset_name,
+                        asset_id: asset?.id || null,
+                        service_name: s.service_name,
+                        interval_type: s.interval_type,
+                        interval_value: s.interval_value,
+                        last_service_value: 0,
+                        next_due_value: s.interval_value,
+                        notes: s.notes || '',
+                      }));
+                      await supabase.from('service_schedules').insert(rows);
+                      fetchSchedules();
+                      setShowScheduleForm(false);
+                      alert(`✓ AI added ${rows.length} service schedules for ${newSchedule.asset_name}`);
+                    }
+                  }} disabled={aiLoading} style={{ padding:'9px 18px', background:'var(--surface-2)', color:'var(--accent)', border:'1px solid var(--accent)', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer', opacity:aiLoading?0.5:1 }}>
+                    {aiLoading ? '🤖 Loading…' : '🤖 AI Suggest All Services'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div style={card}>
+            <SectionHead title="Service Schedules" count={schedules.length} />
+            {schedules.length === 0 ? (
+              <Empty icon="⏱" title="No service schedules" desc="Add schedules manually or use AI to generate them from your asset type." />
+            ) : (
+              <div style={{ overflowX:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                  <thead><tr style={{ borderBottom:'2px solid var(--border)' }}>
+                    {['Asset','Service','Interval','Last Service','Next Due','Status',''].map(h => <th key={h} style={{ textAlign:'left', padding:'0 14px 12px 0', fontSize:10, fontWeight:700, color:C.textMuted, letterSpacing:'1.2px', textTransform:'uppercase' }}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {schedules.map((s, i) => {
+                      const hoursNow = assets.find(a => a.name === s.asset_name)?.hours || 0;
+                      const remaining = s.interval_type === 'hours' || s.interval_type === 'km'
+                        ? (s.next_due_value || 0) - hoursNow : null;
+                      const isOverdue = remaining !== null ? remaining <= 0 : s.next_due_date && s.next_due_date < new Date().toISOString().split('T')[0];
+                      const isWarning = remaining !== null ? (remaining > 0 && remaining <= s.interval_value * 0.1) : false;
+                      const statusColor = isOverdue ? 'var(--red)' : isWarning ? 'var(--amber)' : 'var(--green)';
+                      const statusBg = isOverdue ? 'var(--red-bg)' : isWarning ? 'var(--amber-bg)' : 'var(--green-bg)';
+                      const statusLabel = isOverdue ? 'Overdue' : isWarning ? 'Due Soon' : 'OK';
+                      return (
+                        <tr key={s.id} style={{ borderBottom:'1px solid var(--border)', opacity:0, animation:`fadeUp 0.25s ease ${i*25}ms forwards` }}>
+                          <td style={{ padding:'11px 14px 11px 0', fontSize:13, fontWeight:600, color:C.textDark }}>{s.asset_name}</td>
+                          <td style={{ padding:'11px 14px 11px 0', fontSize:13, color:C.textMid }}>{s.service_name}</td>
+                          <td style={{ padding:'11px 14px 11px 0', fontSize:13, color:C.textMid }}>Every {s.interval_value} {s.interval_type}</td>
+                          <td style={{ padding:'11px 14px 11px 0', fontSize:13, color:C.textMuted }}>
+                            {s.interval_type === 'hours' || s.interval_type === 'km' ? `${s.last_service_value} ${s.interval_type}` : s.last_service_date || '—'}
+                          </td>
+                          <td style={{ padding:'11px 14px 11px 0', fontSize:13, fontWeight:700, color:statusColor }}>
+                            {s.interval_type === 'hours' || s.interval_type === 'km'
+                              ? `${s.next_due_value} ${s.interval_type}${remaining !== null ? ` (${remaining > 0 ? remaining + ' to go' : Math.abs(remaining) + ' overdue'})` : ''}`
+                              : s.next_due_date || '—'}
+                          </td>
+                          <td style={{ padding:'11px 14px 11px 0' }}>
+                            <span style={{ padding:'3px 9px', borderRadius:4, background:statusBg, color:statusColor, fontSize:10, fontWeight:700, border:`1px solid ${statusColor}40` }}>{statusLabel}</span>
+                          </td>
+                          <td style={{ padding:'11px 0' }}>
+                            <button onClick={async () => {
+                              const hoursVal = s.interval_type==='hours'||s.interval_type==='km' ? prompt(`Current ${s.interval_type} reading for ${s.asset_name}?`) : null;
+                              const newLast = hoursVal ? parseFloat(hoursVal) : (s.next_due_value || s.last_service_value || 0);
+                              const nextVal = newLast + s.interval_value;
+                              let nextDate = null;
+                              if (s.interval_type==='days'||s.interval_type==='months') {
+                                const d = new Date(); if (s.interval_type==='days') d.setDate(d.getDate()+s.interval_value); else d.setMonth(d.getMonth()+s.interval_value);
+                                nextDate = d.toISOString().split('T')[0];
+                              }
+                              await supabase.from('service_schedules').update({ last_service_value:newLast, last_service_date:new Date().toISOString().split('T')[0], next_due_value:nextVal, next_due_date:nextDate }).eq('id', s.id);
+                              fetchSchedules();
+                            }} style={{ padding:'4px 10px', background:'var(--green-bg)', color:'var(--green)', border:'1px solid var(--green-border)', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer' }}>✓ Done</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Calendar Tab ── */}
+      {activeTab === 'calendar' && (
+        <div>
+          {(() => {
+            const year = calMonth.getFullYear();
+            const month = calMonth.getMonth();
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date().toISOString().split('T')[0];
+            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+            // Gather all events for this month
+            const events = {};
+            tasks.forEach(t => {
+              if (t.next_due && t.next_due.startsWith(`${year}-${String(month+1).padStart(2,'0')}`)) {
+                const day = parseInt(t.next_due.split('-')[2]);
+                if (!events[day]) events[day] = [];
+                events[day].push({ label: t.asset + ' — ' + t.task, color: t.status==='Overdue'?'var(--red)':t.status==='Due Soon'?'var(--amber)':'var(--accent)', type:'service' });
+              }
+            });
+            schedules.forEach(s => {
+              if (s.next_due_date && s.next_due_date.startsWith(`${year}-${String(month+1).padStart(2,'0')}`)) {
+                const day = parseInt(s.next_due_date.split('-')[2]);
+                if (!events[day]) events[day] = [];
+                events[day].push({ label: s.asset_name + ' — ' + s.service_name, color:'var(--purple)', type:'schedule' });
+              }
+            });
+            workOrders.filter(w=>w.status!=='Complete').forEach(w => {
+              if (w.due_date && w.due_date.startsWith(`${year}-${String(month+1).padStart(2,'0')}`)) {
+                const day = parseInt(w.due_date.split('-')[2]);
+                if (!events[day]) events[day] = [];
+                events[day].push({ label: (w.asset_name||'') + ' — ' + (w.title||w.defect_description||'').slice(0,30), color:'var(--red)', type:'wo' });
+              }
+            });
+
+            const cells = [];
+            for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) cells.push(null);
+            for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+            return (
+              <div>
+                {/* Month nav */}
+                <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
+                  <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth()-1, 1))} style={{ padding:'8px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:16, color:'var(--text-secondary)', fontWeight:700 }}>‹</button>
+                  <div style={{ fontSize:20, fontWeight:800, color:'var(--text-primary)', minWidth:200, textAlign:'center', fontFamily:'var(--font-display)' }}>{monthNames[month]} {year}</div>
+                  <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth()+1, 1))} style={{ padding:'8px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:16, color:'var(--text-secondary)', fontWeight:700 }}>›</button>
+                  <button onClick={() => setCalMonth(new Date())} style={{ padding:'7px 14px', background:'var(--accent-light)', color:'var(--accent)', border:'1px solid rgba(14,165,233,0.25)', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>Today</button>
+                </div>
+                {/* Legend */}
+                <div style={{ display:'flex', gap:16, marginBottom:16, flexWrap:'wrap' }}>
+                  {[['var(--accent)','Scheduled Service'],['var(--purple)','Service Schedule'],['var(--red)','Work Order Due']].map(([col,lbl]) => (
+                    <div key={lbl} style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--text-muted)' }}>
+                      <span style={{ width:10, height:10, borderRadius:2, background:col, display:'inline-block' }} />{lbl}
+                    </div>
+                  ))}
+                </div>
+                {/* Day headers */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4, marginBottom:4 }}>
+                  {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => (
+                    <div key={d} style={{ textAlign:'center', fontSize:11, fontWeight:700, color:'var(--text-muted)', padding:'6px 0', textTransform:'uppercase', letterSpacing:'0.5px' }}>{d}</div>
+                  ))}
+                </div>
+                {/* Grid */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4 }}>
+                  {cells.map((day, i) => {
+                    const dateStr = day ? `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}` : '';
+                    const isToday = dateStr === today;
+                    const dayEvents = day ? (events[day] || []) : [];
+                    return (
+                      <div key={i} style={{
+                        minHeight:80, background: day ? 'var(--surface)' : 'transparent',
+                        border: day ? `1px solid ${isToday ? 'var(--accent)' : 'var(--border)'}` : 'none',
+                        borderRadius:8, padding:'6px 8px',
+                        boxShadow: isToday ? '0 0 0 2px var(--accent)' : 'none',
+                      }}>
+                        {day && (
+                          <>
+                            <div style={{ fontSize:12, fontWeight: isToday ? 800 : 500, color: isToday ? 'var(--accent)' : 'var(--text-secondary)', marginBottom:4 }}>{day}</div>
+                            {dayEvents.slice(0,3).map((ev, j) => (
+                              <div key={j} title={ev.label} style={{ fontSize:10, fontWeight:600, color:'#fff', background:ev.color, borderRadius:3, padding:'2px 5px', marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ev.label}</div>
+                            ))}
+                            {dayEvents.length > 3 && <div style={{ fontSize:9, color:'var(--text-faint)' }}>+{dayEvents.length-3} more</div>}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
     </div>
   );
 }
