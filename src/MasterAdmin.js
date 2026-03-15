@@ -106,6 +106,128 @@ function PinModal({ onConfirm, onCancel, actionLabel }) {
   );
 }
 
+// ─── Supabase Usage Widget ────────────────────────────────────────────────────
+function UsageWidget() {
+  const [usage, setUsage] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUsage = async () => {
+      try {
+        // Fetch DB size from Supabase
+        const { data: dbSize } = await supabase.rpc('get_db_size').single().catch(() => ({ data: null }));
+
+        // Fetch storage usage
+        const { data: buckets } = await supabase.storage.listBuckets();
+        let totalStorageBytes = 0;
+        if (buckets) {
+          for (const bucket of buckets) {
+            const { data: files } = await supabase.storage.from(bucket.name).list('', { limit: 1000, offset: 0 });
+            if (files) {
+              // Recursively get sizes - approximate from file count
+              totalStorageBytes += files.reduce((sum, f) => sum + (f.metadata?.size || 0), 0);
+            }
+          }
+        }
+
+        // Count rows across main tables as proxy for DB usage
+        const tables = ['assets','maintenance','work_orders','downtime','form_submissions','messages','oil_samples'];
+        let totalRows = 0;
+        for (const t of tables) {
+          const { count } = await supabase.from(t).select('*', { count: 'exact', head: true });
+          totalRows += count || 0;
+        }
+
+        // Rough DB size estimate: ~2KB per row average
+        const estimatedDbBytes = totalRows * 2048;
+
+        setUsage({
+          dbBytes: estimatedDbBytes,
+          storageBytes: totalStorageBytes,
+          rows: totalRows,
+          buckets: buckets?.length || 0,
+        });
+      } catch (e) {
+        setUsage({ error: true });
+      }
+      setLoading(false);
+    };
+    fetchUsage();
+  }, []);
+
+  const fmt = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  const pct = (used, total) => Math.min(100, Math.round((used / total) * 100));
+
+  const Bar = ({ used, total, color }) => {
+    const p = pct(used, total);
+    const c = p > 85 ? 'var(--red)' : p > 65 ? 'var(--amber)' : color;
+    return (
+      <div style={{ height: 6, background: 'var(--surface-3)', borderRadius: 99, overflow: 'hidden', marginTop: 6 }}>
+        <div style={{ height: '100%', width: `${p}%`, background: c, borderRadius: 99, transition: 'width 0.8s cubic-bezier(0.16,1,0.3,1)' }} />
+      </div>
+    );
+  };
+
+  // Supabase free tier limits
+  const DB_LIMIT    = 500 * 1024 * 1024;   // 500 MB
+  const STORE_LIMIT = 1024 * 1024 * 1024;  // 1 GB
+
+  if (loading) return (
+    <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:'18px 22px', marginBottom:24, display:'flex', alignItems:'center', gap:10, color:'var(--text-muted)', fontSize:13 }}>
+      <span style={{ animation:'spin 1s linear infinite', display:'inline-block' }}>⟳</span> Loading usage data…
+    </div>
+  );
+
+  if (usage?.error) return null;
+
+  return (
+    <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:'18px 22px', marginBottom:24 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+        <div style={{ fontSize:12, fontWeight:800, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'1px', display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ width:3, height:14, background:'var(--purple)', borderRadius:2, display:'inline-block' }} />
+          Supabase Usage — Free Tier
+        </div>
+        <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" style={{ fontSize:11, color:'var(--accent)', textDecoration:'none', fontWeight:600 }}>View Dashboard ↗</a>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:16 }}>
+
+        {/* Database */}
+        <div>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+            <span style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary)' }}>Database</span>
+            <span style={{ fontSize:11, color:'var(--text-muted)', fontFamily:'var(--font-mono)' }}>{fmt(usage.dbBytes)} / 500 MB</span>
+          </div>
+          <Bar used={usage.dbBytes} total={DB_LIMIT} color="var(--accent)" />
+          <div style={{ fontSize:11, color:'var(--text-faint)', marginTop:4 }}>{pct(usage.dbBytes, DB_LIMIT)}% used · ~{usage.rows.toLocaleString()} rows</div>
+        </div>
+
+        {/* Storage */}
+        <div>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+            <span style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary)' }}>File Storage</span>
+            <span style={{ fontSize:11, color:'var(--text-muted)', fontFamily:'var(--font-mono)' }}>{fmt(usage.storageBytes)} / 1 GB</span>
+          </div>
+          <Bar used={usage.storageBytes} total={STORE_LIMIT} color="var(--green)" />
+          <div style={{ fontSize:11, color:'var(--text-faint)', marginTop:4 }}>{pct(usage.storageBytes, STORE_LIMIT)}% used · {usage.buckets} bucket{usage.buckets !== 1 ? 's' : ''}</div>
+        </div>
+
+        {/* Warning if getting close */}
+        {(pct(usage.dbBytes, DB_LIMIT) > 70 || pct(usage.storageBytes, STORE_LIMIT) > 70) && (
+          <div style={{ background:'var(--amber-bg)', border:'1px solid var(--amber-border)', borderRadius:8, padding:'10px 14px', display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:16 }}>⚠️</span>
+            <div style={{ fontSize:12, color:'var(--amber)', fontWeight:600 }}>Approaching free tier limit — consider upgrading Supabase plan</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MasterAdmin() {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -245,6 +367,9 @@ function MasterAdmin() {
           </div>
         ))}
       </div>
+
+      {/* Usage Widget */}
+      <UsageWidget />
 
       {/* Main grid */}
       <div style={{ display:'grid', gridTemplateColumns:selected?'1fr 380px':'1fr', gap:20 }}>
