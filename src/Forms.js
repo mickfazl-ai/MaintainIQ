@@ -548,6 +548,30 @@ function PrestartTab({ userRole }) {
       date: form.date, notes: form.notes, responses: form.responses, operator_signature: signatureData, defects_found
     }]).select().single();
     if (error) { alert('Error: ' + error.message); return; }
+    // ── Update asset hours from prestart ──
+    if (form.hrs_start && parseFloat(form.hrs_start) > 0) {
+      try {
+        const newHours = parseFloat(form.hrs_start);
+        // Find asset by name to get ID
+        const { data: assetData } = await supabase
+          .from('assets').select('id, hours').eq('name', form.asset).eq('company_id', userRole.company_id).single();
+        if (assetData) {
+          // Always update hours (keep full history)
+          await supabase.from('assets').update({ hours: newHours }).eq('id', assetData.id);
+          // Log to hours history
+          await supabase.from('asset_hours_log').insert({
+            company_id: userRole.company_id,
+            asset_id: assetData.id,
+            asset_name: form.asset,
+            hours: newHours,
+            source: 'prestart',
+            recorded_by: form.operator_name,
+            notes: 'Prestart submission on ' + form.date,
+          });
+        }
+      } catch (e) { console.error('Hours update failed:', e); }
+    }
+
     if (defects_found && submission) {
       const defectItems = [];
       selectedTemplate.sections.forEach((section, si) => {

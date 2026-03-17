@@ -699,6 +699,11 @@ function DataExport({ userRole }) {
       'Asset': p.asset, 'Date': p.date, 'Operator': p.operator_name,
       'Defects Found': p.defects_found ? 'Yes' : 'No', 'Form': p.form_name,
     })));
+    addSheet('Hours Log', (data.hours_log||[]).map(h => ({
+      'Asset': h.asset_name, 'Hours': h.hours, 'Source': h.source,
+      'Recorded By': h.recorded_by, 'Notes': h.notes,
+      'Date': new Date(h.created_at).toLocaleDateString('en-AU'),
+    })));
     addSheet('Parts', (data.parts||[]).map(p => ({
       'Name': p.name, 'Part Number': p.part_number, 'Category': p.category,
       'Supplier': p.supplier, 'Quantity': p.quantity, 'Min Stock': p.min_quantity,
@@ -724,7 +729,7 @@ function DataExport({ userRole }) {
       const date    = new Date().toISOString().split('T')[0];
 
       setProgress('Fetching all data…');
-      const [assets, maintenance, work_orders, downtime, oil_samples, prestarts, service_schedules, parts] = await Promise.all([
+      const [assets, maintenance, work_orders, downtime, oil_samples, prestarts, service_schedules, parts, hours_log] = await Promise.all([
         supabase.from('assets').select('*').eq('company_id', cid).then(r => r.data||[]),
         supabase.from('maintenance').select('*').eq('company_id', cid).then(r => r.data||[]),
         supabase.from('work_orders').select('*').eq('company_id', cid).then(r => r.data||[]),
@@ -733,9 +738,10 @@ function DataExport({ userRole }) {
         supabase.from('form_submissions').select('*').eq('company_id', cid).then(r => r.data||[]),
         supabase.from('service_schedules').select('*').eq('company_id', cid).then(r => r.data||[]),
         supabase.from('parts').select('*').eq('company_id', cid).then(r => r.data||[]),
+        supabase.from('asset_hours_log').select('*').eq('company_id', cid).order('created_at',{ascending:false}).then(r => r.data||[]),
       ]);
 
-      const data = { assets, maintenance, work_orders, downtime, oil_samples, prestarts, service_schedules, parts };
+      const data = { assets, maintenance, work_orders, downtime, oil_samples, prestarts, service_schedules, parts, hours_log };
 
       // ── Excel workbook ──
       setProgress('Building Excel spreadsheet…');

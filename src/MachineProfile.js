@@ -285,11 +285,37 @@ function ServiceTab({ asset }) {
     setLoading(false);
   };
 
+  const [hoursHistory, setHoursHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [manualNote, setManualNote] = useState('');
+
+  const loadHistory = async () => {
+    const { data } = await supabase.from('asset_hours_log')
+      .select('*').eq('asset_id', asset.id)
+      .order('created_at', { ascending: false }).limit(20);
+    setHoursHistory(data || []);
+    setShowHistory(true);
+  };
+
   const updateHours = async () => {
+    if (!currentHours) return;
     setSaving(true);
-    await supabase.from('assets').update({ hours: parseFloat(currentHours) }).eq('id', asset.id);
+    const newHours = parseFloat(currentHours);
+    await supabase.from('assets').update({ hours: newHours }).eq('id', asset.id);
+    // Log to history
+    await supabase.from('asset_hours_log').insert({
+      company_id: asset.company_id,
+      asset_id: asset.id,
+      asset_name: asset.name,
+      hours: newHours,
+      source: 'manual',
+      recorded_by: 'Admin',
+      notes: manualNote || 'Manual update',
+    });
     setSaving(false);
+    setManualNote('');
     alert('Hours updated ✓');
+    load();
   };
 
   const markDone = async (s) => {
@@ -333,7 +359,35 @@ function ServiceTab({ asset }) {
             {saving ? 'Saving…' : 'Update'}
           </button>
         </div>
-        <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6 }}>Hours also update automatically from prestart submissions.</div>
+        <div style={{ flex:1, minWidth:180 }}>
+          <label className="mp-label">Notes (optional)</label>
+          <input className="mp-input" placeholder="e.g. Post-service reading" value={manualNote} onChange={e=>setManualNote(e.target.value)} />
+        </div>
+        <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6 }}>Hours update automatically from prestart submissions.</div>
+        <button onClick={loadHistory} style={{ marginTop:8, padding:'6px 14px', background:'var(--surface-2)', color:'var(--text-secondary)', border:'1px solid var(--border)', borderRadius:7, fontSize:12, fontWeight:600, cursor:'pointer' }}>
+          📋 View Hours History
+        </button>
+        {showHistory && hoursHistory.length > 0 && (
+          <div style={{ marginTop:12, border:'1px solid var(--border)', borderRadius:10, overflow:'hidden' }}>
+            <div style={{ padding:'8px 14px', background:'var(--surface-2)', fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', display:'flex', justifyContent:'space-between' }}>
+              <span>Hours Log</span>
+              <button onClick={() => setShowHistory(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-faint)', fontSize:14 }}>✕</button>
+            </div>
+            {hoursHistory.map((h,i) => (
+              <div key={h.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 14px', borderBottom: i < hoursHistory.length-1 ? '1px solid var(--border)' : 'none', background: i%2===0 ? 'transparent' : 'var(--surface-2)' }}>
+                <div>
+                  <span style={{ fontSize:14, fontWeight:700, color:'var(--accent)', fontFamily:'var(--font-mono)' }}>{h.hours.toLocaleString()} hrs</span>
+                  <span style={{ fontSize:11, color:'var(--text-muted)', marginLeft:10 }}>{h.recorded_by}</span>
+                  {h.notes && <span style={{ fontSize:11, color:'var(--text-faint)', marginLeft:8, fontStyle:'italic' }}>{h.notes}</span>}
+                </div>
+                <div style={{ textAlign:'right' }}>
+                  <div style={{ fontSize:11, color:'var(--text-muted)' }}>{new Date(h.created_at).toLocaleDateString('en-AU')}</div>
+                  <span style={{ fontSize:10, padding:'1px 6px', borderRadius:3, background: h.source==='prestart' ? 'var(--accent-light)' : 'var(--surface-2)', color: h.source==='prestart' ? 'var(--accent)' : 'var(--text-muted)', border:'1px solid '+(h.source==='prestart' ? 'rgba(14,165,233,0.2)' : 'var(--border)') }}>{h.source}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Status summary */}
