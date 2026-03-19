@@ -797,21 +797,30 @@ function ServiceSheetsTab({ userRole }) {
   const [templates, setTemplates] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [assets, setAssets] = useState([]);
+  const [inventoryParts, setInventoryParts] = useState([]);
   const [view, setView] = useState('list');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAI, setShowAI] = useState(false);
   const [aiPreview, setAiPreview] = useState(null);
+  const [showPartScan, setShowPartScan] = useState(false);
+  const [showPartQR, setShowPartQR] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
   const sigCanvas = React.useRef(null);
   const [isSigning, setIsSigning] = useState(false);
   const [signatureData, setSignatureData] = useState('');
   const [builder, setBuilder] = useState({ name: '', description: '', service_type: '', sections: [], parts_template: [], labour_items: [] });
-  const [form, setForm] = useState({ asset: '', technician: '', date: new Date().toISOString().split('T')[0], odometer: '', service_type: '', notes: '', responses: {}, parts: [{ name: '', qty: '', cost: '' }], labour: [{ description: '', hours: '' }] });
+  const [form, setForm] = useState({ asset: '', technician: '', date: new Date().toISOString().split('T')[0], odometer: '', service_type: '', notes: '', responses: {}, parts: [{ name: '', qty: '', cost: '', part_id: null }], labour: [{ description: '', hours: '' }] });
   const isAdmin = userRole && (userRole.role === 'admin' || userRole.role === 'master');
 
   useEffect(() => {
-    if (userRole && userRole.company_id) { fetchTemplates(); fetchSubmissions(); fetchAssets(); }
+    if (userRole && userRole.company_id) { fetchTemplates(); fetchSubmissions(); fetchAssets(); fetchInventoryParts(); }
   }, [userRole]);
+
+  const fetchInventoryParts = async () => {
+    const { data } = await supabase.from('parts').select('id,name,part_number,unit_cost,quantity,unit').eq('company_id', userRole.company_id).order('name');
+    setInventoryParts(data || []);
+  };
 
   const fetchTemplates = async () => {
     const { data } = await supabase.from('service_sheet_templates').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false });
@@ -839,6 +848,29 @@ function ServiceSheetsTab({ userRole }) {
 
   const handleSubmit = async () => {
     if (!form.asset || !form.technician) { alert('Please select an asset and enter technician name'); return; }
+    
+    // Check which parts have inventory links and confirm deduction
+    const linkedParts = form.parts.filter(p => p.part_id && p.name && parseFloat(p.qty) > 0);
+    if (linkedParts.length > 0) {
+      const list = linkedParts.map(p => `• ${p.name} × ${p.qty}`).join('\n');
+      const confirm = window.confirm(`Deduct the following parts from inventory?\n\n${list}\n\nClick OK to confirm.`);
+      if (confirm) {
+        for (const p of linkedParts) {
+          const invPart = inventoryParts.find(ip => ip.id === p.part_id);
+          if (invPart) {
+            const newQty = Math.max(0, (invPart.quantity || 0) - parseFloat(p.qty));
+            await supabase.from('parts').update({ quantity: newQty, updated_at: new Date().toISOString() }).eq('id', p.part_id);
+            await supabase.from('parts_transactions').insert({
+              company_id: userRole.company_id, part_id: p.part_id, type: 'out',
+              quantity: parseFloat(p.qty), asset_id: assets.find(a => a.name === form.asset)?.id || null,
+              notes: `Used on service sheet: ${form.service_type || selectedTemplate.service_type}`,
+              performed_by: form.technician,
+            });
+          }
+        }
+      }
+    }
+
     const { error } = await supabase.from('service_sheet_submissions').insert([{
       company_id: userRole.company_id, template_id: selectedTemplate.id, asset: form.asset,
       technician: form.technician, date: form.date, odometer: form.odometer,
@@ -847,8 +879,8 @@ function ServiceSheetsTab({ userRole }) {
       operator_signature: signatureData, total_parts_cost: totalPartsValue, total_labour_hours: totalLabourHours
     }]);
     if (error) { alert('Error: ' + error.message); return; }
-    fetchSubmissions(); setView('list');
-    setForm({ asset: '', technician: '', date: new Date().toISOString().split('T')[0], odometer: '', service_type: '', notes: '', responses: {}, parts: [{ name: '', qty: '', cost: '' }], labour: [{ description: '', hours: '' }] });
+    fetchSubmissions(); fetchInventoryParts(); setView('list');
+    setForm({ asset: '', technician: '', date: new Date().toISOString().split('T')[0], odometer: '', service_type: '', notes: '', responses: {}, parts: [{ name: '', qty: '', cost: '', part_id: null }], labour: [{ description: '', hours: '' }] });
     setSignatureData('');
     alert('Service sheet submitted!');
   };
@@ -962,12 +994,41 @@ function ServiceSheetsTab({ userRole }) {
             <h3 style={{ color: 'var(--accent)', margin: 0 }}>Parts Used</h3>
             <span style={{ color: '#ff6b00', fontWeight: 700 }}>Total: ${totalPartsValue.toFixed(2)}</span>
           </div>
+          {/* Scan / Photo buttons */}
+          <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap' }}>
+            <button onClick={() => setShowPartQR(true)} style={{ padding:'7px 14px', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:6 }}>
+              📷 Scan QR Code
+            </button>
+            <button onClick={() => setShowPartScan(true)} style={{ padding:'7px 14px', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:6 }}>
+              🤖 AI Photo Scan
+            </button>
+            <select onChange={e => {
+              if (!e.target.value) return;
+              const ip = inventoryParts.find(p => p.id === e.target.value);
+              if (ip) {
+                const newParts = [...form.parts];
+                const emptyIdx = newParts.findIndex(p => !p.name);
+                const entry = { name: ip.name, qty: '1', cost: String(ip.unit_cost || ''), part_id: ip.id };
+                if (emptyIdx >= 0) newParts[emptyIdx] = entry; else newParts.push(entry);
+                setForm({ ...form, parts: newParts });
+              }
+              e.target.value = '';
+            }} defaultValue="" style={{ padding:'7px 12px', background:'var(--surface-2)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:12, color:'var(--text-secondary)' }}>
+              <option value="">+ Pick from inventory…</option>
+              {inventoryParts.map(p => <option key={p.id} value={p.id}>{p.name} {p.part_number ? `(${p.part_number})` : ''} — {p.quantity} in stock</option>)}
+            </select>
+          </div>
           <table className="data-table">
             <thead><tr><th>Part Name</th><th>Qty</th><th>Unit Cost ($)</th><th>Total</th><th></th></tr></thead>
             <tbody>
               {form.parts.map((part, i) => (
-                <tr key={i}>
-                  <td><input value={part.name} onChange={e => { const p = [...form.parts]; p[i] = { ...p[i], name: e.target.value }; setForm({ ...form, parts: p }); }} placeholder="Part name" style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '5px 8px', borderRadius: '4px', width: '100%' }} /></td>
+                <tr key={i} style={{ background: part.part_id ? 'rgba(14,165,233,0.05)' : 'transparent' }}>
+                  <td>
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <input value={part.name} onChange={e => { const p = [...form.parts]; p[i] = { ...p[i], name: e.target.value, part_id: null }; setForm({ ...form, parts: p }); }} placeholder="Part name" style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '5px 8px', borderRadius: '4px', width: '100%' }} />
+                      {part.part_id && <span title="Linked to inventory" style={{ fontSize:14, flexShrink:0 }}>🔗</span>}
+                    </div>
+                  </td>
                   <td><input type="number" value={part.qty} onChange={e => { const p = [...form.parts]; p[i] = { ...p[i], qty: e.target.value }; setForm({ ...form, parts: p }); }} placeholder="1" style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '5px 8px', borderRadius: '4px', width: '60px' }} /></td>
                   <td><input type="number" value={part.cost} onChange={e => { const p = [...form.parts]; p[i] = { ...p[i], cost: e.target.value }; setForm({ ...form, parts: p }); }} placeholder="0.00" style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', padding: '5px 8px', borderRadius: '4px', width: '80px' }} /></td>
                   <td style={{ color: '#ff6b00', fontWeight: 700 }}>${(parseFloat(part.qty || 0) * parseFloat(part.cost || 0)).toFixed(2)}</td>
@@ -976,7 +1037,178 @@ function ServiceSheetsTab({ userRole }) {
               ))}
             </tbody>
           </table>
-          <button onClick={() => setForm({ ...form, parts: [...form.parts, { name: '', qty: '', cost: '' }] })} style={{ marginTop: '10px', backgroundColor: 'transparent', color: 'var(--accent)', border: '1px dashed #00c2e0', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer' }}>+ Add Part</button>
+          <button onClick={() => setForm({ ...form, parts: [...form.parts, { name: '', qty: '', cost: '', part_id: null }] })} style={{ marginTop: '10px', backgroundColor: 'transparent', color: 'var(--accent)', border: '1px dashed #00c2e0', padding: '6px 14px', borderRadius: '4px', cursor: 'pointer' }}>+ Add Part</button>
+
+          {/* QR Scanner Modal */}
+          {showPartQR && (
+            <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:400, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+              <div style={{ background:'var(--bg)', borderRadius:16, width:'100%', maxWidth:420, padding:24, boxShadow:'0 20px 60px rgba(0,0,0,0.4)' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                  <div style={{ fontSize:16, fontWeight:800, color:'var(--text-primary)' }}>📷 Scan Part QR Code</div>
+                  <button onClick={() => { setShowPartQR(false); setScanResult(null); }} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'var(--text-muted)' }}>✕</button>
+                </div>
+                {!scanResult ? (
+                  <>
+                    <div style={{ fontSize:13, color:'var(--text-muted)', marginBottom:16 }}>Upload a photo of the QR sticker on the part.</div>
+                    <input type="file" accept="image/*" capture="environment" onChange={async e => {
+                      const file = e.target.files[0]; if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = async (ev) => {
+                        const b64 = ev.target.result.split(',')[1];
+                        try {
+                          const res = await fetch('/api/ai-insight', { method:'POST', headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({ model:'claude-sonnet-4-5', max_tokens:300,
+                              messages:[{ role:'user', content:[
+                                { type:'image', source:{ type:'base64', media_type:file.type, data:b64 }},
+                                { type:'text', text:'This is a QR code sticker on a part. Extract the JSON data from the QR code if visible, or read the part name and number from the label. Return ONLY JSON: {"name":"","part_number":"","id":""}' }
+                              ]}]
+                            })
+                          });
+                          const data = await res.json();
+                          const text = data.content?.find(c => c.type==='text')?.text || '';
+                          const parsed = JSON.parse(text.replace(/```json|```/g,'').trim());
+                          const match = inventoryParts.find(p => p.id === parsed.id || p.part_number?.toLowerCase() === parsed.part_number?.toLowerCase() || p.name?.toLowerCase() === parsed.name?.toLowerCase());
+                          setScanResult({ parsed, match });
+                        } catch(e) { alert('Could not read QR. Try a clearer photo.'); }
+                      };
+                      reader.readAsDataURL(file);
+                    }} style={{ width:'100%', padding:'12px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700 }} />
+                  </>
+                ) : (
+                  <div>
+                    {scanResult.match ? (
+                      <div>
+                        <div style={{ background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.3)', borderRadius:10, padding:14, marginBottom:14 }}>
+                          <div style={{ fontSize:11, fontWeight:700, color:'var(--green)', textTransform:'uppercase', marginBottom:4 }}>✓ Part Found</div>
+                          <div style={{ fontSize:15, fontWeight:800 }}>{scanResult.match.name}</div>
+                          <div style={{ fontSize:12, color:'var(--text-muted)' }}>Stock: {scanResult.match.quantity} {scanResult.match.unit} · ${scanResult.match.unit_cost}</div>
+                        </div>
+                        <div style={{ marginBottom:12 }}>
+                          <label style={{ fontSize:12, color:'var(--text-muted)', display:'block', marginBottom:4 }}>Quantity used</label>
+                          <input type="number" min="1" defaultValue="1" id="qr-qty" style={{ padding:'8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text-primary)', fontSize:14, width:80 }} />
+                        </div>
+                        <div style={{ display:'flex', gap:8 }}>
+                          <button onClick={() => {
+                            const qty = document.getElementById('qr-qty')?.value || '1';
+                            const ip = scanResult.match;
+                            const newParts = [...form.parts];
+                            const emptyIdx = newParts.findIndex(p => !p.name);
+                            const entry = { name: ip.name, qty, cost: String(ip.unit_cost || ''), part_id: ip.id };
+                            if (emptyIdx >= 0) newParts[emptyIdx] = entry; else newParts.push(entry);
+                            setForm({ ...form, parts: newParts });
+                            setShowPartQR(false); setScanResult(null);
+                          }} style={{ flex:1, padding:'10px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>Add to Sheet</button>
+                          <button onClick={() => setScanResult(null)} style={{ flex:1, padding:'10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:9, cursor:'pointer', fontSize:13 }}>Rescan</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ textAlign:'center', color:'var(--text-muted)', padding:'20px 0' }}>
+                        <div style={{ fontSize:14, marginBottom:8 }}>Part not found in inventory</div>
+                        <div style={{ fontSize:12 }}>"{scanResult.parsed?.name}"</div>
+                        <button onClick={() => setScanResult(null)} style={{ marginTop:12, padding:'8px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:13 }}>Try Again</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* AI Photo Scan Modal */}
+          {showPartScan && (
+            <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:400, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+              <div style={{ background:'var(--bg)', borderRadius:16, width:'100%', maxWidth:420, padding:24, boxShadow:'0 20px 60px rgba(0,0,0,0.4)' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                  <div style={{ fontSize:16, fontWeight:800, color:'var(--text-primary)' }}>🤖 AI Part Photo</div>
+                  <button onClick={() => { setShowPartScan(false); setScanResult(null); }} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'var(--text-muted)' }}>✕</button>
+                </div>
+                {!scanResult ? (
+                  <>
+                    <div style={{ fontSize:13, color:'var(--text-muted)', marginBottom:16 }}>Take a photo of the part, its label, or box. AI will identify it and match to your inventory.</div>
+                    <input type="file" accept="image/*" capture="environment" onChange={async e => {
+                      const file = e.target.files[0]; if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = async (ev) => {
+                        const b64 = ev.target.result.split(',')[1];
+                        try {
+                          const res = await fetch('/api/ai-insight', { method:'POST', headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({ model:'claude-sonnet-4-5', max_tokens:400,
+                              messages:[{ role:'user', content:[
+                                { type:'image', source:{ type:'base64', media_type:file.type, data:b64 }},
+                                { type:'text', text:'Identify this automotive/industrial part from the image. Return ONLY JSON: {"name":"","part_number":"","supplier":"","confidence":"high/medium/low"}' }
+                              ]}]
+                            })
+                          });
+                          const data = await res.json();
+                          const text = data.content?.find(c => c.type==='text')?.text || '';
+                          const parsed = JSON.parse(text.replace(/```json|```/g,'').trim());
+                          const match = inventoryParts.find(p =>
+                            (parsed.part_number && p.part_number?.toLowerCase() === parsed.part_number.toLowerCase()) ||
+                            (parsed.name && p.name?.toLowerCase().includes(parsed.name.toLowerCase().split(' ')[0]))
+                          );
+                          setScanResult({ parsed, match });
+                        } catch(e) { alert('Could not identify part. Try a clearer photo.'); }
+                      };
+                      reader.readAsDataURL(file);
+                    }} style={{ width:'100%', padding:'12px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:700 }} />
+                  </>
+                ) : (
+                  <div>
+                    <div style={{ background:'var(--surface)', borderRadius:10, padding:12, marginBottom:12 }}>
+                      <div style={{ fontSize:11, color:'var(--text-muted)', textTransform:'uppercase', fontWeight:700, marginBottom:4 }}>AI Detected</div>
+                      <div style={{ fontSize:14, fontWeight:800 }}>{scanResult.parsed?.name || 'Unknown'}</div>
+                      {scanResult.parsed?.part_number && <div style={{ fontSize:12, color:'var(--accent)' }}>#{scanResult.parsed.part_number}</div>}
+                      <div style={{ fontSize:11, color:'var(--text-faint)', marginTop:2 }}>Confidence: {scanResult.parsed?.confidence}</div>
+                    </div>
+                    {scanResult.match ? (
+                      <div>
+                        <div style={{ background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.3)', borderRadius:10, padding:12, marginBottom:12 }}>
+                          <div style={{ fontSize:11, fontWeight:700, color:'var(--green)', textTransform:'uppercase', marginBottom:4 }}>✓ Matched in Inventory</div>
+                          <div style={{ fontSize:14, fontWeight:700 }}>{scanResult.match.name}</div>
+                          <div style={{ fontSize:12, color:'var(--text-muted)' }}>Stock: {scanResult.match.quantity} · ${scanResult.match.unit_cost}</div>
+                        </div>
+                        <div style={{ marginBottom:12 }}>
+                          <label style={{ fontSize:12, color:'var(--text-muted)', display:'block', marginBottom:4 }}>Quantity used</label>
+                          <input type="number" min="1" defaultValue="1" id="ai-qty" style={{ padding:'8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text-primary)', fontSize:14, width:80 }} />
+                        </div>
+                        <div style={{ display:'flex', gap:8 }}>
+                          <button onClick={() => {
+                            const qty = document.getElementById('ai-qty')?.value || '1';
+                            const ip = scanResult.match;
+                            const newParts = [...form.parts];
+                            const emptyIdx = newParts.findIndex(p => !p.name);
+                            const entry = { name: ip.name, qty, cost: String(ip.unit_cost || ''), part_id: ip.id };
+                            if (emptyIdx >= 0) newParts[emptyIdx] = entry; else newParts.push(entry);
+                            setForm({ ...form, parts: newParts });
+                            setShowPartScan(false); setScanResult(null);
+                          }} style={{ flex:1, padding:'10px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>Add to Sheet</button>
+                          <button onClick={() => setScanResult(null)} style={{ flex:1, padding:'10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:9, cursor:'pointer', fontSize:13 }}>Rescan</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:10, padding:12, marginBottom:12 }}>
+                          <div style={{ fontSize:11, fontWeight:700, color:'var(--amber)', textTransform:'uppercase', marginBottom:4 }}>⚠ Not in inventory</div>
+                          <div style={{ fontSize:13, color:'var(--text-secondary)' }}>Add manually instead?</div>
+                        </div>
+                        <div style={{ display:'flex', gap:8 }}>
+                          <button onClick={() => {
+                            const entry = { name: scanResult.parsed?.name || '', qty: '1', cost: '', part_id: null };
+                            const newParts = [...form.parts];
+                            const emptyIdx = newParts.findIndex(p => !p.name);
+                            if (emptyIdx >= 0) newParts[emptyIdx] = entry; else newParts.push(entry);
+                            setForm({ ...form, parts: newParts });
+                            setShowPartScan(false); setScanResult(null);
+                          }} style={{ flex:1, padding:'10px', background:'var(--amber)', color:'#fff', border:'none', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>Add Manually</button>
+                          <button onClick={() => setScanResult(null)} style={{ flex:1, padding:'10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:9, cursor:'pointer', fontSize:13 }}>Rescan</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <div className="form-card" style={{ marginTop: '15px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>

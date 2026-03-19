@@ -727,7 +727,7 @@ export default function Parts({ userRole }) {
       {/* Action bar */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <div className="tab-row" style={{ marginBottom: 0 }}>
-          {[['parts','🔩 Parts Register'],['transactions','📋 Stock Log'],['stocktake','📊 Stocktake'],['reorder','🛒 Reorder List']].map(([v, l]) => (
+          {[['parts','🔩 Parts Register'],['transactions','📋 Stock Log'],['usage','📊 Usage History'],['stocktake','📊 Stocktake'],['reorder','🛒 Reorder List']].map(([v, l]) => (
             <button key={v} className={`tab-btn-p${tab === v ? ' active' : ''}`} onClick={() => setTab(v)}>{l}</button>
           ))}
         </div>
@@ -930,6 +930,11 @@ export default function Parts({ userRole }) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Usage History Tab */}
+      {tab === 'usage' && (
+        <UsageHistoryTab parts={parts} assets={assets} transactions={transactions} userRole={userRole} />
       )}
 
       {/* Stocktake Tab */}
@@ -1146,6 +1151,82 @@ function AIScanModal({ parts, userRole, onClose, onDone, onSetTx }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Usage History Tab ────────────────────────────────────────────────────────
+function UsageHistoryTab({ parts, assets, transactions, userRole }) {
+  const [filterAsset, setFilterAsset] = React.useState('');
+  const [filterMonth, setFilterMonth] = React.useState('');
+
+  // Only show 'out' transactions (parts used)
+  const usageTransactions = transactions.filter(t => t.type === 'out');
+
+  const filtered = usageTransactions.filter(t => {
+    if (filterAsset && String(t.asset_id) !== filterAsset) return false;
+    if (filterMonth && !t.created_at?.startsWith(filterMonth)) return false;
+    return true;
+  });
+
+  // Group by asset
+  const byAsset = {};
+  filtered.forEach(t => {
+    const part = parts.find(p => p.id === t.part_id);
+    const asset = assets.find(a => a.id === t.asset_id);
+    const key = asset?.name || 'General / No Asset';
+    if (!byAsset[key]) byAsset[key] = [];
+    byAsset[key].push({ ...t, partName: part?.name || 'Unknown Part', partNumber: part?.part_number || '', assetName: key });
+  });
+
+  // Month options
+  const months = [...new Set(usageTransactions.map(t => t.created_at?.slice(0,7)).filter(Boolean))].sort().reverse();
+
+  return (
+    <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:20 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16, flexWrap:'wrap', gap:10 }}>
+        <div className="parts-section-title" style={{ marginBottom:0 }}>Parts Usage History</div>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          <select value={filterAsset} onChange={e => setFilterAsset(e.target.value)} style={{ padding:'7px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text-primary)', fontSize:12 }}>
+            <option value="">All Assets</option>
+            {assets.map(a => <option key={a.id} value={String(a.id)}>{a.name}</option>)}
+          </select>
+          <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={{ padding:'7px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text-primary)', fontSize:12 }}>
+            <option value="">All Time</option>
+            {months.map(m => <option key={m} value={m}>{new Date(m+'-01').toLocaleString('default',{month:'long',year:'numeric'})}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {Object.keys(byAsset).length === 0 ? (
+        <div style={{ textAlign:'center', padding:'40px', color:'var(--text-faint)', fontSize:13 }}>No parts usage recorded yet. Parts used on service sheets will appear here.</div>
+      ) : (
+        Object.entries(byAsset).map(([assetName, txs]) => (
+          <div key={assetName} style={{ marginBottom:20 }}>
+            <div style={{ fontSize:13, fontWeight:800, color:'var(--accent)', marginBottom:8, display:'flex', alignItems:'center', gap:8 }}>
+              🔧 {assetName}
+              <span style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)', background:'var(--surface-2)', padding:'2px 8px', borderRadius:20 }}>{txs.length} transaction{txs.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="parts-table-wrap">
+              <table className="parts-table">
+                <thead><tr>{['Part','Part #','Qty Used','By','Date','Notes'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {txs.map((t, i) => (
+                    <tr key={t.id} style={{ opacity:0, animation:`fadeUp 0.2s ease ${i*15}ms forwards` }}>
+                      <td style={{ fontWeight:600, color:'var(--text-primary)' }}>{t.partName}</td>
+                      <td style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'var(--accent)' }}>{t.partNumber || '—'}</td>
+                      <td><span style={{ fontWeight:700, color:'var(--red)' }}>-{t.quantity}</span></td>
+                      <td style={{ fontSize:12, color:'var(--text-muted)' }}>{t.performed_by || '—'}</td>
+                      <td style={{ fontSize:12, color:'var(--text-muted)' }}>{t.created_at ? new Date(t.created_at).toLocaleDateString('en-AU') : '—'}</td>
+                      <td style={{ fontSize:12, color:'var(--text-faint)', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.notes || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))
+      )}
     </div>
   );
 }
