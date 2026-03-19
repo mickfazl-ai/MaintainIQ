@@ -419,19 +419,19 @@ function BuilderItem({ item, si, ii, onUpdate, onRemove }) {
   return (
     <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center', background: 'var(--surface-2)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border)' }}>
       <input
-        placeholder={'Item ' + (ii + 1)}
+        placeholder={'Item description ' + (ii + 1)}
         value={item.label || ''}
         onChange={e => onUpdate(si, ii, { ...item, label: e.target.value })}
-        style={{ flex: 1, padding: '7px 10px', backgroundColor: '#060c0c', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '13px' }}
+        style={{ flex: 1, minWidth: 0, padding: '7px 10px', backgroundColor: '#060c0c', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '13px' }}
       />
       <select
         value={item.type || 'check'}
         onChange={e => onUpdate(si, ii, { ...item, type: e.target.value })}
-        style={{ padding: '7px 8px', backgroundColor: '#060c0c', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px' }}
+        style={{ width: '140px', flexShrink: 0, padding: '7px 8px', backgroundColor: '#060c0c', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px' }}
       >
         {INPUT_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
       </select>
-      <button onClick={() => onRemove(si, ii)} style={{ backgroundColor: 'transparent', border: '1px solid #2a1a1a', color: 'var(--red)', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>X</button>
+      <button onClick={() => onRemove(si, ii)} style={{ backgroundColor: 'transparent', border: '1px solid #2a1a1a', color: 'var(--red)', padding: '5px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', flexShrink: 0 }}>X</button>
     </div>
   );
 }
