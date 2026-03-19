@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from './supabase';
 import * as XLSX from 'xlsx';
+import QRCode from 'qrcode';
 
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 const CSS = `
@@ -509,6 +510,13 @@ export default function Parts({ userRole }) {
   const [editPart, setEditPart]     = useState(null);
   const [txPart, setTxPart]         = useState(null);
   const [showAI, setShowAI]         = useState(false);
+  const [showQR, setShowQR]         = useState(false);
+  const [showScan, setShowScan]     = useState(false);
+  const [activeAssetFilter, setActiveAssetFilter] = useState('general'); // 'general' | asset id | custom page id
+  const [customPages, setCustomPages] = useState([]);
+  const [showPageForm, setShowPageForm] = useState(false);
+  const [newPageName, setNewPageName] = useState('');
+  const [stocktakeCounts, setStocktakeCounts] = useState({});
 
   // Filters
   const [search, setSearch]         = useState('');
@@ -547,6 +555,12 @@ export default function Parts({ userRole }) {
       const { data: t, error: te } = await supabase.from('parts_transactions').select('id,type,quantity,asset_id,work_order_id,notes,performed_by,created_at,part_id').eq('company_id', cid).order('created_at', { ascending: false }).limit(100);
       if (te) console.error('transactions:', te.message);
       setTransactions(t || []);
+
+      // Load custom pages from localStorage (admin-defined)
+      try {
+        const stored = localStorage.getItem(`mechiq_parts_pages_${cid}`);
+        if (stored) setCustomPages(JSON.parse(stored));
+      } catch(e) {}
     } catch(err) {
       console.error('Parts load error:', err);
     }
@@ -563,7 +577,16 @@ export default function Parts({ userRole }) {
   const categories = [...new Set(parts.map(p => p.category).filter(Boolean))].sort();
   const suppliers  = [...new Set(parts.map(p => p.supplier).filter(Boolean))].sort();
 
-  const filtered = parts.filter(p => {
+  // Page-filtered parts based on sidebar selection
+  const pageFilteredParts = parts.filter(p => {
+    if (activeAssetFilter === 'general') return !p.linked_asset_id;
+    if (activeAssetFilter === 'all') return true;
+    const customPage = customPages.find(cp => cp.id === activeAssetFilter);
+    if (customPage) return customPage.categories.some(cat => p.category === cat) || customPage.assetIds.includes(String(p.linked_asset_id));
+    return String(p.linked_asset_id) === String(activeAssetFilter);
+  });
+
+  const filtered = pageFilteredParts.filter(p => {
     if (search && !p.name?.toLowerCase().includes(search.toLowerCase()) && !p.part_number?.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterCat && p.category !== filterCat) return false;
     if (filterSupplier && p.supplier !== filterSupplier) return false;
@@ -575,6 +598,64 @@ export default function Parts({ userRole }) {
   });
 
   const lowStockParts = parts.filter(p => p.quantity <= p.min_quantity);
+
+  // Generate QR sticker PDF
+  const printQRStickers = async (selectedParts) => {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const cols = 3, rows = 8;
+    const W = 63, H = 35, padX = 5, padY = 5;
+    let col = 0, row = 0;
+    for (const part of selectedParts) {
+      const x = padX + col * W;
+      const y = padY + row * H;
+      const qrData = JSON.stringify({ id: part.id, pn: part.part_number, name: part.name });
+      const qrUrl = await QRCode.toDataURL(qrData, { width: 120, margin: 1 });
+      doc.addImage(qrUrl, 'PNG', x + 1, y + 2, 22, 22);
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+      doc.text(part.name?.slice(0, 28) || '', x + 25, y + 8);
+      doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+      doc.text(part.part_number ? `#${part.part_number}` : '', x + 25, y + 14);
+      doc.setDrawColor(200); doc.rect(x, y, W - 2, H - 2);
+      col++;
+      if (col >= cols) { col = 0; row++; }
+      if (row >= rows) { row = 0; col = 0; doc.addPage(); }
+    }
+    doc.save(`MechIQ_QR_Stickers_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  // Export parts to Excel
+  const exportParts = () => {
+    const rows = filtered.map(p => ({
+      'Part Name': p.name, 'Part #': p.part_number, 'Category': p.category,
+      'Supplier': p.supplier, 'Contact': p.supplier_contact, 'Unit Cost': p.unit_cost,
+      'Quantity': p.quantity, 'Min Stock': p.min_quantity, 'Unit': p.unit,
+      'Location': p.location, 'Asset': assets.find(a => a.id === p.linked_asset_id)?.name || 'General',
+      'Notes': p.notes,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Parts');
+    XLSX.writeFile(wb, `MechIQ_Parts_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // Save custom page
+  const saveCustomPage = () => {
+    if (!newPageName.trim()) return;
+    const page = { id: Date.now().toString(), name: newPageName.trim(), categories: [], assetIds: [] };
+    const updated = [...customPages, page];
+    setCustomPages(updated);
+    localStorage.setItem(`mechiq_parts_pages_${userRole.company_id}`, JSON.stringify(updated));
+    setNewPageName(''); setShowPageForm(false);
+    setActiveAssetFilter(page.id);
+  };
+
+  const deleteCustomPage = (id) => {
+    const updated = customPages.filter(p => p.id !== id);
+    setCustomPages(updated);
+    localStorage.setItem(`mechiq_parts_pages_${userRole.company_id}`, JSON.stringify(updated));
+    if (activeAssetFilter === id) setActiveAssetFilter('general');
+  };
 
   const stockStatus = (p) => {
     if (p.quantity === 0) return 'out';
@@ -589,6 +670,47 @@ export default function Parts({ userRole }) {
 
   return (
     <div className="parts-wrap">
+      {/* Pages sidebar + main content layout */}
+      <div style={{ display:'flex', gap:16, alignItems:'flex-start' }}>
+
+        {/* Left sidebar — pages */}
+        <div style={{ width:180, flexShrink:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:12, position:'sticky', top:16 }}>
+          <div style={{ fontSize:10, fontWeight:800, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Parts Pages</div>
+          {[
+            { id:'all', label:'🔩 All Parts' },
+            { id:'general', label:'📦 General' },
+            ...assets.map(a => ({ id: String(a.id), label: a.name })),
+            ...customPages.map(cp => ({ id: cp.id, label: '📋 ' + cp.name, custom: true })),
+          ].map(pg => (
+            <div key={pg.id} style={{ display:'flex', alignItems:'center', gap:4 }}>
+              <button onClick={() => setActiveAssetFilter(pg.id)} style={{
+                flex:1, textAlign:'left', padding:'7px 10px', borderRadius:8, border:'none', cursor:'pointer',
+                background: activeAssetFilter === pg.id ? 'var(--accent)' : 'transparent',
+                color: activeAssetFilter === pg.id ? '#fff' : 'var(--text-secondary)',
+                fontSize:12, fontWeight: activeAssetFilter === pg.id ? 700 : 500,
+                whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+              }}>{pg.label}</button>
+              {pg.custom && isAdmin && (
+                <button onClick={() => deleteCustomPage(pg.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-faint)', fontSize:14, padding:'2px 4px' }}>✕</button>
+              )}
+            </div>
+          ))}
+          {isAdmin && !showPageForm && (
+            <button onClick={() => setShowPageForm(true)} style={{ width:'100%', marginTop:8, padding:'6px', background:'var(--surface-2)', border:'1px dashed var(--border)', borderRadius:8, cursor:'pointer', fontSize:11, color:'var(--text-muted)', fontWeight:600 }}>+ New Page</button>
+          )}
+          {showPageForm && (
+            <div style={{ marginTop:8 }}>
+              <input value={newPageName} onChange={e => setNewPageName(e.target.value)} placeholder="Page name..." style={{ width:'100%', padding:'6px 8px', borderRadius:7, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text-primary)', fontSize:12, boxSizing:'border-box' }} onKeyDown={e => e.key==='Enter' && saveCustomPage()} />
+              <div style={{ display:'flex', gap:4, marginTop:4 }}>
+                <button onClick={saveCustomPage} style={{ flex:1, padding:'5px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:700 }}>Save</button>
+                <button onClick={() => setShowPageForm(false)} style={{ flex:1, padding:'5px', background:'var(--surface-2)', color:'var(--text-secondary)', border:'1px solid var(--border)', borderRadius:6, cursor:'pointer', fontSize:11 }}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Main content */}
+        <div style={{ flex:1, minWidth:0 }}>
 
       {/* Low stock banner */}
       {!loading && lowStockParts.length > 0 && (
@@ -605,11 +727,14 @@ export default function Parts({ userRole }) {
       {/* Action bar */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <div className="tab-row" style={{ marginBottom: 0 }}>
-          {[['parts','🔩 Parts Register'],['transactions','📋 Stock Log'],['reorder','🛒 Reorder List']].map(([v, l]) => (
+          {[['parts','🔩 Parts Register'],['transactions','📋 Stock Log'],['stocktake','📊 Stocktake'],['reorder','🛒 Reorder List']].map(([v, l]) => (
             <button key={v} className={`tab-btn-p${tab === v ? ' active' : ''}`} onClick={() => setTab(v)}>{l}</button>
           ))}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {isAdmin && <button onClick={() => setShowScan(true)} style={{ padding: '9px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>📷 Scan Part</button>}
+          {isAdmin && <button onClick={() => setShowQR(true)} style={{ padding: '9px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>🏷️ QR Stickers</button>}
+          <button onClick={exportParts} style={{ padding: '9px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>📊 Export</button>
           {isAdmin && <button onClick={() => setShowAI(true)} style={{ padding: '9px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>🤖 AI Import</button>}
           {isAdmin && <button onClick={() => { setEditPart(null); setShowForm(s => !s); }} style={{ padding: '9px 16px', background: showForm ? 'var(--surface-2)' : 'var(--accent)', color: showForm ? 'var(--text-secondary)' : '#fff', border: '1px solid ' + (showForm ? 'var(--border)' : 'var(--accent)'), borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             {showForm ? '✕ Close' : '+ Add Part'}
@@ -805,11 +930,221 @@ export default function Parts({ userRole }) {
             </div>
           )}
         </div>
+
+      {/* Stocktake Tab */}
+      {tab === 'stocktake' && (
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:20 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+            <div className="parts-section-title" style={{ marginBottom:0 }}>Stocktake</div>
+            <button onClick={async () => {
+              const updates = Object.entries(stocktakeCounts);
+              if (updates.length === 0) return alert('No counts entered yet.');
+              if (!window.confirm(`Submit stocktake for ${updates.length} part(s)?`)) return;
+              for (const [id, qty] of updates) {
+                const newQty = parseInt(qty);
+                if (!isNaN(newQty)) {
+                  const part = parts.find(p => p.id === id);
+                  await supabase.from('parts').update({ quantity: newQty, updated_at: new Date().toISOString() }).eq('id', id);
+                  if (part) await supabase.from('parts_transactions').insert({ company_id: userRole.company_id, part_id: id, type: 'adjustment', quantity: newQty - (part.quantity || 0), notes: 'Stocktake adjustment', performed_by: userRole.name || userRole.email });
+                }
+              }
+              setStocktakeCounts({}); load(); alert('✓ Stocktake submitted!');
+            }} style={{ padding:'8px 18px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:9, fontSize:13, fontWeight:700, cursor:'pointer' }}>✓ Submit Stocktake</button>
+          </div>
+          <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:16 }}>Enter actual counts. Leave blank to keep current. Changes are logged as adjustments.</div>
+          <div className="parts-table-wrap">
+            <table className="parts-table">
+              <thead><tr>{['Part','Part #','Category','System Qty','Actual Count','Variance'].map(h => <th key={h}>{h}</th>)}</tr></thead>
+              <tbody>
+                {filtered.map((p, i) => {
+                  const actual = stocktakeCounts[p.id];
+                  const variance = actual !== undefined ? parseInt(actual) - p.quantity : null;
+                  return (
+                    <tr key={p.id} style={{ opacity:0, animation:`fadeUp 0.2s ease ${i*15}ms forwards`, background: variance !== null && variance !== 0 ? (variance < 0 ? 'rgba(239,68,68,0.05)' : 'rgba(34,197,94,0.05)') : 'transparent' }}>
+                      <td style={{ fontWeight:600 }}>{p.name}</td>
+                      <td style={{ fontFamily:'var(--font-mono)', fontSize:12, color:'var(--accent)' }}>{p.part_number || '—'}</td>
+                      <td>{p.category || '—'}</td>
+                      <td><span className={`stock-badge stock-${p.quantity === 0 ? 'out' : p.quantity <= p.min_quantity ? 'low' : 'ok'}`}>{p.quantity} {p.unit}</span></td>
+                      <td><input type="number" min="0" placeholder={String(p.quantity)} value={stocktakeCounts[p.id] ?? ''} onChange={e => setStocktakeCounts(c => ({ ...c, [p.id]: e.target.value }))}
+                        style={{ width:80, padding:'5px 8px', borderRadius:7, border:`1px solid ${variance !== null && variance !== 0 ? (variance < 0 ? 'var(--red)' : 'var(--green)') : 'var(--border)'}`, background:'var(--bg)', color:'var(--text-primary)', fontSize:13, fontWeight:600 }} /></td>
+                      <td style={{ fontWeight:700, color: variance === null ? 'var(--text-faint)' : variance === 0 ? 'var(--green)' : variance < 0 ? 'var(--red)' : 'var(--green)' }}>
+                        {variance === null ? '—' : variance === 0 ? '✓ Match' : (variance > 0 ? '+' : '') + variance}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {/* Modals */}
       {txPart && <TransactionModal part={txPart} userRole={userRole} assets={assets} workOrders={workOrders} onClose={() => setTxPart(null)} onDone={() => { setTxPart(null); load(); }} />}
       {showAI && <AIImportModal userRole={userRole} assets={assets} onClose={() => setShowAI(false)} onImported={(n) => { setShowAI(false); load(); alert(`✓ Imported ${n} parts successfully!`); }} />}
+      {showQR && <QRStickerModal parts={filtered} onClose={() => setShowQR(false)} onPrint={printQRStickers} />}
+      {showScan && <AIScanModal parts={parts} userRole={userRole} onClose={() => setShowScan(false)} onDone={() => { setShowScan(false); load(); }} onSetTx={(p) => { setShowScan(false); setTxPart(p); }} />}
+
+        </div>{/* end main content */}
+      </div>{/* end sidebar layout */}
+    </div>
+  );
+}
+
+// ─── QR Sticker Modal ─────────────────────────────────────────────────────────
+function QRStickerModal({ parts, onClose, onPrint }) {
+  const [selected, setSelected] = React.useState(new Set(parts.map(p => p.id)));
+  const [printing, setPrinting] = React.useState(false);
+  const toggleAll = () => setSelected(s => s.size === parts.length ? new Set() : new Set(parts.map(p => p.id)));
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:300, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div style={{ background:'var(--bg)', borderRadius:16, width:'100%', maxWidth:520, maxHeight:'85vh', display:'flex', flexDirection:'column', boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div style={{ padding:'18px 20px 14px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div style={{ fontSize:17, fontWeight:800, color:'var(--text-primary)', fontFamily:'var(--font-display)' }}>🏷️ QR Sticker PDF</div>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'var(--text-muted)' }}>✕</button>
+        </div>
+        <div style={{ padding:16, flex:1, overflowY:'auto' }}>
+          <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:12 }}>Select parts to include. Each sticker shows QR code, part name and number. Prints as A4 PDF (3×8 grid).</div>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+            <span style={{ fontSize:12, color:'var(--text-muted)' }}>{selected.size} of {parts.length} selected</span>
+            <button onClick={toggleAll} style={{ fontSize:12, color:'var(--accent)', background:'none', border:'none', cursor:'pointer', fontWeight:700 }}>{selected.size === parts.length ? 'Deselect All' : 'Select All'}</button>
+          </div>
+          {parts.map(p => (
+            <div key={p.id} onClick={() => setSelected(s => { const n = new Set(s); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })}
+              style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:9, border:`1px solid ${selected.has(p.id) ? 'var(--accent)' : 'var(--border)'}`, background: selected.has(p.id) ? 'var(--accent-light)' : 'var(--surface)', marginBottom:6, cursor:'pointer' }}>
+              <div style={{ width:18, height:18, borderRadius:4, border:`2px solid ${selected.has(p.id) ? 'var(--accent)' : 'var(--border)'}`, background: selected.has(p.id) ? 'var(--accent)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:'#fff', flexShrink:0 }}>{selected.has(p.id) ? '✓' : ''}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, fontWeight:700, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</div>
+                <div style={{ fontSize:11, color:'var(--text-muted)' }}>{p.part_number || 'No part #'} · {p.category || 'Uncategorised'}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ padding:'14px 20px', borderTop:'1px solid var(--border)', display:'flex', gap:10 }}>
+          <button onClick={onClose} style={{ flex:1, padding:'10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:600, color:'var(--text-secondary)' }}>Cancel</button>
+          <button disabled={selected.size === 0 || printing} onClick={async () => { setPrinting(true); await onPrint(parts.filter(p => selected.has(p.id))); setPrinting(false); }}
+            style={{ flex:2, padding:'10px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700, opacity: selected.size === 0 || printing ? 0.6 : 1 }}>
+            {printing ? '⏳ Generating PDF…' : `📥 Download PDF (${selected.size} stickers)`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── AI Scan Modal ────────────────────────────────────────────────────────────
+function AIScanModal({ parts, userRole, onClose, onDone, onSetTx }) {
+  const [step, setStep] = React.useState('capture');
+  const [image, setImage] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
+  const [result, setResult] = React.useState(null);
+  const [matched, setMatched] = React.useState(null);
+  const [newPart, setNewPart] = React.useState(null);
+  const fileRef = React.useRef();
+
+  const analyseImage = async (file) => {
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const b64 = e.target.result.split(',')[1];
+      setImage(e.target.result);
+      try {
+        const res = await fetch('/api/ai-insight', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 500,
+            messages: [{ role: 'user', content: [
+              { type: 'image', source: { type: 'base64', media_type: file.type, data: b64 } },
+              { type: 'text', text: 'Identify this part. Extract: name, part number, supplier if visible. Return ONLY JSON: {"name":"","part_number":"","supplier":"","category":"","confidence":"high/medium/low"}' }
+            ]}]
+          })
+        });
+        const data = await res.json();
+        const text = data.content?.find(c => c.type === 'text')?.text || '';
+        const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+        setResult(parsed);
+        const match = parts.find(p =>
+          (parsed.part_number && p.part_number?.toLowerCase() === parsed.part_number.toLowerCase()) ||
+          (parsed.name && p.name?.toLowerCase().includes(parsed.name.toLowerCase().split(' ')[0]))
+        );
+        setMatched(match || null);
+        if (!match) setNewPart({ name: parsed.name || '', part_number: parsed.part_number || '', supplier: parsed.supplier || '', category: parsed.category || '', quantity: 0, min_quantity: 5, unit: 'ea', unit_cost: 0, location: '', notes: '' });
+        setStep('result');
+      } catch(e) { alert('Could not read part. Try a clearer photo.'); }
+      setLoading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const createPart = async () => {
+    await supabase.from('parts').insert({ ...newPart, company_id: userRole.company_id, updated_at: new Date().toISOString() });
+    onDone();
+  };
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:300, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div style={{ background:'var(--bg)', borderRadius:16, width:'100%', maxWidth:480, boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div style={{ padding:'18px 20px 14px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div style={{ fontSize:17, fontWeight:800, color:'var(--text-primary)', fontFamily:'var(--font-display)' }}>📷 AI Part Scanner</div>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'var(--text-muted)' }}>✕</button>
+        </div>
+        <div style={{ padding:20 }}>
+          {step === 'capture' && (
+            <div style={{ textAlign:'center' }}>
+              {loading ? <div style={{ padding:'40px 0', color:'var(--text-muted)', fontSize:14 }}>🤖 Analysing image…</div> : (
+                <>
+                  <div style={{ fontSize:14, color:'var(--text-secondary)', marginBottom:20 }}>Take a photo of the part label, description plate, or box. AI will identify and match it to your inventory.</div>
+                  {image && <img src={image} alt="scan" style={{ width:'100%', borderRadius:10, marginBottom:16, maxHeight:200, objectFit:'cover' }} />}
+                  <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={e => e.target.files[0] && analyseImage(e.target.files[0])} />
+                  <button onClick={() => fileRef.current.click()} style={{ width:'100%', padding:'14px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:10, fontSize:14, fontWeight:700, cursor:'pointer' }}>📷 Take Photo / Choose Image</button>
+                </>
+              )}
+            </div>
+          )}
+          {step === 'result' && result && (
+            <div>
+              {image && <img src={image} alt="scan" style={{ width:'100%', borderRadius:10, marginBottom:14, maxHeight:160, objectFit:'cover' }} />}
+              <div style={{ background:'var(--surface)', borderRadius:10, padding:14, marginBottom:14 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:6 }}>AI Detected</div>
+                <div style={{ fontSize:15, fontWeight:800, color:'var(--text-primary)' }}>{result.name || 'Unknown part'}</div>
+                {result.part_number && <div style={{ fontSize:12, color:'var(--accent)', fontFamily:'var(--font-mono)' }}>#{result.part_number}</div>}
+                {result.supplier && <div style={{ fontSize:12, color:'var(--text-muted)' }}>{result.supplier}</div>}
+                <div style={{ fontSize:11, color:'var(--text-faint)', marginTop:4 }}>Confidence: {result.confidence}</div>
+              </div>
+              {matched ? (
+                <div>
+                  <div style={{ background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.3)', borderRadius:10, padding:14, marginBottom:14 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'var(--green)', textTransform:'uppercase', marginBottom:4 }}>✓ Matched in Inventory</div>
+                    <div style={{ fontSize:14, fontWeight:700, color:'var(--text-primary)' }}>{matched.name}</div>
+                    <div style={{ fontSize:12, color:'var(--text-muted)' }}>Stock: {matched.quantity} {matched.unit} · Location: {matched.location || '—'}</div>
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button onClick={() => onSetTx(matched)} style={{ flex:1, padding:'10px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>Adjust Stock</button>
+                    <button onClick={onClose} style={{ flex:1, padding:'10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:9, cursor:'pointer', fontSize:13, color:'var(--text-secondary)' }}>Done</button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.3)', borderRadius:10, padding:14, marginBottom:14 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'var(--amber)', textTransform:'uppercase', marginBottom:4 }}>⚠ Not found in inventory</div>
+                    <div style={{ fontSize:13, color:'var(--text-secondary)' }}>Create a new part record?</div>
+                  </div>
+                  {newPart && ['name','part_number','supplier','category','location'].map(f => (
+                    <div key={f} style={{ marginBottom:8 }}>
+                      <label style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', display:'block', marginBottom:3 }}>{f.replace('_',' ')}</label>
+                      <input value={newPart[f] || ''} onChange={e => setNewPart(p => ({...p, [f]: e.target.value}))}
+                        style={{ width:'100%', padding:'7px 10px', borderRadius:7, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--text-primary)', fontSize:13, boxSizing:'border-box' }} />
+                    </div>
+                  ))}
+                  <div style={{ display:'flex', gap:8, marginTop:8 }}>
+                    <button onClick={createPart} style={{ flex:2, padding:'10px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:9, cursor:'pointer', fontSize:13, fontWeight:700 }}>+ Create Part</button>
+                    <button onClick={() => setStep('capture')} style={{ flex:1, padding:'10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:9, cursor:'pointer', fontSize:13, color:'var(--text-secondary)' }}>Rescan</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
