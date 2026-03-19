@@ -287,6 +287,7 @@ function Maintenance({ userRole, initialTab, setCurrentPage }) {
   const btnGhost   = { padding:'8px 16px', background:C.surface, color:C.textMid, border:`1.5px solid ${C.border}`, borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' };
 
   return (
+    <>
     <div style={{ animation:'fadeUp 0.35s ease both' }}>
 
 
@@ -951,6 +952,7 @@ function Maintenance({ userRole, initialTab, setCurrentPage }) {
         </div>
       </div>
     )}
+    </>
   );
 }
 
