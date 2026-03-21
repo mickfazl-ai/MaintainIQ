@@ -8,7 +8,6 @@ import Maintenance from './Maintenance';
 import Reports from './Reports';
 import Users from './Users';
 import Login from './Login';
-import Register from './Register';
 import Forms from './Forms';
 import Scanner from './Scanner';
 import AssetPage from './MachineProfile';
@@ -26,7 +25,6 @@ function App() {
   const [session, setSession] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authScreen, setAuthScreen] = useState('login');
   const [viewingAssetId, setViewingAssetId] = useState(null);
   const [prestartAssetId, setPrestartAssetId] = useState(null);
   const [prestartAsset, setPrestartAsset] = useState(null);
@@ -220,8 +218,7 @@ function App() {
   );
 
   if (!session) {
-    if (authScreen === 'register') return <Register onBackToLogin={() => setAuthScreen('login')} />;
-    return <Login onShowRegister={() => setAuthScreen('register')} />;
+    return <Login onAuth={(session) => { /* handled by onAuthStateChange */ }} />;
   }
 
   return (

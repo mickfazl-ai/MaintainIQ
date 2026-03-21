@@ -84,7 +84,6 @@ function Login({ onAuth }) {
   const [tab,   setTab]   = useState('login');
   const [email, setEmail] = useState('');
   const [pw,    setPw]    = useState('');
-  const [name,  setName]  = useState('');
   const [err,   setErr]   = useState('');
   const [msg,   setMsg]   = useState('');
   const [busy,  setBusy]  = useState(false);
@@ -102,15 +101,10 @@ function Login({ onAuth }) {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
         if (error) throw error;
         if (data.session) onAuth(data.session);
-      } else if (tab === 'register') {
-        const { error } = await supabase.auth.signUp({ email, password: pw, options: { data: { name } } });
-        if (error) throw error;
-        setMsg('Registration submitted. An admin will approve your access.');
-        setTab('login');
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
         if (error) throw error;
-        setMsg('Password reset email sent. Check your inbox.');
+        setMsg('Password reset email sent — check your inbox.');
       }
     } catch (e) { setErr(e.message); }
     setBusy(false);
@@ -118,7 +112,6 @@ function Login({ onAuth }) {
 
   return (
     <div className="login-page">
-      {/* Decorative blobs */}
       <div className="login-blob" style={{ width:500, height:500, background:'var(--accent)', top:'-15%', right:'-10%' }} />
       <div className="login-blob" style={{ width:400, height:400, background:'var(--green)', bottom:'-10%', left:'-8%', animationDelay:'-4s' }} />
 
@@ -130,34 +123,29 @@ function Login({ onAuth }) {
             <span style={{ fontFamily:'var(--font-display)', fontSize:40, fontWeight:900, color:'var(--accent)', letterSpacing:'2px', lineHeight:1 }}>IQ</span>
           </div>
           <div style={{ fontSize:11, color:'var(--text-muted)', letterSpacing:'1.5px', textTransform:'uppercase', fontFamily:'var(--font-body)', fontWeight:500 }}>
-            Maintenance Management
+            Fleet Maintenance Management
           </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display:'flex', borderBottom:'1px solid var(--border)', marginBottom:26, gap:0 }}>
-          {[['login','Sign In'],['register','Register'],['reset','Reset']].map(([id,label]) => (
+        {/* Tab: Sign In / Forgot Password */}
+        <div style={{ display:'flex', borderBottom:'1px solid var(--border)', marginBottom:26 }}>
+          {[['login','Sign In'],['reset','Forgot Password']].map(([id,label]) => (
             <button key={id} className={`login-tab${tab===id?' active':''}`} onClick={() => { setTab(id); setErr(''); setMsg(''); }}>
               {label}
             </button>
           ))}
         </div>
 
-        {/* Fields */}
-        {tab === 'register' && (
-          <div className="login-field">
-            <label className="login-label">Full Name</label>
-            <input className="login-input" type="text" placeholder="Your name" value={name} onChange={e => setName(e.target.value)} />
-          </div>
-        )}
         <div className="login-field">
           <label className="login-label">Email Address</label>
-          <input className="login-input" type="email" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==='Enter' && handle()} />
+          <input className="login-input" type="email" placeholder="you@company.com" value={email}
+            onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key==='Enter' && handle()} autoFocus />
         </div>
-        {tab !== 'reset' && (
+        {tab === 'login' && (
           <div className="login-field">
             <label className="login-label">Password</label>
-            <input className="login-input" type="password" placeholder="••••••••" value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => e.key==='Enter' && handle()} />
+            <input className="login-input" type="password" placeholder="••••••••" value={pw}
+              onChange={e => setPw(e.target.value)} onKeyDown={e => e.key==='Enter' && handle()} />
           </div>
         )}
 
@@ -167,17 +155,17 @@ function Login({ onAuth }) {
           </div>
         )}
         {msg && (
-          <div style={{ padding:'10px 14px', borderRadius:8, background:'var(--green-bg)', border:'1px solid var(--green-border)', color:'var(--green)', fontSize:13, marginBottom:12, lineHeight:1.5 }}>
+          <div style={{ padding:'10px 14px', borderRadius:8, background:'rgba(34,197,94,0.1)', border:'1px solid rgba(34,197,94,0.3)', color:'var(--green)', fontSize:13, marginBottom:12, lineHeight:1.5 }}>
             {msg}
           </div>
         )}
 
         <button className="login-btn" onClick={handle} disabled={busy}>
-          {busy ? 'Please wait…' : tab==='login' ? 'Sign In' : tab==='register' ? 'Create Account' : 'Send Reset Email'}
+          {busy ? 'Please wait…' : tab==='login' ? 'Sign In →' : 'Send Reset Email'}
         </button>
 
-        <div style={{ textAlign:'center', marginTop:24, fontSize:12, color:'var(--text-faint)' }}>
-          MechIQ · Maintenance Intelligence
+        <div style={{ textAlign:'center', marginTop:20, fontSize:12, color:'var(--text-faint)' }}>
+          Need access? Contact <a href="mailto:info@mechiq.com.au" style={{ color:'var(--accent)', textDecoration:'none' }}>info@mechiq.com.au</a>
         </div>
       </div>
     </div>
