@@ -650,6 +650,24 @@ Be specific with dollar amounts where possible. Max 200 words.`;
             ⬇ Export PDF
           </button>
         )}
+        {calculated && results && (
+          <button
+            onClick={() => {
+              exportPDF(null);
+              // Also save to history if not already saved
+              const existing = history.find(h => h.assetName === inputs.assetName && h.date && Math.abs(new Date(h.date) - new Date()) < 60000);
+              if (!existing) {
+                const entry = { assetName: inputs.assetName, purchaseYear: inputs.purchaseYear, yearPurchased: inputs.yearPurchased, assetConditionType: inputs.assetConditionType, purchasePrice: inputs.purchasePrice, currentUsage: inputs.currentUsage, annualUsage: inputs.annualUsage, usageUnit: inputs.usageUnit, condition: inputs.condition, depreciationMethod: inputs.depreciationMethod, results, date: new Date().toLocaleString('en-AU') };
+                const updated = [entry, ...history].slice(0, 20);
+                setHistory(updated);
+                try { localStorage.setItem('depreciation_history', JSON.stringify(updated)); } catch(e) {}
+              }
+            }}
+            style={{ padding: "13px 20px", fontSize: 13, fontWeight: 700, fontFamily: "Barlow, sans-serif", background: GREEN, color: "#fff", border: `1px solid ${GREEN}`, borderRadius: 8, cursor: "pointer", letterSpacing: "0.05em" }}
+          >
+            💾 Save PDF
+          </button>
+        )}
       </div>
 
       {/* HISTORY PANEL */}
