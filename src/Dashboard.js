@@ -764,7 +764,7 @@ function WidgetCalendarPreview({ companyId, size }) {
           </div>
         ))
       )}
-    </div>
+    </ExpandableWidget>
   );
 }
 
