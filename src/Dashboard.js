@@ -83,6 +83,13 @@ const CSS = `
   .widget-card.drag-over { border-color:var(--accent); box-shadow:0 0 0 2px rgba(14,165,233,0.3); }
   .widget-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
   .widget-title { font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px; }
+  .widget-chevron { font-size:12px; color:var(--text-muted); transition:transform 0.2s; cursor:pointer; }
+  .widget-chevron.open { transform:rotate(180deg); }
+  .widget-expand-btn { display:flex; align-items:center; gap:6px; background:none; border:none; cursor:pointer; padding:0; }
+  .widget-body { overflow:hidden; transition:max-height 0.3s ease, opacity 0.2s; }
+  .widget-body.closed { max-height:0; opacity:0; }
+  .widget-body.opened { max-height:2000px; opacity:1; }
+  .widget-card:hover { box-shadow:0 4px 16px rgba(0,0,0,0.08); }
   .custom-panel { position:fixed; top:0; right:0; bottom:0; width:360px; max-width:90vw; background:var(--bg); border-left:1px solid var(--border); box-shadow:-8px 0 40px rgba(0,0,0,0.2); z-index:300; display:flex; flex-direction:column; animation:slideIn 0.25s cubic-bezier(0.16,1,0.3,1); }
   @keyframes slideIn { from{transform:translateX(100%)} to{transform:translateX(0)} }
   .custom-item { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border); cursor:grab; user-select:none; transition:background 0.1s; }
@@ -528,46 +535,88 @@ function CustomisePanel({ layout, onLayoutChange, onClose, onSaveDefault, isAdmi
 }
 
 /* ── Individual Widgets ── */
+
+/* ── Expandable Widget Wrapper ── */
+function ExpandableWidget({ sizeClass, title, icon, count, countColor, countSize, summary, children, defaultOpen=false }) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <div className={`widget-card ${sizeClass}`} style={{ cursor:'default' }}>
+      <div className="widget-header" style={{ cursor:'pointer', userSelect:'none' }} onClick={() => setOpen(o => !o)}>
+        <span className="widget-title">{icon} {title}</span>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          {count !== undefined && <span style={{ fontSize: countSize||20, fontWeight:900, color:countColor||'var(--text-primary)', fontFamily:'var(--font-display)' }}>{count}</span>}
+          {summary && !open && <span style={{ fontSize:11, color:'var(--text-muted)', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{summary}</span>}
+          <span className={`widget-chevron${open?' open':''}`}>▼</span>
+        </div>
+      </div>
+      <div className={`widget-body ${open?'opened':'closed'}`}>
+        <div style={{ paddingTop:8 }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
 function WidgetFleetHealth({ assets, loading }) {
   if (loading) return <div className="widget-card widget-lg"><Sk h="60px" /></div>;
   const total = assets.length, running = assets.filter(a=>a.status==='Running').length, down = assets.filter(a=>a.status==='Down').length, maint = assets.filter(a=>a.status==='Maintenance').length;
   return (
-    <div className="widget-card widget-lg">
-      <div className="widget-header"><span className="widget-title">🚛 Fleet Health</span><span style={{ fontSize:12, color:'var(--text-muted)' }}>{total} assets</span></div>
+    <ExpandableWidget sizeClass="widget-lg" title="Fleet Health" icon="🚛" count={total} countColor="var(--accent)" countSize={16} summary={`${running} running · ${down} down`} defaultOpen={true}>
       <FleetHealthBar running={running} down={down} maintenance={maint} total={total} />
-    </div>
+      <div style={{ marginTop:12, display:'flex', flexDirection:'column', gap:6 }}>
+        {assets.map(a => {
+          const c = a.status==='Down'?'var(--red)':a.status==='Maintenance'?'var(--amber)':' var(--green)';
+          return (
+            <div key={a.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 10px', borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ width:8, height:8, borderRadius:'50%', background:c, display:'inline-block', flexShrink:0 }} />
+                <span style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{a.name}</span>
+                {a.asset_number && <span style={{ fontSize:11, color:'var(--accent)', fontWeight:700 }}>#{a.asset_number}</span>}
+              </div>
+              <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+                {a.hours && <span style={{ fontSize:11, color:'var(--text-muted)' }}>{Number(a.hours).toLocaleString()} hrs</span>}
+                <span style={{ fontSize:11, fontWeight:700, color:c, padding:'2px 8px', background:c+'18', borderRadius:20 }}>{a.status}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </ExpandableWidget>
   );
 }
 
 function WidgetBreakdowns({ assets, loading, size }) {
   const breakdowns = assets.filter(a => a.status === 'Down');
   return (
-    <div className={`widget-card widget-${size}`}>
-      <div className="widget-header"><span className="widget-title">🔴 Breakdowns</span><span style={{ fontSize:20, fontWeight:900, color:'var(--red)', fontFamily:'var(--font-display)' }}>{loading ? '—' : breakdowns.length}</span></div>
-      {!loading && breakdowns.slice(0,size==='sm'?2:4).map(a => (
-        <div key={a.id} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--border)', fontSize:12 }}>
-          <span style={{ fontWeight:600, color:'var(--text-primary)' }}>{a.name}</span>
-          <span style={{ color:'var(--text-muted)' }}>{a.location || '—'}</span>
+    <ExpandableWidget sizeClass={`widget-${size}`} title="Breakdowns" icon="🔴" count={loading?'—':breakdowns.length} countColor="var(--red)" summary={breakdowns[0]?.name}>
+      {!loading && breakdowns.length === 0 && <div style={{ fontSize:12, color:'var(--green)', fontWeight:600 }}>✓ All machines running</div>}
+      {!loading && breakdowns.map(a => (
+        <div key={a.id} style={{ padding:'8px 10px', borderRadius:8, background:'var(--red-bg)', border:'1px solid var(--red-border)', marginBottom:6 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span style={{ fontSize:13, fontWeight:700, color:'var(--text-primary)' }}>{a.name}</span>
+            <span style={{ fontSize:11, color:'var(--red)', fontWeight:700 }}>DOWN</span>
+          </div>
+          <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>
+            {[a.location, a.asset_number?`#${a.asset_number}`:null, a.make, a.model].filter(Boolean).join(' · ')}
+          </div>
         </div>
       ))}
-      {!loading && breakdowns.length === 0 && <div style={{ fontSize:12, color:'var(--green)', fontWeight:600 }}>✓ All machines running</div>}
-    </div>
+    </ExpandableWidget>
   );
 }
 
 function WidgetOverdue({ maint, loading, size }) {
   const overdue = maint.filter(m => m.status === 'Overdue');
   return (
-    <div className={`widget-card widget-${size}`}>
-      <div className="widget-header"><span className="widget-title">⚠️ Overdue Services</span><span style={{ fontSize:20, fontWeight:900, color:'var(--amber)', fontFamily:'var(--font-display)' }}>{loading ? '—' : overdue.length}</span></div>
-      {!loading && overdue.slice(0,size==='sm'?2:4).map(m => (
-        <div key={m.id} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--border)', fontSize:12 }}>
-          <span style={{ fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'60%' }}>{m.asset}</span>
-          <span style={{ color:'var(--amber)', fontWeight:600 }}>{m.task}</span>
+    <ExpandableWidget sizeClass={`widget-${size}`} title="Overdue Services" icon="⚠️" count={loading?'—':overdue.length} countColor="var(--amber)" summary={overdue[0]?.asset}>
+      {!loading && overdue.length === 0 && <div style={{ fontSize:12, color:'var(--green)', fontWeight:600 }}>✓ No overdue services</div>}
+      {!loading && overdue.map(m => (
+        <div key={m.id} style={{ padding:'8px 10px', borderRadius:8, background:'var(--amber-bg)', border:'1px solid var(--amber-border)', marginBottom:6 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:'var(--text-primary)' }}>{m.asset}</div>
+          <div style={{ fontSize:11, color:'var(--amber)', fontWeight:600, marginTop:2 }}>{m.task}</div>
+          {m.next_due && <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:2 }}>Due: {m.next_due} · Assigned: {m.assigned_to||'—'}</div>}
         </div>
       ))}
-      {!loading && overdue.length === 0 && <div style={{ fontSize:12, color:'var(--green)', fontWeight:600 }}>✓ No overdue services</div>}
-    </div>
+    </ExpandableWidget>
   );
 }
 
@@ -575,32 +624,38 @@ function WidgetDueToday({ maint, loading, size }) {
   const today = new Date().toISOString().split('T')[0];
   const dueToday = maint.filter(m => m.next_due === today || m.status === 'Due Soon');
   return (
-    <div className={`widget-card widget-${size}`}>
-      <div className="widget-header"><span className="widget-title">📅 Due Today</span><span style={{ fontSize:20, fontWeight:900, color:'var(--accent)', fontFamily:'var(--font-display)' }}>{loading ? '—' : dueToday.length}</span></div>
-      {!loading && dueToday.slice(0,size==='sm'?2:4).map(m => (
-        <div key={m.id} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--border)', fontSize:12 }}>
-          <span style={{ fontWeight:600, color:'var(--text-primary)' }}>{m.asset}</span>
-          <span style={{ color:'var(--text-muted)' }}>{m.task}</span>
+    <ExpandableWidget sizeClass={`widget-${size}`} title="Due Today" icon="📅" count={loading?'—':dueToday.length} countColor="var(--accent)" summary={dueToday[0]?.asset}>
+      {!loading && dueToday.length === 0 && <div style={{ fontSize:12, color:'var(--text-muted)' }}>Nothing due today</div>}
+      {!loading && dueToday.map(m => (
+        <div key={m.id} style={{ padding:'8px 10px', borderRadius:8, background:'var(--accent-light)', border:'1px solid rgba(14,165,233,0.2)', marginBottom:6 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:'var(--text-primary)' }}>{m.asset}</div>
+          <div style={{ fontSize:11, color:'var(--accent)', fontWeight:600, marginTop:2 }}>{m.task}</div>
+          {m.assigned_to && <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:2 }}>Assigned: {m.assigned_to}</div>}
         </div>
       ))}
-      {!loading && dueToday.length === 0 && <div style={{ fontSize:12, color:'var(--text-muted)' }}>Nothing due today</div>}
-    </div>
+    </ExpandableWidget>
   );
 }
 
 function WidgetPriorityWOs({ wos, loading, size }) {
   const priority = wos.filter(w => w.priority === 'Critical' || w.priority === 'High');
   return (
-    <div className={`widget-card widget-${size}`}>
-      <div className="widget-header"><span className="widget-title">🔥 Priority Jobs</span><span style={{ fontSize:20, fontWeight:900, color:'var(--red)', fontFamily:'var(--font-display)' }}>{loading ? '—' : priority.length}</span></div>
-      {!loading && priority.slice(0,size==='sm'?2:4).map(w => (
-        <div key={w.id} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--border)', fontSize:12 }}>
-          <span style={{ fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'60%' }}>{w.defect_description?.slice(0,40) || '—'}</span>
-          <span style={{ color: w.priority==='Critical' ? 'var(--red)' : 'var(--amber)', fontWeight:700 }}>{w.priority}</span>
-        </div>
-      ))}
+    <ExpandableWidget sizeClass={`widget-${size}`} title="Priority Jobs" icon="🔥" count={loading?'—':priority.length} countColor="var(--red)" summary={priority[0]?.asset}>
       {!loading && priority.length === 0 && <div style={{ fontSize:12, color:'var(--green)', fontWeight:600 }}>✓ No critical jobs</div>}
-    </div>
+      {!loading && priority.map(w => {
+        const c = w.priority==='Critical'?'var(--red)':'var(--amber)';
+        return (
+          <div key={w.id} style={{ padding:'8px 10px', borderRadius:8, background:c+'10', border:`1px solid ${c}40`, marginBottom:6 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+              <span style={{ fontSize:11, fontWeight:700, color:c, padding:'2px 8px', background:c+'20', borderRadius:20 }}>{w.priority}</span>
+              {w.due_date && <span style={{ fontSize:10, color:'var(--text-muted)' }}>Due: {w.due_date}</span>}
+            </div>
+            <div style={{ fontSize:12, fontWeight:600, color:'var(--text-primary)' }}>{w.defect_description?.slice(0,60)||'—'}</div>
+            {w.asset && <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>{w.asset} · {w.assigned_to||'Unassigned'}</div>}
+          </div>
+        );
+      })}
+    </ExpandableWidget>
   );
 }
 
@@ -614,16 +669,24 @@ function WidgetOilSampling({ companyId, size }) {
   }, [companyId]);
   const alerts = samples.filter(s => s.ai_condition === 'CRITICAL' || s.ai_condition === 'WARNING');
   return (
-    <div className={`widget-card widget-${size}`}>
-      <div className="widget-header"><span className="widget-title">🧪 Oil Sampling</span><span style={{ fontSize:20, fontWeight:900, color: alerts.length > 0 ? 'var(--red)' : 'var(--green)', fontFamily:'var(--font-display)' }}>{loading ? '—' : alerts.length}</span></div>
-      {!loading && alerts.slice(0, size==='sm'?2:4).map(s => (
-        <div key={s.id} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--border)', fontSize:12 }}>
-          <span style={{ fontWeight:600, color:'var(--text-primary)' }}>{s.asset_name}</span>
-          <span style={{ color: s.ai_condition==='CRITICAL' ? 'var(--red)' : 'var(--amber)', fontWeight:700 }}>{s.ai_condition} · {s.component}</span>
-        </div>
-      ))}
+    <ExpandableWidget sizeClass={`widget-${size}`} title="Oil Sampling" icon="🧪" count={loading?'—':alerts.length} countColor={alerts.length>0?'var(--red)':'var(--green)'} summary={alerts[0]?.asset_name}>
       {!loading && alerts.length === 0 && <div style={{ fontSize:12, color:'var(--green)', fontWeight:600 }}>✓ All oil samples normal</div>}
-    </div>
+      {!loading && alerts.map(s => {
+        const c = s.ai_condition==='CRITICAL'?'var(--red)':'var(--amber)';
+        return (
+          <div key={s.id} style={{ padding:'8px 10px', borderRadius:8, background:c+'10', border:`1px solid ${c}40`, marginBottom:6 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontSize:13, fontWeight:700, color:'var(--text-primary)' }}>{s.asset_name}</span>
+              <span style={{ fontSize:11, fontWeight:700, color:c }}>{s.ai_condition}</span>
+            </div>
+            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>
+              {s.component} · Sample date: {s.sample_date||'—'} · {s.unit_hours?.toLocaleString()||'—'} hrs
+            </div>
+            {s.ai_analysis && <div style={{ fontSize:11, color:c, marginTop:4, fontStyle:'italic' }}>{s.ai_analysis?.slice(0,100)}…</div>}
+          </div>
+        );
+      })}
+    </ExpandableWidget>
   );
 }
 
@@ -636,16 +699,21 @@ function WidgetPartsStock({ companyId, size }) {
       .then(({ data }) => { setParts((data||[]).filter(p => p.quantity <= p.min_quantity)); setLoading(false); });
   }, [companyId]);
   return (
-    <div className={`widget-card widget-${size}`}>
-      <div className="widget-header"><span className="widget-title">🔩 Low Stock Parts</span><span style={{ fontSize:20, fontWeight:900, color: parts.length > 0 ? 'var(--amber)' : 'var(--green)', fontFamily:'var(--font-display)' }}>{loading ? '—' : parts.length}</span></div>
-      {!loading && parts.slice(0, size==='sm'?3:6).map(p => (
-        <div key={p.id} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--border)', fontSize:12 }}>
-          <span style={{ fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'65%' }}>{p.name}</span>
-          <span style={{ color: p.quantity===0 ? 'var(--red)' : 'var(--amber)', fontWeight:700 }}>{p.quantity} {p.unit}</span>
-        </div>
-      ))}
+    <ExpandableWidget sizeClass={`widget-${size}`} title="Low Stock Parts" icon="🔩" count={loading?'—':parts.length} countColor={parts.length>0?'var(--amber)':'var(--green)'} summary={parts[0]?.name}>
       {!loading && parts.length === 0 && <div style={{ fontSize:12, color:'var(--green)', fontWeight:600 }}>✓ All parts adequately stocked</div>}
-    </div>
+      {!loading && parts.map(p => {
+        const c = p.quantity===0?'var(--red)':'var(--amber)';
+        return (
+          <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 10px', borderRadius:8, background:c+'10', border:`1px solid ${c}30`, marginBottom:6 }}>
+            <div>
+              <div style={{ fontSize:12, fontWeight:700, color:'var(--text-primary)' }}>{p.name}</div>
+              <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:1 }}>Min: {p.min_quantity} {p.unit}</div>
+            </div>
+            <span style={{ fontSize:14, fontWeight:800, color:c }}>{p.quantity} <span style={{ fontSize:11 }}>{p.unit}</span></span>
+          </div>
+        );
+      })}
+    </ExpandableWidget>
   );
 }
 
@@ -659,11 +727,10 @@ function WidgetDowntimeSummary({ companyId, size }) {
       .then(({ data }) => { setHours((data||[]).reduce((s,d) => s + (parseFloat(d.hours)||0), 0)); setLoading(false); });
   }, [companyId]);
   return (
-    <div className={`widget-card widget-${size}`}>
-      <div className="widget-header"><span className="widget-title">📉 Downtime This Month</span></div>
+    <ExpandableWidget sizeClass={`widget-${size}`} title="Downtime This Month" icon="📉" summary={loading?'':`${hours?.toFixed(1)} hrs lost`}>
       <div style={{ fontSize:36, fontWeight:900, color:'var(--red)', fontFamily:'var(--font-display)' }}>{loading ? '—' : hours?.toFixed(1)}<span style={{ fontSize:14, fontWeight:600, color:'var(--text-muted)', marginLeft:4 }}>hrs</span></div>
       {!loading && <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:4 }}>Lost to unplanned downtime in {new Date().toLocaleString('default',{month:'long'})}</div>}
-    </div>
+    </ExpandableWidget>
   );
 }
 
@@ -687,14 +754,13 @@ function WidgetCalendarPreview({ companyId, size }) {
     });
   }, [companyId]);
   return (
-    <div className={`widget-card widget-${size}`}>
-      <div className="widget-header"><span className="widget-title">📆 Next 7 Days</span><span style={{ fontSize:12, color:'var(--text-muted)' }}>{events.length} events</span></div>
+    <ExpandableWidget sizeClass={`widget-${size}`} title="Next 7 Days" icon="📆" count={loading?'—':events.length} countColor="var(--accent)" countSize={16} summary={events[0]?.label?.slice(0,30)}>
       {loading ? <Sk h="80px" /> : events.length === 0 ? <div style={{ fontSize:12, color:'var(--text-muted)' }}>Nothing scheduled in the next 7 days</div> : (
-        events.slice(0, size==='lg'?8:4).map((ev, i) => (
-          <div key={i} style={{ display:'flex', gap:10, padding:'7px 0', borderBottom:'1px solid var(--border)', alignItems:'center' }}>
-            <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', minWidth:70 }}>{ev.date}</div>
-            <div style={{ flex:1, fontSize:12, fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ev.label}</div>
+        events.map((ev, i) => (
+          <div key={i} style={{ display:'flex', gap:10, padding:'8px 10px', borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', marginBottom:6, alignItems:'center' }}>
             <div style={{ width:8, height:8, borderRadius:'50%', background:ev.color, flexShrink:0 }} />
+            <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', minWidth:70, flexShrink:0 }}>{ev.date}</div>
+            <div style={{ flex:1, fontSize:12, fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ev.label}</div>
           </div>
         ))
       )}
@@ -712,17 +778,16 @@ function WidgetMessages({ companyId, size }) {
   }, [companyId]);
   const ago = ts => { if(!ts)return''; const m=Math.floor((Date.now()-new Date(ts))/60000); if(m<60)return`${m}m ago`; if(m<1440)return`${Math.floor(m/60)}h ago`; return`${Math.floor(m/1440)}d ago`; };
   return (
-    <div className={`widget-card widget-${size}`}>
-      <div className="widget-header"><span className="widget-title">💬 Messages</span></div>
+    <ExpandableWidget sizeClass={`widget-${size}`} title="Messages" icon="💬" count={loading?'—':msgs.length} countColor="var(--accent)" countSize={16}>
       {loading ? <Sk h="60px" /> : msgs.length === 0 ? <div style={{ fontSize:12, color:'var(--text-muted)' }}>No recent messages</div> : (
-        msgs.slice(0, size==='sm'?2:4).map(m => (
-          <div key={m.id} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid var(--border)', fontSize:12 }}>
-            <span style={{ fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'70%' }}>{m.content?.slice(0,50) || '[media]'}</span>
-            <span style={{ color:'var(--text-muted)', flexShrink:0 }}>{ago(m.created_at)}</span>
+        msgs.map(m => (
+          <div key={m.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', marginBottom:6 }}>
+            <span style={{ flex:1, fontWeight:600, color:'var(--text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontSize:12 }}>{m.content?.slice(0,60) || '[media]'}</span>
+            <span style={{ color:'var(--text-muted)', fontSize:11, flexShrink:0, marginLeft:8 }}>{ago(m.created_at)}</span>
           </div>
         ))
       )}
-    </div>
+    </ExpandableWidget>
   );
 }
 
