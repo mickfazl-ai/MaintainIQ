@@ -107,6 +107,26 @@ export default function LabelDesigner({ userRole, companyId }) {
   const canvasRef = useRef(null);
   const imgCache  = useRef({});
   const dragRef   = useRef({ active:false });
+  const [canvasCursor, setCanvasCursor] = useState('default');
+
+  const updateCursor = (e) => {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    if (tool !== 'select') { setCanvasCursor('crosshair'); return; }
+    /* check if hovering a handle on selected element */
+    if (selected) {
+      const el = elements.find(x => x.id === selected);
+      if (el) {
+        const h = getHandle(el, cx, cy);
+        if (h) { setCanvasCursor(handleCursor(h)); return; }
+      }
+    }
+    /* check if hovering any element */
+    const hit = getElAt(cx, cy);
+    setCanvasCursor(hit ? 'move' : 'default');
+  };
 
   const [sizeId, setSizeId]       = useState('50x25');
   const [elements, setElements]   = useState([]);
@@ -232,14 +252,23 @@ export default function LabelDesigner({ userRole, companyId }) {
       /* selection handles */
       if (el.id===selected) {
         ctx.save();
+        /* dashed outline */
         ctx.strokeStyle='#1e88e5'; ctx.lineWidth=1.2;
         ctx.setLineDash([4,3]);
         ctx.strokeRect(x-2,y-2,w+4,h+4);
         ctx.setLineDash([]);
-        /* corner handles */
-        [[x-2,y-2],[x+w+2,y-2],[x-2,y+h+2],[x+w+2,y+h+2]].forEach(([hx,hy]) => {
-          ctx.fillStyle='#1e88e5';
-          ctx.fillRect(hx-4,hy-4,8,8);
+        /* 4 corners + 4 edge midpoints — white fill, blue border like Figma/Canva */
+        const mx=x+w/2, my=y+h/2;
+        const pts=[
+          [x-2,y-2],[x+w+2,y-2],[x-2,y+h+2],[x+w+2,y+h+2], /* corners */
+          [mx,y-2],[mx,y+h+2],[x-2,my],[x+w+2,my]            /* edge midpoints */
+        ];
+        pts.forEach(([hx,hy])=>{
+          ctx.fillStyle='#ffffff';
+          ctx.strokeStyle='#1e88e5';
+          ctx.lineWidth=1.5;
+          ctx.fillRect(hx-5,hy-5,10,10);
+          ctx.strokeRect(hx-5,hy-5,10,10);
         });
         ctx.restore();
       }
@@ -257,12 +286,27 @@ export default function LabelDesigner({ userRole, companyId }) {
     }
     return null;
   };
-  const onHandle = (el,cx,cy) => {
-    const sc=dispScale;
-    return [[el.x,el.y],[el.x+el.w,el.y],[el.x,el.y+el.h],[el.x+el.w,el.y+el.h]].some(
-      ([hx,hy]) => Math.abs(cx-hx*sc)<7 && Math.abs(cy-hy*sc)<7
-    );
+  /* returns handle id: 'tl','tr','bl','br','tm','bm','ml','mr' or null */
+  const getHandle = (el,cx,cy) => {
+    const sc=dispScale, TOL=8;
+    const ex=el.x*sc, ey=el.y*sc, ew=el.w*sc, eh=el.h*sc;
+    const mx=ex+ew/2, my=ey+eh/2;
+    const pts=[
+      ['tl',ex,     ey     ],['tr',ex+ew,ey     ],
+      ['bl',ex,     ey+eh  ],['br',ex+ew,ey+eh  ],
+      ['tm',mx,     ey     ],['bm',mx,     ey+eh ],
+      ['ml',ex,     my     ],['mr',ex+ew,  my    ],
+    ];
+    for(const [id,hx,hy] of pts){
+      if(Math.abs(cx-hx)<=TOL && Math.abs(cy-hy)<=TOL) return id;
+    }
+    return null;
   };
+  /* cursor for handle */
+  const handleCursor = (h) => ({
+    tl:'nwse-resize', tr:'nesw-resize', bl:'nesw-resize', br:'nwse-resize',
+    tm:'ns-resize',   bm:'ns-resize',   ml:'ew-resize',   mr:'ew-resize',
+  }[h] || 'default');
 
   /* ── Mouse handlers ───────────────────────────────── */
   const onDown = (e) => {
@@ -274,9 +318,11 @@ export default function LabelDesigner({ userRole, companyId }) {
       const el = getElAt(cx,cy);
       if (!el) { setSelected(null); return; }
       setSelected(el.id);
-      const isH = onHandle(el,cx,cy);
+      const handle = getHandle(el,cx,cy);
       dragRef.current = {
-        active:true, id:el.id, type:isH?'resize':'move',
+        active:true, id:el.id,
+        type: handle ? 'resize' : 'move',
+        handle,
         sx:cx, sy:cy, ox:el.x, oy:el.y, ow:el.w, oh:el.h
       };
       return;
@@ -302,8 +348,20 @@ export default function LabelDesigner({ userRole, companyId }) {
     const dy   = (cy-d.sy)/dispScale;
     setElements(prev => prev.map(el => {
       if (el.id!==d.id) return el;
-      if (d.type==='move')   return { ...el, x:Math.max(0,d.ox+dx), y:Math.max(0,d.oy+dy) };
-      if (d.type==='resize') return { ...el, w:Math.max(6,d.ow+dx), h:Math.max(6,d.oh+dy) };
+      if (d.type==='move') return { ...el, x:Math.max(0,d.ox+dx), y:Math.max(0,d.oy+dy) };
+      if (d.type==='resize') {
+        switch(d.handle) {
+          case 'br': return { ...el, w:Math.max(6,d.ow+dx),    h:Math.max(6,d.oh+dy) };
+          case 'bl': return { ...el, x:d.ox+dx, w:Math.max(6,d.ow-dx), h:Math.max(6,d.oh+dy) };
+          case 'tr': return { ...el, y:d.oy+dy, w:Math.max(6,d.ow+dx), h:Math.max(6,d.oh-dy) };
+          case 'tl': return { ...el, x:d.ox+dx, y:d.oy+dy, w:Math.max(6,d.ow-dx), h:Math.max(6,d.oh-dy) };
+          case 'mr': return { ...el, w:Math.max(6,d.ow+dx) };
+          case 'ml': return { ...el, x:d.ox+dx, w:Math.max(6,d.ow-dx) };
+          case 'bm': return { ...el, h:Math.max(6,d.oh+dy) };
+          case 'tm': return { ...el, y:d.oy+dy, h:Math.max(6,d.oh-dy) };
+          default:   return el;
+        }
+      }
       return el;
     }));
   };
@@ -457,8 +515,6 @@ export default function LabelDesigner({ userRole, companyId }) {
     a.asset_id?.toLowerCase().includes(assetSearch.toLowerCase())
   );
 
-  /* ── Cursor style ─────────────────────────────────── */
-  const cursorStyle = tool==='select' ? 'default' : 'crosshair';
 
   return (
     <div className="ld-wrap">
@@ -517,11 +573,11 @@ export default function LabelDesigner({ userRole, companyId }) {
               className="ld-cv"
               width={dispW}
               height={dispH}
-              style={{ cursor:cursorStyle, userSelect:'none' }}
+              style={{ cursor:canvasCursor, userSelect:'none' }}
               onMouseDown={onDown}
-              onMouseMove={onMove}
+              onMouseMove={(e)=>{ onMove(e); updateCursor(e); }}
               onMouseUp={onUp}
-              onMouseLeave={onUp}
+              onMouseLeave={()=>{ onUp(); setCanvasCursor(tool==='select'?'default':'crosshair'); }}
             />
           </div>
           <div style={{ fontSize:10, color:'rgba(221,227,237,0.25)' }}>
