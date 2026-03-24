@@ -12,7 +12,7 @@ const CSS = `
   .lp * { box-sizing:border-box; margin:0; padding:0; }
   .lp {
     min-height:100vh;
-    background:#0b0f1a;
+    background:#f4f6f9;
     color:#e8ecf2;
     font-family:'Barlow', sans-serif;
     font-size:15px;
@@ -26,8 +26,8 @@ const CSS = `
     height:64px;
     display:flex; align-items:center; justify-content:space-between;
     padding:0 5vw;
-    background:#0b0f1a;
-    border-bottom:1px solid rgba(255,255,255,0.07);
+    background:#f4f6f9;
+    border-bottom:1px solid rgba(26,36,51,0.1);
   }
   .lp-nav-brand { display:flex; align-items:center; gap:14px; }
   .lp-nav-logo {
@@ -35,13 +35,13 @@ const CSS = `
     font-size:24px; font-weight:900; letter-spacing:4px; color:#fff;
   }
   .lp-nav-logo span { color:#2d8cf0; }
-  .lp-nav-sep { width:1px; height:26px; background:rgba(255,255,255,0.12); }
-  .lp-nav-tag { font-size:10px; font-weight:600; color:rgba(255,255,255,0.35); letter-spacing:2px; text-transform:uppercase; }
+  .lp-nav-sep { width:1px; height:26px; background:rgba(26,36,51,0.15); }
+  .lp-nav-tag { font-size:10px; font-weight:600; color:rgba(26,36,51,0.42); letter-spacing:2px; text-transform:uppercase; }
   .lp-nav-right { display:flex; gap:8px; align-items:center; }
   .lp-nav-link {
     padding:7px 16px; background:transparent;
-    border:1px solid rgba(255,255,255,0.12); border-radius:4px;
-    color:rgba(255,255,255,0.55); font-size:12px; font-weight:600;
+    border:1px solid rgba(26,36,51,0.18); border-radius:4px;
+    color:rgba(26,36,51,0.62); font-size:12px; font-weight:600;
     cursor:pointer; font-family:'Barlow',sans-serif; transition:all 0.15s;
     text-decoration:none; display:inline-flex; align-items:center; letter-spacing:0.3px;
   }
@@ -90,7 +90,7 @@ const CSS = `
   .lp-hero-h1 em { color:#2d8cf0; font-style:normal; }
 
   .lp-hero-sub {
-    font-size:16px; color:rgba(255,255,255,0.5); line-height:1.8;
+    font-size:16px; color:rgba(26,36,51,0.55); line-height:1.8;
     max-width:480px; margin-bottom:36px; font-weight:400;
     animation:lp-up 0.5s 0.16s ease both;
   }
@@ -106,7 +106,7 @@ const CSS = `
   .lp-btn-secondary {
     padding:13px 24px; background:transparent;
     border:1px solid rgba(255,255,255,0.18); border-radius:4px;
-    color:rgba(255,255,255,0.6); font-size:13px; font-weight:600; cursor:pointer;
+    color:rgba(26,36,51,0.65); font-size:13px; font-weight:600; cursor:pointer;
     font-family:'Barlow',sans-serif; letter-spacing:0.3px; transition:all 0.15s;
     display:inline-flex; align-items:center;
   }
@@ -114,42 +114,42 @@ const CSS = `
 
   /* ─── Login card ─── */
   .lp-card {
-    background:#111827;
-    border:1px solid rgba(255,255,255,0.08);
+    background:#ffffff;
+    border:1px solid rgba(26,36,51,0.12);
     border-top:3px solid #2d8cf0;
     border-radius:4px;
     padding:32px 28px;
     box-shadow:0 24px 64px rgba(0,0,0,0.5);
     animation:lp-up 0.6s 0.12s cubic-bezier(0.16,1,0.3,1) both;
   }
-  .lp-card-logo { text-align:center; padding-bottom:20px; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.07); }
+  .lp-card-logo { text-align:center; padding-bottom:20px; margin-bottom:20px; border-bottom:1px solid rgba(26,36,51,0.1); }
   .lp-card-logo .wm { font-family:'Barlow Condensed',sans-serif; font-size:24px; font-weight:900; letter-spacing:4px; color:#fff; }
   .lp-card-logo .wm span { color:#2d8cf0; }
-  .lp-card-logo .tg { font-size:9px; color:rgba(255,255,255,0.3); letter-spacing:2.5px; text-transform:uppercase; margin-top:4px; }
+  .lp-card-logo .tg { font-size:9px; color:rgba(26,36,51,0.38); letter-spacing:2.5px; text-transform:uppercase; margin-top:4px; }
 
-  .lp-tabs { display:flex; border-bottom:1px solid rgba(255,255,255,0.07); margin-bottom:20px; }
+  .lp-tabs { display:flex; border-bottom:1px solid rgba(26,36,51,0.1); margin-bottom:20px; }
   .lp-tab {
     flex:1; padding:8px 4px; background:none; border:none;
-    border-bottom:2px solid transparent; color:rgba(255,255,255,0.35);
+    border-bottom:2px solid transparent; color:rgba(26,36,51,0.42);
     font-size:11px; font-weight:700; cursor:pointer; font-family:'Barlow',sans-serif;
     transition:all 0.15s; letter-spacing:0.8px; text-transform:uppercase;
   }
   .lp-tab.on { color:#2d8cf0; border-bottom-color:#2d8cf0; }
 
   .lp-field { margin-bottom:12px; }
-  .lp-lbl { display:block; font-size:10px; font-weight:700; color:rgba(255,255,255,0.35); margin-bottom:5px; letter-spacing:1.2px; text-transform:uppercase; }
+  .lp-lbl { display:block; font-size:10px; font-weight:700; color:rgba(26,36,51,0.42); margin-bottom:5px; letter-spacing:1.2px; text-transform:uppercase; }
   .lp-inp {
     width:100%; padding:10px 12px; box-sizing:border-box;
-    background:rgba(255,255,255,0.05) !important;
+    background:#f7f9fc !important;
     color:#fff !important;
-    border:1px solid rgba(255,255,255,0.1) !important;
+    border:1px solid rgba(26,36,51,0.15) !important;
     border-radius:3px !important;
     font-size:14px !important; font-family:'Barlow',sans-serif !important;
     outline:none !important;
     transition:border-color 0.15s !important;
   }
   .lp-inp:focus { border-color:#2d8cf0 !important; background:rgba(45,140,240,0.05) !important; }
-  .lp-inp::placeholder { color:rgba(255,255,255,0.2) !important; }
+  .lp-inp::placeholder { color:rgba(26,36,51,0.25) !important; }
   .lp-go {
     width:100%; padding:11px; background:#2d8cf0; border:none; border-radius:3px;
     color:#fff; font-size:12px; font-weight:700; font-family:'Barlow',sans-serif;
@@ -161,20 +161,20 @@ const CSS = `
   .lp-err { padding:8px 12px; background:rgba(220,38,38,0.1); border:1px solid rgba(220,38,38,0.3); border-radius:3px; color:#f87171; font-size:12px; margin-bottom:10px; }
   .lp-ok  { padding:8px 12px; background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); border-radius:3px; color:#86efac; font-size:12px; margin-bottom:10px; }
   .lp-card-foot { margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.07); }
-  .lp-card-foot-line { font-size:10px; color:rgba(255,255,255,0.25); text-align:center; line-height:1.7; }
+  .lp-card-foot-line { font-size:10px; color:rgba(26,36,51,0.32); text-align:center; line-height:1.7; }
   .lp-card-foot-link { color:#2d8cf0; background:none; border:none; cursor:pointer; font-size:10px; font-family:'Barlow',sans-serif; padding:0; text-decoration:underline; }
 
   /* ─── Stats strip ─── */
   .lp-stats {
     display:grid; grid-template-columns:repeat(4,1fr);
-    border-top:1px solid rgba(255,255,255,0.06);
-    border-bottom:1px solid rgba(255,255,255,0.06);
-    background:#0e1420;
+    border-top:1px solid rgba(26,36,51,0.1);
+    border-bottom:1px solid rgba(26,36,51,0.1);
+    background:#eef1f5;
   }
   .lp-stat { padding:28px 16px; text-align:center; border-right:1px solid rgba(255,255,255,0.06); }
   .lp-stat:last-child { border-right:none; }
   .lp-stat-n { font-family:'Barlow Condensed',sans-serif; font-size:32px; font-weight:900; color:#2d8cf0; letter-spacing:1px; }
-  .lp-stat-l { font-size:10px; color:rgba(255,255,255,0.35); font-weight:600; margin-top:5px; letter-spacing:1.5px; text-transform:uppercase; }
+  .lp-stat-l { font-size:10px; color:rgba(26,36,51,0.42); font-weight:600; margin-top:5px; letter-spacing:1.5px; text-transform:uppercase; }
 
   /* ─── About strip ─── */
   .lp-about {
@@ -185,18 +185,18 @@ const CSS = `
   .lp-about-label { font-family:'Barlow Condensed',sans-serif; font-size:13px; font-weight:700; color:#2d8cf0; letter-spacing:3px; text-transform:uppercase; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
   .lp-about-label::before { content:''; width:20px; height:2px; background:#2d8cf0; }
   .lp-about-h { font-family:'Barlow Condensed',sans-serif; font-size:clamp(26px,2.8vw,40px); font-weight:900; text-transform:uppercase; color:#fff; line-height:1.1; letter-spacing:0.5px; }
-  .lp-about-body { font-size:15px; color:rgba(255,255,255,0.5); line-height:1.85; }
+  .lp-about-body { font-size:15px; color:rgba(26,36,51,0.55); line-height:1.85; }
   .lp-about-body p + p { margin-top:16px; }
 
   /* ─── Features ─── */
-  .lp-feats { background:#0e1420; border-top:1px solid rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.05); }
+  .lp-feats { background:#f4f6f9; border-top:1px solid rgba(26,36,51,0.08); border-bottom:1px solid rgba(255,255,255,0.05); }
   .lp-feats-inner { max-width:1280px; margin:0 auto; padding:80px 5vw; }
   .lp-feats-head { margin-bottom:48px; display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:end; }
-  .lp-feats-intro { font-size:14px; color:rgba(255,255,255,0.4); line-height:1.8; }
+  .lp-feats-intro { font-size:14px; color:rgba(26,36,51,0.48); line-height:1.8; }
 
   /* Accordion */
-  .lp-acc { border:1px solid rgba(255,255,255,0.07); border-radius:3px; overflow:hidden; }
-  .lp-acc-row { border-bottom:1px solid rgba(255,255,255,0.06); }
+  .lp-acc { border:1px solid rgba(26,36,51,0.1); border-radius:3px; overflow:hidden; }
+  .lp-acc-row { border-bottom:1px solid rgba(26,36,51,0.1); }
   .lp-acc-row:last-child { border-bottom:none; }
 
   .lp-acc-head {
@@ -205,8 +205,8 @@ const CSS = `
     align-items:center;
     padding:0; cursor:pointer; transition:background 0.12s;
   }
-  .lp-acc-head:hover { background:rgba(255,255,255,0.02); }
-  .lp-acc-row.open .lp-acc-head { background:rgba(45,140,240,0.04); }
+  .lp-acc-head:hover { background:#f7f9fc; }
+  .lp-acc-row.open .lp-acc-head { background:rgba(45,140,240,0.05); }
 
   .lp-acc-num {
     padding:22px 0 22px 24px;
@@ -218,11 +218,11 @@ const CSS = `
 
   .lp-acc-meta { padding:22px 16px; }
   .lp-acc-title { font-size:14px; font-weight:700; color:#e8ecf2; letter-spacing:0.2px; margin-bottom:3px; }
-  .lp-acc-hint { font-size:12px; color:rgba(255,255,255,0.35); }
+  .lp-acc-hint { font-size:12px; color:rgba(26,36,51,0.42); }
 
   .lp-acc-chev {
     padding-right:20px; font-size:10px;
-    color:rgba(255,255,255,0.25); transition:transform 0.22s, color 0.15s;
+    color:rgba(26,36,51,0.32); transition:transform 0.22s, color 0.15s;
     display:flex; align-items:center; justify-content:center;
   }
   .lp-acc-row.open .lp-acc-chev { transform:rotate(180deg); color:#2d8cf0; }
@@ -235,16 +235,16 @@ const CSS = `
 
   .lp-acc-inner {
     padding:0 24px 28px 88px;
-    border-top:1px solid rgba(255,255,255,0.05);
-    background:rgba(0,0,0,0.15);
+    border-top:1px solid rgba(26,36,51,0.08);
+    background:rgba(26,36,51,0.04);
     animation:acc-open 0.3s ease;
   }
-  .lp-acc-desc { font-size:14px; color:rgba(255,255,255,0.55); line-height:1.85; margin-top:20px; margin-bottom:18px; max-width:720px; }
+  .lp-acc-desc { font-size:14px; color:rgba(26,36,51,0.62); line-height:1.85; margin-top:20px; margin-bottom:18px; max-width:720px; }
 
   .lp-acc-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 28px; margin-bottom:22px; }
   .lp-acc-pt {
     display:flex; gap:10px; align-items:baseline;
-    font-size:13px; color:rgba(255,255,255,0.45); line-height:1.55;
+    font-size:13px; color:rgba(26,36,51,0.5); line-height:1.55;
     padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.04);
   }
   .lp-acc-pt::before { content:'—'; color:#2d8cf0; flex-shrink:0; font-size:11px; }
@@ -260,11 +260,11 @@ const CSS = `
   .lp-acc-connects {
     border-left:2px solid rgba(45,140,240,0.25);
     padding:12px 16px; margin-top:4px;
-    background:rgba(45,140,240,0.04);
+    background:rgba(45,140,240,0.05);
     border-radius:0 3px 3px 0;
   }
   .lp-acc-connects-label { font-size:9px; font-weight:700; color:#2d8cf0; letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
-  .lp-acc-connects-text { font-size:12px; color:rgba(255,255,255,0.4); line-height:1.7; }
+  .lp-acc-connects-text { font-size:12px; color:rgba(26,36,51,0.48); line-height:1.7; }
 
   /* ─── CTA ─── */
   .lp-cta {
@@ -273,25 +273,25 @@ const CSS = `
   }
   .lp-cta-h { font-family:'Barlow Condensed',sans-serif; font-size:clamp(32px,4vw,56px); font-weight:900; text-transform:uppercase; color:#fff; letter-spacing:0.5px; margin-bottom:16px; }
   .lp-cta-h span { color:#2d8cf0; }
-  .lp-cta-sub { font-size:15px; color:rgba(255,255,255,0.4); max-width:440px; margin:0 auto 36px; line-height:1.8; }
+  .lp-cta-sub { font-size:15px; color:rgba(26,36,51,0.48); max-width:440px; margin:0 auto 36px; line-height:1.8; }
   .lp-cta-acts { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
-  .lp-cta-note { margin-top:20px; font-size:11px; color:rgba(255,255,255,0.2); }
+  .lp-cta-note { margin-top:20px; font-size:11px; color:rgba(26,36,51,0.25); }
   .lp-cta-note a { color:#2d8cf0; text-decoration:none; }
 
   /* ─── Footer ─── */
   .lp-footer {
-    border-top:1px solid rgba(255,255,255,0.06);
+    border-top:1px solid rgba(26,36,51,0.1);
     padding:24px 5vw;
     display:flex; justify-content:space-between; align-items:center;
     flex-wrap:wrap; gap:12px;
-    background:#0b0f1a;
+    background:#f4f6f9;
   }
   .lp-footer-logo { font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:900; letter-spacing:3px; color:#fff; }
   .lp-footer-logo span { color:#2d8cf0; }
   .lp-footer-links { display:flex; gap:20px; align-items:center; }
-  .lp-footer-link { font-size:11px; color:rgba(255,255,255,0.25); text-decoration:none; background:none; border:none; cursor:pointer; font-family:'Barlow',sans-serif; transition:color 0.15s; letter-spacing:0.3px; }
+  .lp-footer-link { font-size:11px; color:rgba(26,36,51,0.32); text-decoration:none; background:none; border:none; cursor:pointer; font-family:'Barlow',sans-serif; transition:color 0.15s; letter-spacing:0.3px; }
   .lp-footer-link:hover { color:#2d8cf0; }
-  .lp-footer-copy { font-size:11px; color:rgba(255,255,255,0.2); }
+  .lp-footer-copy { font-size:11px; color:rgba(26,36,51,0.25); }
 
   /* ─── Privacy Modal ─── */
   .lp-modal-bg {
@@ -300,7 +300,7 @@ const CSS = `
     display:flex; align-items:center; justify-content:center; padding:16px;
   }
   .lp-modal {
-    background:#111827; border:1px solid rgba(255,255,255,0.1);
+    background:#ffffff; border:1px solid rgba(26,36,51,0.15);
     border-top:3px solid #2d8cf0;
     border-radius:4px; width:100%; max-width:680px; max-height:88vh;
     display:flex; flex-direction:column;
@@ -308,18 +308,18 @@ const CSS = `
     overflow:hidden; animation:lp-up 0.3s ease;
   }
   .lp-modal-head {
-    padding:20px 24px; border-bottom:1px solid rgba(255,255,255,0.07);
+    padding:20px 24px; border-bottom:1px solid rgba(26,36,51,0.1);
     display:flex; justify-content:space-between; align-items:center; flex-shrink:0;
   }
   .lp-modal-title { font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:#fff; }
-  .lp-modal-sub { font-size:10px; color:rgba(255,255,255,0.3); letter-spacing:1.5px; margin-top:3px; text-transform:uppercase; }
-  .lp-modal-close { background:none; border:1px solid rgba(255,255,255,0.12); border-radius:3px; width:32px; height:32px; cursor:pointer; color:rgba(255,255,255,0.4); font-size:16px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+  .lp-modal-sub { font-size:10px; color:rgba(26,36,51,0.38); letter-spacing:1.5px; margin-top:3px; text-transform:uppercase; }
+  .lp-modal-close { background:none; border:1px solid rgba(26,36,51,0.18); border-radius:3px; width:32px; height:32px; cursor:pointer; color:rgba(26,36,51,0.48); font-size:16px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
   .lp-modal-close:hover { border-color:#2d8cf0; color:#2d8cf0; }
-  .lp-modal-body { padding:24px; overflow-y:auto; flex:1; font-size:13px; color:rgba(255,255,255,0.5); line-height:1.8; }
+  .lp-modal-body { padding:24px; overflow-y:auto; flex:1; font-size:13px; color:rgba(26,36,51,0.55); line-height:1.8; }
   .lp-modal-sec { margin-bottom:22px; }
   .lp-modal-sec-h { font-size:11px; font-weight:700; color:#2d8cf0; letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:8px; }
   .lp-modal-sec-h::before { content:''; width:16px; height:1px; background:#2d8cf0; }
-  .lp-modal-note { margin-top:16px; padding:12px 16px; border-left:2px solid rgba(45,140,240,0.4); background:rgba(45,140,240,0.05); font-size:12px; color:rgba(255,255,255,0.35); border-radius:0 3px 3px 0; }
+  .lp-modal-note { margin-top:16px; padding:12px 16px; border-left:2px solid rgba(45,140,240,0.4); background:rgba(45,140,240,0.05); font-size:12px; color:rgba(26,36,51,0.42); border-radius:0 3px 3px 0; }
   .lp-modal-foot { padding:14px 24px; border-top:1px solid rgba(255,255,255,0.07); display:flex; justify-content:flex-end; flex-shrink:0; }
 
   /* ─── Responsive ─── */
