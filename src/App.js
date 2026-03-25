@@ -89,6 +89,27 @@ function App() {
     const { data: roleData, error } = await supabase
       .from('user_roles').select('*').eq('email', email).single();
     if (error) {
+      // No user_roles record — check auth metadata for company admin
+      const { data: { user } } = await supabase.auth.getUser();
+      const meta = user?.user_metadata || {};
+      if (meta.role === 'admin' && meta.company_id) {
+        // New company admin provisioned via edge function
+        // Create their user_roles record on first login
+        await supabase.from('user_roles').upsert({
+          email: email.toLowerCase(),
+          name: meta.name || email.split('@')[0],
+          role: 'admin',
+          company_id: meta.company_id,
+          force_password_change: meta.force_password_change || false,
+        }, { onConflict: 'email' });
+        let companyFeatures = {};
+        const { data: company } = await supabase
+          .from('companies').select('features, status').eq('id', meta.company_id).single();
+        if (company?.features) companyFeatures = company.features;
+        setUserRole({ email, name: meta.name || email.split('@')[0], role: 'admin', company_id: meta.company_id, company_features: companyFeatures, force_password_change: meta.force_password_change || false });
+        setLoading(false);
+        return;
+      }
       setUserRole({ role: 'technician', name: email });
       setLoading(false);
       return;
@@ -213,6 +234,7 @@ function App() {
       case 'chat':
         return <Chat userRole={effectiveUserRole} />;
       case 'master':
+        if (userRole?.role !== 'master') return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
         return <MasterAdmin initialTab={currentSubPage || 'companies'} key={currentSubPage} />;
       default:
         return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
