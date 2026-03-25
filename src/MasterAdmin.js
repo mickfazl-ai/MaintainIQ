@@ -460,69 +460,35 @@ function NewCompanyForm({ onCreated }) {
     setBusy(true); setErr('');
 
     try {
-      // 1. Create company record
-      const { data: company, error: coErr } = await supabase
-        .from('companies')
-        .insert({
-          name: form.company_name.trim(),
-          industry: form.industry,
-          contact_name: form.contact_name.trim(),
-          contact_email: form.contact_email.trim().toLowerCase(),
-          contact_phone: form.contact_phone.trim(),
-          address: form.address.trim(),
-          asset_limit: parseInt(form.asset_limit) || 50,
-          plan: form.plan,
-          features: form.features,
-          status: 'active',
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+      // Call the Supabase Edge Function — runs server-side with service_role key
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(
+        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/create-company-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            company_name:  form.company_name.trim(),
+            industry:      form.industry,
+            contact_name:  form.contact_name.trim(),
+            contact_email: form.contact_email.trim().toLowerCase(),
+            contact_phone: form.contact_phone.trim(),
+            address:       form.address.trim(),
+            asset_limit:   parseInt(form.asset_limit) || 50,
+            plan:          form.plan,
+            features:      form.features,
+            temp_password: tmpPass,
+          }),
+        }
+      );
 
-      if (coErr) throw new Error('Company creation failed: ' + coErr.message);
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to create company');
 
-      // 2. Create Supabase auth user with temp password
-      const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
-        email: form.contact_email.trim().toLowerCase(),
-        password: tmpPass,
-        email_confirm: true,
-        user_metadata: {
-          company_id: company.id,
-          company_name: form.company_name.trim(),
-          role: 'admin',
-          name: form.contact_name.trim() || form.contact_email.split('@')[0],
-          force_password_change: true,
-        },
-      });
-
-      if (authErr) {
-        // Rollback company if auth fails
-        await supabase.from('companies').delete().eq('id', company.id);
-        throw new Error('Auth user creation failed: ' + authErr.message);
-      }
-
-      // 3. Create user_roles record
-      const { error: roleErr } = await supabase.from('user_roles').insert({
-        email: form.contact_email.trim().toLowerCase(),
-        name: form.contact_name.trim() || form.contact_email.split('@')[0],
-        role: 'admin',
-        company_id: company.id,
-        force_password_change: true,
-      });
-
-      if (roleErr) throw new Error('Role assignment failed: ' + roleErr.message);
-
-      // 4. Send welcome email via Supabase edge function or log credentials
-      // The welcome email is triggered by Supabase's built-in email on user creation
-      // with email_confirm: true. For custom email, use an edge function.
-      // We also store the temp password so master admin can share it manually if needed.
-      await supabase.from('company_onboarding_log').insert({
-        company_id: company.id,
-        admin_email: form.contact_email.trim().toLowerCase(),
-        temp_password_hint: tmpPass.slice(0,3) + '***',
-        status: 'created',
-        created_at: new Date().toISOString(),
-      }).then(() => {}); // non-critical, ignore error
+      const { company } = result;
 
       setBusy(false);
       setResult({ company, email: form.contact_email, tmpPass });
