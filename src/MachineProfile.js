@@ -1086,6 +1086,15 @@ function AssetPage({ assetId, userRole, onStartPrestart, initialTab }) {
   const [activeTab, setActiveTab]     = useState(initialTab || 'overview');
 
   const isAdmin = ['admin','supervisor'].includes(userRole?.role);
+  const [labelTemplates, setLabelTemplates] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [showLabelPreview, setShowLabelPreview] = useState(false);
+
+  const loadLabelTemplates = async () => {
+    const { data } = await supabase.from('label_templates').select('*').order('created_at', { ascending: false });
+    setLabelTemplates(data || []);
+    if (data?.length > 0) setSelectedTemplate(data[0].id);
+  };
 
   useEffect(() => {
     if (!document.getElementById('mp-css')) {
@@ -1093,6 +1102,7 @@ function AssetPage({ assetId, userRole, onStartPrestart, initialTab }) {
       document.head.appendChild(s);
     }
     if (assetId) fetchAssetData();
+    loadLabelTemplates();
     // Check if navigated here from calendar with a specific tab
     const navIntent = sessionStorage.getItem('mechiq_open_asset');
     if (navIntent) {
@@ -1169,77 +1179,118 @@ function AssetPage({ assetId, userRole, onStartPrestart, initialTab }) {
               ))}
             </div>
           </div>
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
-            <div style={{ padding:10, background:'#0d1826', borderRadius:10, border:'1px solid var(--border)' }}>
-              <QRCodeCanvas id={`qr-${assetId}`} value={qrUrl} size={90} bgColor="#ffffff" fgColor="#1a2b3c" />
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, minWidth:140 }}>
+            {/* Hidden QR for canvas export */}
+            <div style={{ position:'absolute', opacity:0, pointerEvents:'none' }}>
+              <QRCodeCanvas id={`qr-${assetId}`} value={qrUrl} size={120} bgColor="#ffffff" fgColor="#1a2b3c" />
             </div>
-            <div style={{ fontSize:9, color:'var(--text-muted)', textAlign:'center', letterSpacing:'0.3px' }}>
-              Scan to prestart
-            </div>
+            {/* Label template selector */}
+            <div style={{ fontSize:10, fontWeight:700, color:'var(--text-muted)', letterSpacing:'1px', textTransform:'uppercase', alignSelf:'flex-start' }}>Print Label</div>
+            {labelTemplates.length > 0 ? (
+              <select
+                value={selectedTemplate}
+                onChange={e => setSelectedTemplate(e.target.value)}
+                style={{ width:'100%', padding:'6px 8px', border:'1px solid var(--border)', borderRadius:6, background:'var(--surface)', color:'var(--text-primary)', fontSize:12, fontFamily:'inherit', outline:'none' }}
+              >
+                {labelTemplates.map(t => (
+                  <option key={t.id} value={t.id}>{t.name} ({t.size})</option>
+                ))}
+              </select>
+            ) : (
+              <div style={{ fontSize:11, color:'var(--text-muted)', textAlign:'center', lineHeight:1.5 }}>
+                No templates saved.<br/>Create one in<br/>Admin → Label Designer.
+              </div>
+            )}
             <button
-              onClick={() => {
-                /* Print the default label as PNG */
-                const canvas = document.createElement('canvas');
-                canvas.width = 400; canvas.height = 200;
-                const ctx = canvas.getContext('2d');
-                /* Dark header */
-                ctx.fillStyle = '#0d1826';
-                ctx.fillRect(0, 0, 400, 56);
-                /* Blue line */
-                ctx.fillStyle = '#2d8cf0';
-                ctx.fillRect(0, 56, 400, 3);
-                /* MECHIQ logo */
-                ctx.font = '900 22px Barlow Condensed, Arial';
-                ctx.fillStyle = '#ffffff';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('MECH', 10, 28);
-                const mw = ctx.measureText('MECH').width;
-                ctx.fillStyle = '#2d8cf0';
-                ctx.fillText('IQ', 10+mw+2, 28);
-                /* Asset tag label */
-                ctx.font = '700 9px Barlow, Arial';
-                ctx.fillStyle = 'rgba(255,255,255,0.5)';
-                ctx.fillText('MECH IQ · ASSET TAG', 200, 20);
-                /* Asset number */
-                ctx.font = '900 28px Barlow Condensed, Arial';
-                ctx.fillStyle = '#2d8cf0';
-                ctx.fillText(asset.asset_number || 'AST-001', 200, 40);
-                /* Background body */
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 59, 400, 141);
-                /* Asset name */
-                ctx.font = '800 16px Barlow Condensed, Arial';
-                ctx.fillStyle = '#1a2433';
-                ctx.fillText(asset.name || 'Asset', 110, 85);
-                /* Type + location */
-                ctx.font = '400 11px Barlow, Arial';
-                ctx.fillStyle = '#6b7a8d';
-                const sub = [asset.type, asset.location].filter(Boolean).join(' · ');
-                ctx.fillText(sub.slice(0, 45), 110, 105);
-                /* QR code */
-                const qrEl = document.getElementById('qr-' + assetId);
-                if (qrEl) ctx.drawImage(qrEl, 6, 65, 95, 95);
-                /* Scan hint */
-                ctx.font = '600 9px Barlow, Arial';
-                ctx.fillStyle = '#2d8cf0';
-                ctx.fillText('Scan to start prestart or log job', 110, 135);
-                /* Border */
-                ctx.strokeStyle = '#dde2ea';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(0.5, 0.5, 399, 199);
-                /* Download */
-                const link = document.createElement('a');
-                link.download = (asset.name||'asset').replace(/\s+/g,'-') + '-label.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-              }}
-              style={{ fontSize:11, fontWeight:700, padding:'5px 12px', border:'1px solid var(--accent)', borderRadius:6, background:'var(--accent-light)', color:'var(--accent)', cursor:'pointer', fontFamily:'inherit', letterSpacing:'0.3px' }}
+              onClick={() => setShowLabelPreview(true)}
+              disabled={!labelTemplates.length}
+              style={{ width:'100%', fontSize:11, fontWeight:700, padding:'7px 12px', border:'1px solid var(--accent)', borderRadius:6, background:'var(--accent-light)', color:'var(--accent)', cursor:'pointer', fontFamily:'inherit', opacity: labelTemplates.length ? 1 : 0.4 }}
             >
-              Print Label
+              Preview & Print →
             </button>
           </div>
         </div>
       </div>
+
+      {/* ── Label Preview Modal ── */}
+      {showLabelPreview && (() => {
+        const tmpl = labelTemplates.find(t => t.id === selectedTemplate);
+        if (!tmpl) return null;
+        let elements = [];
+        try { elements = JSON.parse(tmpl.elements || '[]'); } catch(e) {}
+        const size = ['15x15','25x25','50x25','100x50','150x100','a4_2up','a4_4up'].includes(tmpl.size) ? tmpl.size : '100x50';
+        const DIMS = { '15x15':{w:60,h:60},'25x25':{w:100,h:100},'50x25':{w:200,h:100},'100x50':{w:400,h:200},'150x100':{w:600,h:400},'a4_2up':{w:400,h:200},'a4_4up':{w:200,h:150} };
+        const dim = DIMS[size] || {w:400,h:200};
+        const scale = Math.min(1, 520 / dim.w);
+        return (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+            onClick={e => e.target===e.currentTarget && setShowLabelPreview(false)}>
+            <div style={{ background:'#fff', borderRadius:12, padding:28, maxWidth:600, width:'100%', boxShadow:'0 24px 80px rgba(0,0,0,0.3)' }}>
+              <div style={{ fontSize:13, fontWeight:800, color:'#1a2433', letterSpacing:'1px', textTransform:'uppercase', marginBottom:16 }}>Label Preview — {tmpl.name}</div>
+              <div style={{ background:'#f4f6f9', borderRadius:8, padding:16, marginBottom:20, display:'flex', justifyContent:'center' }}>
+                <canvas
+                  className="mp-label-print-canvas" ref={el => {
+                    if (!el) return;
+                    const ctx = el.getContext('2d');
+                    const sc = scale;
+                    ctx.clearRect(0,0,el.width,el.height);
+                    ctx.fillStyle = tmpl.background || '#fff';
+                    ctx.fillRect(0,0,el.width,el.height);
+                    elements.forEach(el2 => {
+                      const x=el2.x*sc, y=el2.y*sc, w=el2.w*sc, h=el2.h*sc;
+                      if (el2.type==='rect') {
+                        ctx.fillStyle=el2.fill||'#1e88e5';
+                        if ((el2.radius||0)>0){const r=Math.min(el2.radius*sc,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();ctx.fill();}
+                        else ctx.fillRect(x,y,w,h);
+                      }
+                      if (el2.type==='text') {
+                        const fs=Math.max(6,(el2.fontSize||10)*sc);
+                        ctx.font=\`\${el2.bold?'700':'400'} \${fs}px \${el2.fontFamily||'Barlow'},Arial\`;
+                        ctx.fillStyle=el2.color||'#000';ctx.textAlign=el2.align||'left';ctx.textBaseline='top';
+                        /* Substitute asset data */
+                        let txt=(el2.text||'').replace(/ASSET NAME/gi, asset.name||'').replace(/ID: XXX-001/gi,'ID: '+(asset.asset_number||'')).replace(/HK-001/gi,asset.asset_number||'').replace(/Model: —/gi,(asset.make||'')+(asset.model?' '+asset.model:''));
+                        const tx=el2.align==='center'?x+w/2:el2.align==='right'?x+w:x;
+                        txt.split('\n').forEach((line,i)=>ctx.fillText(line,tx,y+i*fs*1.3));
+                      }
+                      if (el2.type==='mechiq_logo') {
+                        const fs=Math.max(6,h*0.65);ctx.font=\`900 \${fs}px 'Barlow Condensed',Arial\`;ctx.textBaseline='middle';ctx.textAlign='left';
+                        ctx.fillStyle=el2.colorMain||'#1a2433';ctx.fillText('MECH',x,y+h/2);
+                        const mw=ctx.measureText('MECH').width;ctx.fillStyle=el2.colorAccent||'#2d8cf0';ctx.fillText('IQ',x+mw+1,y+h/2);
+                      }
+                      if (el2.type==='qr') {
+                        const qrEl=document.getElementById('qr-'+assetId);
+                        if (qrEl) ctx.drawImage(qrEl,x,y,w,h);
+                      }
+                      if (el2.type==='line'){ctx.save();ctx.strokeStyle=el2.fill||'#1a2433';ctx.lineWidth=(el2.strokeW||2)*sc;ctx.beginPath();ctx.moveTo(x,y+h/2);ctx.lineTo(x+w,y+h/2);ctx.stroke();ctx.restore();}
+                      if (el2.type==='circle'){ctx.save();ctx.fillStyle=el2.fill||'#1e88e5';ctx.beginPath();ctx.ellipse(x+w/2,y+h/2,w/2,h/2,0,0,Math.PI*2);ctx.fill();ctx.restore();}
+                    });
+                  }}
+                  width={Math.round(dim.w*scale)}
+                  height={Math.round(dim.h*scale)}
+                  style={{ display:'block', borderRadius:4 }}
+                />
+              </div>
+              <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+                <button onClick={() => setShowLabelPreview(false)}
+                  style={{ padding:'9px 20px', border:'1px solid #dde2ea', borderRadius:6, background:'#fff', color:'#3a4a5c', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                  Cancel
+                </button>
+                <button onClick={() => {
+                  const cv = document.querySelector('.mp-label-print-canvas');
+                  if (!cv) return;
+                  const link = document.createElement('a');
+                  link.download = (asset.name||'asset').replace(/\s+/g,'-')+'-'+tmpl.name+'.png';
+                  link.href = cv.toDataURL('image/png');
+                  link.click();
+                }}
+                  style={{ padding:'9px 20px', border:'none', borderRadius:6, background:'#2d8cf0', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                  Download PNG
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Prestart button ── */}
       <button className="mp-start-btn" onClick={() => onStartPrestart(asset.name)}>
