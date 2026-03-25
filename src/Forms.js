@@ -423,12 +423,12 @@ function BuilderItem({ item, si, ii, onUpdate, onRemove }) {
         placeholder={'Item ' + (ii + 1)}
         value={item.label || ''}
         onChange={e => onUpdate(si, ii, { ...item, label: e.target.value })}
-        style={{ flex: 1, padding: '7px 10px', backgroundColor: '#060c0c', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '13px' }}
+        style={{ flex: 1, padding: '7px 10px', backgroundColor: 'var(--bg)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '13px' }}
       />
       <select
         value={item.type || 'check'}
         onChange={e => onUpdate(si, ii, { ...item, type: e.target.value })}
-        style={{ padding: '7px 8px', backgroundColor: '#060c0c', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px' }}
+        style={{ padding: '7px 8px', backgroundColor: 'var(--bg)', color: 'var(--accent)', border: '1px solid var(--border)', borderRadius: '4px', fontSize: '12px' }}
       >
         {INPUT_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
       </select>

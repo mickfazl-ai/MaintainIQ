@@ -97,7 +97,7 @@ function PrestartForm({ asset, company, onClose }) {
       type: 'prestart',
       asset_id: asset.id,
       company_id: asset.company_id,
-      asset_name: asset.asset_name,
+      asset_name: asset.name || asset.asset_name,
       asset_id_tag: asset.asset_id,
       operator_name: operator,
       current_hours: parseFloat(hours) || null,
@@ -117,7 +117,7 @@ function PrestartForm({ asset, company, onClose }) {
         <div className="sp-ok">
           <div className="sp-ok-icon">✓</div>
           <div className="sp-ok-msg">Prestart submitted</div>
-          <div className="sp-ok-sub">{asset.asset_name} · {new Date().toLocaleDateString('en-AU')}</div>
+          <div className="sp-ok-sub">{asset.name || asset.asset_name} · {new Date().toLocaleDateString('en-AU')}</div>
           <button className="sp-submit" style={{ marginTop:20 }} onClick={onClose}>Close</button>
         </div>
       </div>
@@ -132,7 +132,7 @@ function PrestartForm({ asset, company, onClose }) {
           <button className="sp-form-close" onClick={onClose}>✕</button>
         </div>
         <div className="sp-form-asset">
-          <strong>{asset.asset_name}</strong> · {asset.asset_type || 'Asset'} · {asset.asset_id || ''}
+          <strong>{asset.name || asset.asset_name}</strong> · {asset.asset_type || 'Asset'} · {asset.asset_id || ''}
         </div>
         <div className="sp-fl">
           <label className="sp-lbl">Operator name</label>
@@ -195,7 +195,7 @@ function JobCardForm({ asset, company, onClose }) {
       type: 'job_card',
       asset_id: asset.id,
       company_id: asset.company_id,
-      asset_name: asset.asset_name,
+      asset_name: asset.name || asset.asset_name,
       asset_id_tag: asset.asset_id,
       operator_name: requester,
       priority,
@@ -213,7 +213,7 @@ function JobCardForm({ asset, company, onClose }) {
         <div className="sp-ok">
           <div className="sp-ok-icon">✓</div>
           <div className="sp-ok-msg">Job card submitted</div>
-          <div className="sp-ok-sub">{asset.asset_name} · your maintenance team has been notified</div>
+          <div className="sp-ok-sub">{asset.name || asset.asset_name} · your maintenance team has been notified</div>
           <button className="sp-submit" style={{ marginTop:20 }} onClick={onClose}>Close</button>
         </div>
       </div>
@@ -228,7 +228,7 @@ function JobCardForm({ asset, company, onClose }) {
           <button className="sp-form-close" onClick={onClose}>✕</button>
         </div>
         <div className="sp-form-asset">
-          <strong>{asset.asset_name}</strong> · {asset.asset_type || 'Asset'} · {asset.asset_id || ''}
+          <strong>{asset.name || asset.asset_name}</strong> · {asset.asset_type || 'Asset'} · {asset.asset_id || ''}
         </div>
         <div className="sp-fl">
           <label className="sp-lbl">Reported by</label>
@@ -329,11 +329,11 @@ export default function ScanPage({ assetId, partId }) {
         )}
         {company && <div className="sp-co-name">{company.company_name}</div>}
         <div className="sp-divider" style={{ background: accentColor }} />
-        <div className="sp-asset-name">{asset.asset_name}</div>
+        <div className="sp-asset-name">{asset.name || asset.asset_name}</div>
         <div className="sp-asset-meta">
           {asset.asset_type && <span>{asset.asset_type}</span>}
-          {asset.asset_id && <span> · {asset.asset_id}</span>}
-          {asset.make && <span> · {asset.make} {asset.model}</span>}
+          {(asset.asset_number||asset.asset_id) && <span> · {asset.asset_number||asset.asset_id}</span>}
+          {(asset.make||asset.manufacturer) && <span> · {asset.make||asset.manufacturer} {asset.model||""}</span>}
         </div>
         {mode === 'asset' ? (
           <div className="sp-btns">
