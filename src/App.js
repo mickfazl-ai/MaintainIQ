@@ -17,6 +17,7 @@ import Chat from './Chat';
 import Parts from './Parts';
 import OilSampling from './OilSampling';
 import ScanPage from './ScanPage';
+import ForcePasswordChange from './ForcePasswordChange';
 import { supabase } from './supabase';
 import DemoTour from './DemoTour';
 
@@ -226,6 +227,11 @@ function App() {
 
   if (!session) {
     return <Login onAuth={(session) => { /* handled by onAuthStateChange */ }} />;
+  }
+
+  // First login — force password change for new company admins
+  if (userRole?.force_password_change) {
+    return <ForcePasswordChange session={session} onComplete={() => fetchUserRole(session.user.email)} />;
   }
 
   return (

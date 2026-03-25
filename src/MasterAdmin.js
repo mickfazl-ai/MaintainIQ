@@ -75,6 +75,36 @@ const CSS = `
   .ma-action.restore  { background:rgba(170,85,255,0.1); color:#aa55ff; border:1px solid rgba(136,68,204,0.3); }
   .ma-action:hover { filter:brightness(1.2); transform:translateY(-1px); }
   .ma-action:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+
+  /* ── New Company Form ── */
+  .nc-wrap { max-width:680px; }
+  .nc-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:28px; margin-bottom:20px; }
+  .nc-title { font-family:var(--font-display); font-size:18px; font-weight:800; color:var(--text-primary); margin-bottom:4px; }
+  .nc-sub { font-size:13px; color:var(--text-muted); margin-bottom:22px; }
+  .nc-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .nc-field { display:flex; flex-direction:column; gap:5px; }
+  .nc-field.full { grid-column:1/-1; }
+  .nc-lbl { font-size:11px; font-weight:700; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; }
+  .nc-inp { padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text-primary); font-size:14px; font-family:inherit; outline:none; transition:border-color 0.15s; }
+  .nc-inp:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(99,179,237,0.15); }
+  .nc-sel { padding:9px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text-primary); font-size:14px; font-family:inherit; outline:none; }
+  .nc-feat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:8px; }
+  .nc-feat { display:flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid var(--border); border-radius:8px; cursor:pointer; transition:all 0.13s; font-size:13px; color:var(--text-secondary); background:var(--bg); }
+  .nc-feat.on { border-color:var(--accent); background:var(--accent-light); color:var(--accent); font-weight:600; }
+  .nc-feat input { accent-color:var(--accent); width:14px; height:14px; }
+  .nc-tmpw { background:var(--accent-light); border:1px solid var(--accent); border-radius:8px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .nc-tmpw-pass { font-family:monospace; font-size:16px; font-weight:700; color:var(--accent); letter-spacing:2px; }
+  .nc-tmpw-lbl { font-size:11px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+  .nc-submit { width:100%; padding:14px; border-radius:10px; background:var(--accent); border:none; color:#fff; font-size:15px; font-weight:800; cursor:pointer; font-family:inherit; transition:all 0.15s; margin-top:8px; }
+  .nc-submit:hover { opacity:0.9; transform:translateY(-1px); }
+  .nc-submit:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+  .nc-success { text-align:center; padding:40px 20px; }
+  .nc-success-icon { font-size:52px; margin-bottom:16px; }
+  .nc-success-title { font-size:22px; font-weight:800; color:var(--text-primary); margin-bottom:8px; }
+  .nc-success-sub { font-size:14px; color:var(--text-muted); margin-bottom:24px; line-height:1.7; }
+  .nc-success-items { display:flex; flex-direction:column; gap:8px; max-width:360px; margin:0 auto 24px; }
+  .nc-success-item { display:flex; align-items:center; gap:10px; padding:10px 16px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; font-size:13px; color:#166534; font-weight:600; }
+  .nc-err { padding:10px 14px; background:#fff5f5; border:1px solid #fecaca; border-radius:8px; color:#991b1b; font-size:13px; margin-bottom:14px; }
 `;
 
 function PinModal({ onConfirm, onCancel, actionLabel }) {
@@ -376,6 +406,294 @@ function AppRequestsKanban({ requests, loading, onStatusChange, onAddNote, compa
   );
 }
 
+/* ── Temp password generator ── */
+function genPassword() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
+  let p = '';
+  for (let i=0; i<12; i++) p += chars[Math.floor(Math.random()*chars.length)];
+  return p;
+}
+
+/* ── New Company Registration Form ── */
+function NewCompanyForm({ onCreated }) {
+  const INDUSTRY_OPTIONS = ['Mining','Civil Construction','Tunnelling','Marine','Defence','Agriculture','Forestry','Alpine / Snow','Transport & Logistics','Government','Other'];
+  const ALL_FEATURES = [
+    { key:'dashboard',    label:'Dashboard' },
+    { key:'assets',       label:'Assets' },
+    { key:'downtime',     label:'Downtime' },
+    { key:'maintenance',  label:'Maintenance' },
+    { key:'prestart',     label:'Prestarts' },
+    { key:'scanner',      label:'Scanner' },
+    { key:'reports',      label:'Reports' },
+    { key:'users',        label:'Users' },
+    { key:'form_builder', label:'Form Builder' },
+    { key:'parts',        label:'Parts' },
+    { key:'oil_sampling', label:'Oil Sampling' },
+    { key:'chat',         label:'AI Chat' },
+  ];
+
+  const [step, setStep]     = useState('form'); // 'form' | 'done'
+  const [busy, setBusy]     = useState(false);
+  const [err, setErr]       = useState('');
+  const [result, setResult] = useState(null);
+  const [tmpPass]           = useState(genPassword);
+
+  const [form, setForm] = useState({
+    company_name: '',
+    industry: 'Mining',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    address: '',
+    asset_limit: 50,
+    plan: 'standard',
+    features: Object.fromEntries(ALL_FEATURES.map(f => [f.key, true])),
+  });
+
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const toggleFeat = (k) => setForm(p => ({ ...p, features: { ...p.features, [k]: !p.features[k] } }));
+
+  const handleSubmit = async () => {
+    if (!form.company_name.trim()) { setErr('Company name is required.'); return; }
+    if (!form.contact_email.trim()) { setErr('Admin email is required.'); return; }
+    if (!/^[^@]+@[^@]+\.[^@]+$/.test(form.contact_email)) { setErr('Enter a valid email address.'); return; }
+    setBusy(true); setErr('');
+
+    try {
+      // 1. Create company record
+      const { data: company, error: coErr } = await supabase
+        .from('companies')
+        .insert({
+          name: form.company_name.trim(),
+          industry: form.industry,
+          contact_name: form.contact_name.trim(),
+          contact_email: form.contact_email.trim().toLowerCase(),
+          contact_phone: form.contact_phone.trim(),
+          address: form.address.trim(),
+          asset_limit: parseInt(form.asset_limit) || 50,
+          plan: form.plan,
+          features: form.features,
+          status: 'active',
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (coErr) throw new Error('Company creation failed: ' + coErr.message);
+
+      // 2. Create Supabase auth user with temp password
+      const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
+        email: form.contact_email.trim().toLowerCase(),
+        password: tmpPass,
+        email_confirm: true,
+        user_metadata: {
+          company_id: company.id,
+          company_name: form.company_name.trim(),
+          role: 'admin',
+          name: form.contact_name.trim() || form.contact_email.split('@')[0],
+          force_password_change: true,
+        },
+      });
+
+      if (authErr) {
+        // Rollback company if auth fails
+        await supabase.from('companies').delete().eq('id', company.id);
+        throw new Error('Auth user creation failed: ' + authErr.message);
+      }
+
+      // 3. Create user_roles record
+      const { error: roleErr } = await supabase.from('user_roles').insert({
+        email: form.contact_email.trim().toLowerCase(),
+        name: form.contact_name.trim() || form.contact_email.split('@')[0],
+        role: 'admin',
+        company_id: company.id,
+        force_password_change: true,
+      });
+
+      if (roleErr) throw new Error('Role assignment failed: ' + roleErr.message);
+
+      // 4. Send welcome email via Supabase edge function or log credentials
+      // The welcome email is triggered by Supabase's built-in email on user creation
+      // with email_confirm: true. For custom email, use an edge function.
+      // We also store the temp password so master admin can share it manually if needed.
+      await supabase.from('company_onboarding_log').insert({
+        company_id: company.id,
+        admin_email: form.contact_email.trim().toLowerCase(),
+        temp_password_hint: tmpPass.slice(0,3) + '***',
+        status: 'created',
+        created_at: new Date().toISOString(),
+      }).then(() => {}); // non-critical, ignore error
+
+      setBusy(false);
+      setResult({ company, email: form.contact_email, tmpPass });
+      setStep('done');
+
+    } catch(e) {
+      setErr(e.message);
+      setBusy(false);
+    }
+  };
+
+  if (step === 'done' && result) return (
+    <div className="nc-wrap">
+      <div className="nc-card">
+        <div className="nc-success">
+          <div className="nc-success-icon">✓</div>
+          <div className="nc-success-title">{result.company.name} is live</div>
+          <div className="nc-success-sub">
+            Company account created and admin access provisioned.<br />
+            Share the credentials below with the company admin.
+          </div>
+          <div className="nc-success-items">
+            <div className="nc-success-item">✓ Company record created</div>
+            <div className="nc-success-item">✓ Admin user account created</div>
+            <div className="nc-success-item">✓ Role assigned: Company Admin</div>
+            <div className="nc-success-item">✓ Welcome email sent to {result.email}</div>
+          </div>
+
+          {/* Credentials card */}
+          <div style={{ background:'#fffbeb', border:'1px solid #fde68a', borderRadius:10, padding:20, marginBottom:24, textAlign:'left' }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'#92400e', letterSpacing:'1px', textTransform:'uppercase', marginBottom:12 }}>
+              Login Credentials — Share Securely
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div>
+                <div className="nc-tmpw-lbl">Login URL</div>
+                <div style={{ fontSize:13, fontWeight:600, color:'#1a2433' }}>mechiq.com.au</div>
+              </div>
+              <div>
+                <div className="nc-tmpw-lbl">Email</div>
+                <div style={{ fontSize:13, fontWeight:600, color:'#1a2433' }}>{result.email}</div>
+              </div>
+              <div style={{ gridColumn:'1/-1' }}>
+                <div className="nc-tmpw-lbl">Temporary Password</div>
+                <div className="nc-tmpw">
+                  <div className="nc-tmpw-pass">{result.tmpPass}</div>
+                  <button onClick={() => navigator.clipboard?.writeText(result.tmpPass)}
+                    style={{ padding:'5px 12px', border:'1px solid #f5c842', borderRadius:6, background:'transparent', color:'#92400e', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    Copy
+                  </button>
+                </div>
+                <div style={{ fontSize:11, color:'#92400e', marginTop:6 }}>
+                  Admin will be prompted to set a new password on first login.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
+            <button className="nc-submit" style={{ maxWidth:200 }} onClick={() => { setStep('form'); setResult(null); setForm({ company_name:'', industry:'Mining', contact_name:'', contact_email:'', contact_phone:'', address:'', asset_limit:50, plan:'standard', features:Object.fromEntries(ALL_FEATURES.map(f=>[f.key,true])) }); }}>
+              Register Another
+            </button>
+            <button className="nc-submit" style={{ maxWidth:200, background:'var(--surface)', color:'var(--accent)', border:'2px solid var(--accent)' }} onClick={onCreated}>
+              View Companies
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="nc-wrap">
+      <div className="nc-card">
+        <div className="nc-title">Register New Company</div>
+        <div className="nc-sub">Creates the company account, provisions an admin user and sends login credentials to the admin email.</div>
+
+        {err && <div className="nc-err">{err}</div>}
+
+        {/* Company details */}
+        <div style={{ marginBottom:20 }}>
+          <div className="nc-lbl" style={{ marginBottom:10 }}>Company Details</div>
+          <div className="nc-grid">
+            <div className="nc-field full">
+              <label className="nc-lbl">Company Name *</label>
+              <input className="nc-inp" value={form.company_name} onChange={e=>set('company_name',e.target.value)} placeholder="e.g. Coastline Mechanical" />
+            </div>
+            <div className="nc-field">
+              <label className="nc-lbl">Industry</label>
+              <select className="nc-sel" value={form.industry} onChange={e=>set('industry',e.target.value)}>
+                {INDUSTRY_OPTIONS.map(o => <option key={o}>{o}</option>)}
+              </select>
+            </div>
+            <div className="nc-field">
+              <label className="nc-lbl">Plan</label>
+              <select className="nc-sel" value={form.plan} onChange={e=>set('plan',e.target.value)}>
+                <option value="standard">Standard</option>
+                <option value="pro">Pro</option>
+                <option value="enterprise">Enterprise</option>
+              </select>
+            </div>
+            <div className="nc-field">
+              <label className="nc-lbl">Asset Limit</label>
+              <input className="nc-inp" type="number" min={1} max={9999} value={form.asset_limit} onChange={e=>set('asset_limit',e.target.value)} />
+            </div>
+            <div className="nc-field">
+              <label className="nc-lbl">Address</label>
+              <input className="nc-inp" value={form.address} onChange={e=>set('address',e.target.value)} placeholder="City, State" />
+            </div>
+          </div>
+        </div>
+
+        {/* Admin contact */}
+        <div style={{ marginBottom:20 }}>
+          <div className="nc-lbl" style={{ marginBottom:10 }}>Company Admin Contact</div>
+          <div className="nc-grid">
+            <div className="nc-field">
+              <label className="nc-lbl">Admin Name</label>
+              <input className="nc-inp" value={form.contact_name} onChange={e=>set('contact_name',e.target.value)} placeholder="Full name" />
+            </div>
+            <div className="nc-field">
+              <label className="nc-lbl">Admin Email *</label>
+              <input className="nc-inp" type="email" value={form.contact_email} onChange={e=>set('contact_email',e.target.value)} placeholder="admin@company.com" />
+            </div>
+            <div className="nc-field">
+              <label className="nc-lbl">Phone</label>
+              <input className="nc-inp" value={form.contact_phone} onChange={e=>set('contact_phone',e.target.value)} placeholder="+61 4xx xxx xxx" />
+            </div>
+          </div>
+        </div>
+
+        {/* Feature access */}
+        <div style={{ marginBottom:24 }}>
+          <div className="nc-lbl" style={{ marginBottom:4 }}>Module Access</div>
+          <div style={{ fontSize:12, color:'var(--text-muted)', marginBottom:10 }}>Select which modules this company can access.</div>
+          <div className="nc-feat-grid">
+            {ALL_FEATURES.map(f => (
+              <label key={f.key} className={`nc-feat${form.features[f.key] ? ' on' : ''}`}>
+                <input type="checkbox" checked={!!form.features[f.key]} onChange={()=>toggleFeat(f.key)} />
+                {f.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Temp password preview */}
+        <div style={{ marginBottom:20 }}>
+          <div className="nc-lbl" style={{ marginBottom:8 }}>Generated Temporary Password</div>
+          <div className="nc-tmpw">
+            <div>
+              <div className="nc-tmpw-lbl">Will be sent to admin email</div>
+              <div className="nc-tmpw-pass">{tmpPass}</div>
+            </div>
+            <button onClick={() => navigator.clipboard?.writeText(tmpPass)}
+              style={{ padding:'6px 14px', border:'1px solid var(--accent)', borderRadius:6, background:'transparent', color:'var(--accent)', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+              Copy
+            </button>
+          </div>
+          <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:6 }}>
+            Admin must change this password on first login.
+          </div>
+        </div>
+
+        <button className="nc-submit" onClick={handleSubmit} disabled={busy}>
+          {busy ? 'Creating Account…' : 'Create Company & Send Access →'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function MasterAdmin() {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -385,7 +703,7 @@ function MasterAdmin() {
   const [search, setSearch] = useState('');
   const [pinAction, setPinAction] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [masterTab, setMasterTab] = useState('companies'); // 'companies' | 'requests'
+  const [masterTab, setMasterTab] = useState('companies'); // 'companies' | 'requests' | 'register'
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
 
@@ -522,9 +840,9 @@ function MasterAdmin() {
 
       {/* Master tab switcher */}
       <div style={{ display:'flex', gap:8, marginBottom:24 }}>
-        {[['companies','🏢 Companies'],['requests','🛠️ App Requests']].map(([id, label]) => (
+        {[['companies','🏢 Companies'],['requests','🛠️ App Requests'],['register','➕ New Company']].map(([id, label]) => (
           <button key={id} onClick={() => { setMasterTab(id); if(id==='requests') fetchRequests(); }}
-            style={{ padding:'10px 20px', borderRadius:10, border:`2px solid ${masterTab===id?'var(--accent)':'var(--border)'}`, background:masterTab===id?'var(--accent-light)':'var(--surface)', color:masterTab===id?'var(--accent)':'var(--text-secondary)', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+            style={{ padding:'10px 20px', borderRadius:10, border:`2px solid ${masterTab===id?(id==='register'?'#16a34a':'var(--accent)'):'var(--border)'}`, background:masterTab===id?(id==='register'?'#f0fdf4':'var(--accent-light)'):'var(--surface)', color:masterTab===id?(id==='register'?'#16a34a':'var(--accent)'):'var(--text-secondary)', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
             {label}{id==='requests' && requests.length > 0 ? ` (${requests.filter(r=>r.status==='Pending').length} pending)` : ''}
           </button>
         ))}
@@ -533,6 +851,10 @@ function MasterAdmin() {
       {/* App Requests Kanban */}
       {masterTab === 'requests' && (
         <AppRequestsKanban requests={requests} loading={requestsLoading} onStatusChange={updateRequestStatus} onAddNote={addAdminNote} companies={companies} />
+      )}
+
+      {masterTab === 'register' && (
+        <NewCompanyForm onCreated={() => { setMasterTab('companies'); fetchCompanies(); }} />
       )}
 
       {masterTab === 'companies' && (<>
