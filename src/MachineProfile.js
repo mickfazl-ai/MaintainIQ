@@ -1143,7 +1143,7 @@ function AssetPage({ assetId, userRole, onStartPrestart, initialTab }) {
 
   if (!asset) return <div style={{ textAlign:'center', padding:'60px 20px', color:'var(--text-muted)', fontSize:14 }}>Asset not found</div>;
 
-  const qrUrl = `https://mechiq.com.au/scan/${assetId}`;
+  const qrUrl = `${window.location.origin}/scan/${assetId}`;
 
   const TABS = [
     { id:'overview',     label:'Overview' },
