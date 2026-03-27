@@ -424,6 +424,8 @@ function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session
   const [companies, setCompanies] = useState([]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [companyLogo, setCompanyLogo] = useState(null);
+  const [companyName, setCompanyName] = useState('');
   const switcherRef = useRef(null);
   const isMaster = userRole?.role === 'master';
   const role = viewingCompany ? 'admin' : (userRole?.role || 'operator');
@@ -455,6 +457,17 @@ function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session
   useEffect(() => { updateLayout(expanded, hasBanner); }, []);
 
   useEffect(() => { if (isMaster) fetchCompanies(); }, [isMaster]);
+
+  useEffect(() => {
+    const cid = viewingCompany?.id || userRole?.company_id;
+    if (!cid || isMaster) { setCompanyLogo(null); setCompanyName(''); return; }
+    supabase.from('companies').select('name, logo_url').eq('id', cid).single().then(({ data }) => {
+      if (data) {
+        setCompanyName(data.name || '');
+        setCompanyLogo(data.logo_url || null);
+      }
+    });
+  }, [userRole?.company_id, viewingCompany?.id, isMaster]);
 
   useEffect(() => {
     const h = e => { if (switcherRef.current && !switcherRef.current.contains(e.target)) setSwitcherOpen(false); };
@@ -623,6 +636,21 @@ function Navbar({ currentPage, currentSubPage, setCurrentPage, onLogout, session
             return PAGE_TITLES[currentPage] || currentPage;
           })()}
         </div>
+        {/* Company logo */}
+        {companyLogo && (
+          <div style={{ flex:1, display:'flex', justifyContent:'center', alignItems:'center', padding:'0 16px' }}>
+            <img
+              src={companyLogo}
+              alt={companyName}
+              style={{ maxHeight:36, maxWidth:180, objectFit:'contain', display:'block' }}
+            />
+          </div>
+        )}
+        {!companyLogo && companyName && (
+          <div style={{ flex:1, display:'flex', justifyContent:'center', alignItems:'center' }}>
+            <span style={{ fontSize:13, fontWeight:700, color:'var(--text-muted)', letterSpacing:'0.5px' }}>{companyName}</span>
+          </div>
+        )}
         <div className="topbar-right">
           {isMaster && (
             <div ref={switcherRef} style={{ position: 'relative' }}>
