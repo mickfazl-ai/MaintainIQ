@@ -282,9 +282,12 @@ export default function ScanPage({ assetId, partId }) {
     if (!id) { setLoading(false); return; }
     (async () => {
       if (mode === 'asset') {
-        const { data } = await supabase.from('assets').select('*').eq('id', id).single();
+        /* try numeric id first, fallback to string (UUID) */
+        const numId = /^\d+$/.test(id) ? parseInt(id, 10) : id;
+        const { data } = await supabase.from('assets').select('*').eq('id', numId).single();
         if (data) {
           setAsset(data);
+          setForm('prestart'); /* auto-open prestart on scan */
           const { data: co } = await supabase.from('companies').select('*').eq('id', data.company_id).single();
           if (co) setCompany(co);
           const { data: br } = await supabase.from('company_branding').select('*').eq('company_id', data.company_id).single();
