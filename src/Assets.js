@@ -238,7 +238,7 @@ function AssetCard({ asset, index, onView, onDelete, onQR, onQuickLog, onEdit, o
       {/* Actions */}
       <div className="card-actions" style={{ padding: '0 18px 16px', display: 'flex', gap: '8px', flexWrap:'wrap' }}>
         <button onClick={() => onView(asset.id)} className="nav-pill nav-pill-primary" style={{ fontSize: '11px', padding: '6px 14px' }}>View →</button>
-        <button onClick={() => onQR(asset)} className="nav-pill nav-pill-ghost" style={{ fontSize: '11px', padding: '6px 12px' }}>QR</button>
+
         {onServiceSheet && <button onClick={() => onServiceSheet(asset)} style={{ fontSize:'11px', padding:'6px 12px', background:'var(--accent-light)', color:'var(--accent)', border:'1px solid rgba(14,165,233,0.3)', borderRadius:8, fontWeight:700, cursor:'pointer', transition:'all 0.15s' }}>📄 Service Sheet</button>}
         {canDelete && <button onClick={() => onEdit && onEdit(asset)} style={{ fontSize:'11px', padding:'6px 12px', background:'var(--surface-2)', color:'var(--text-secondary)', border:'1px solid var(--border)', borderRadius:8, fontWeight:700, cursor:'pointer', transition:'all 0.15s' }}>Edit</button>}
         {asset.status === 'Down' || asset.status === 'Maintenance' ? (
@@ -335,15 +335,9 @@ function UnitsTab({ userRole, onViewAsset, toast }) {
 
   const handleAdd = async () => {
     if (!newAsset.name || !newAsset.type || !newAsset.location) { toast('Please fill in Name, Type and Location', 'warning'); return; }
-    const { data: newData, error } = await supabase.from('assets').insert([{ ...newAsset, company_id: userRole.company_id }]).select().single();
+    const { error } = await supabase.from('assets').insert([{ ...newAsset, company_id: userRole.company_id }]);
     if (error) { toast('Error adding asset: ' + error.message, 'error'); }
-    else {
-      if (newData?.id) {
-        const qrUrl = `${window.location.origin}/scan/${newData.id}`;
-        await supabase.from('assets').update({ qr_url: qrUrl }).eq('id', newData.id);
-      }
-      toast('Asset added successfully', 'success'); fetchAssets(); setNewAsset({ name: '', type: '', location: '', status: 'Running', hourly_rate: '', target_hours: 8 }); setShowForm(false);
-    }
+    else { toast('Asset added successfully', 'success'); fetchAssets(); setNewAsset({ name: '', type: '', location: '', status: 'Running', hourly_rate: '', target_hours: 8 }); setShowForm(false); }
   };
 
   const handleEdit = async () => {
@@ -719,9 +713,6 @@ function OnboardingTab({ userRole, onComplete, toast }) {
     };
     const { data, error } = await supabase.from('assets').insert([payload]).select().single();
     if (error) { setSaving(false); toast('Error saving asset: ' + error.message, 'error'); return; }
-    /* Save QR URL back to the asset record now we have the ID */
-    const qrUrl = `${window.location.origin}/scan/${data.id}`;
-    await supabase.from('assets').update({ qr_url: qrUrl }).eq('id', data.id);
     
     // Save enabled service intervals
     const enabledIntervals = intervals.filter(i => i.enabled && (i.name || !i.custom) && (i.interval_value));
