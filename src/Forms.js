@@ -437,6 +437,87 @@ function BuilderItem({ item, si, ii, onUpdate, onRemove }) {
   );
 }
 
+
+// ─── ASSET PICKER ─────────────────────────────────────────────────────────────
+function AssetPicker({ assets, value = [], onChange }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  const selected = assets.filter(a => value.includes(a.id));
+
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const toggle = (id) => onChange(value.includes(id) ? value.filter(v => v !== id) : [...value, id]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          minHeight: '42px', padding: '6px 10px', background: '#fff', border: '1px solid #c8d4e0',
+          borderRadius: '6px', cursor: 'pointer', display: 'flex', flexWrap: 'wrap', gap: '6px',
+          alignItems: 'center', userSelect: 'none',
+        }}
+      >
+        {selected.length === 0 && <span style={{ color: '#a0b0b0', fontSize: '13px' }}>Assign to assets (optional)</span>}
+        {selected.map(a => (
+          <span key={a.id} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '4px',
+            background: '#e0f7fb', color: '#00a8c4',
+            border: '1px solid rgba(0,194,224,0.35)', borderRadius: '20px',
+            padding: '2px 8px 2px 10px', fontSize: '12px', fontWeight: 600,
+          }}>
+            {a.name}
+            <button
+              onClick={e => { e.stopPropagation(); toggle(a.id); }}
+              style={{ background: 'none', border: 'none', color: '#00a8c4', cursor: 'pointer', fontSize: '15px', lineHeight: 1, padding: '0 2px' }}
+            >×</button>
+          </span>
+        ))}
+        <span style={{ marginLeft: 'auto', color: '#a0b0b0', fontSize: '11px' }}>{open ? '▲' : '▼'}</span>
+      </div>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
+          background: '#fff', border: '1px solid #c8d4e0', borderRadius: '8px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: '220px', overflowY: 'auto',
+        }}>
+          {assets.length === 0 && <div style={{ padding: '12px 14px', color: '#a0b0b0', fontSize: '13px' }}>No assets found</div>}
+          {assets.map(a => {
+            const checked = value.includes(a.id);
+            return (
+              <div
+                key={a.id}
+                onClick={() => toggle(a.id)}
+                style={{
+                  padding: '10px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
+                  background: checked ? '#eaf8fb' : 'transparent', fontSize: '13px',
+                  borderBottom: '1px solid #f0f4f8', transition: 'background 0.1s',
+                }}
+              >
+                <span style={{
+                  width: '16px', height: '16px', borderRadius: '4px', flexShrink: 0,
+                  background: checked ? '#00c2e0' : '#fff',
+                  border: '1.5px solid ' + (checked ? '#00c2e0' : '#c8d4e0'),
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: '10px', fontWeight: 700,
+                }}>
+                  {checked ? '✓' : ''}
+                </span>
+                <span style={{ color: '#1a2b3c', fontWeight: checked ? 600 : 400 }}>{a.name}</span>
+                {a.location && <span style={{ color: '#a0b0b0', fontSize: '11px', marginLeft: 'auto' }}>{a.location}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SectionTable({ sections, responses, onResponse, companyId }) {
   return sections.map((section, si) => (
     <div key={si} className="form-card" style={{ marginTop: '15px' }}>
@@ -499,7 +580,7 @@ function SignaturePad({ sigCanvas, isSigning, setIsSigning, setSignatureData }) 
 }
 
 // ─── PRESTART TAB ─────────────────────────────────────────────────────────────
-function PrestartTab({ userRole }) {
+function PrestartTab({ userRole, prestartAsset, prestartAssetId, onClearPreload }) {
   const [templates, setTemplates] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [assets, setAssets] = useState([]);
@@ -512,12 +593,30 @@ function PrestartTab({ userRole }) {
   const [isSigning, setIsSigning] = useState(false);
   const [signatureData, setSignatureData] = useState('');
   const [form, setForm] = useState({ asset: '', operator_name: '', site_area: '', hrs_start: '', date: new Date().toISOString().split('T')[0], notes: '', responses: {} });
-  const [builder, setBuilder] = useState({ name: '', description: '', sections: [] });
+  const [builder, setBuilder] = useState({ name: '', description: '', sections: [], asset_ids: [] });
   const isAdmin = userRole && (userRole.role === 'admin' || userRole.role === 'master');
+  const assetLocked = !!prestartAsset;
 
   useEffect(() => {
     if (userRole && userRole.company_id) { fetchTemplates(); fetchSubmissions(); fetchAssets(); }
   }, [userRole]);
+
+  // Pre-fill asset name when navigated from MachineProfile / Assets
+  useEffect(() => {
+    if (prestartAsset) setForm(f => ({ ...f, asset: prestartAsset }));
+  }, [prestartAsset]);
+
+  // Auto-open fill view — prefer templates assigned to this asset
+  useEffect(() => {
+    if (prestartAsset && !loading && templates.length > 0 && view === 'list') {
+      const assetIdInt = parseInt(prestartAssetId);
+      const assigned = prestartAssetId
+        ? templates.filter(t => Array.isArray(t.asset_ids) && t.asset_ids.includes(assetIdInt))
+        : [];
+      const pool = assigned.length > 0 ? assigned : templates;
+      if (pool.length === 1) { setSelectedTemplate(pool[0]); setView('fill'); }
+    }
+  }, [prestartAsset, loading, templates]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchTemplates = async () => {
     const { data } = await supabase.from('form_templates').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false });
@@ -534,7 +633,7 @@ function PrestartTab({ userRole }) {
 
   const handleAIGenerated = (result) => {
     setAiPreview(result); setShowAI(false);
-    setBuilder({ name: result.name || '', description: result.description || '', sections: normaliseItems(result.sections) });
+    setBuilder({ name: result.name || '', description: result.description || '', sections: normaliseItems(result.sections), asset_ids: [] });
     setView('builder');
   };
 
@@ -637,7 +736,7 @@ function PrestartTab({ userRole }) {
   const saveTemplate = async () => {
     if (!builder.name || builder.sections.length === 0) { alert('Please add a name and at least one section'); return; }
     const { error } = await supabase.from('form_templates').insert([{ ...builder, company_id: userRole.company_id }]);
-    if (!error) { fetchTemplates(); setView('list'); setBuilder({ name: '', description: '', sections: [] }); setAiPreview(null); }
+    if (!error) { fetchTemplates(); setView('list'); setBuilder({ name: '', description: '', sections: [], asset_ids: [] }); setAiPreview(null); }
   };
 
   const updateItem = (si, ii, v) => setBuilder(prev => ({ ...prev, sections: prev.sections.map((sec, i) => i === si ? { ...sec, items: sec.items.map((item, j) => j === ii ? v : item) } : sec) }));
@@ -658,8 +757,15 @@ function PrestartTab({ userRole }) {
           <h3 style={{ color: 'var(--accent)', marginBottom: '15px' }}>Prestart Details</h3>
           <div className="form-grid">
             <div>
-              <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Asset</label>
-              <select value={form.asset} onChange={e => setForm({ ...form, asset: e.target.value })} style={{ width: '100%', padding: '10px', background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px' }}>
+              <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                Asset {assetLocked && <span style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: 700, marginLeft: '6px', padding: '1px 6px', background: 'var(--accent-light)', borderRadius: '4px', border: '1px solid rgba(0,194,224,0.3)' }}>PRE-FILLED</span>}
+              </label>
+              <select
+                value={form.asset}
+                onChange={e => !assetLocked && setForm({ ...form, asset: e.target.value })}
+                disabled={assetLocked}
+                style={{ width: '100%', padding: '10px', background: assetLocked ? '#f0f8ff' : 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid ' + (assetLocked ? 'rgba(0,194,224,0.4)' : 'var(--border)'), borderRadius: '4px', cursor: assetLocked ? 'not-allowed' : 'auto' }}
+              >
                 <option value="">Select Asset</option>
                 {assets.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
               </select>
@@ -708,7 +814,9 @@ function PrestartTab({ userRole }) {
         {aiPreview && <div style={{ background: 'var(--green-bg)', border: '1px solid #00c264', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}><p style={{ color: 'var(--green)', margin: 0, fontSize: '13px' }}>AI generated - review and edit before saving.</p></div>}
         <div className="form-card">
           <input placeholder="Form Name" value={builder.name} onChange={e => setBuilder({ ...builder, name: e.target.value })} style={{ width: '100%', marginBottom: '10px', padding: '10px', background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px' }} />
-          <input placeholder="Description (optional)" value={builder.description} onChange={e => setBuilder({ ...builder, description: e.target.value })} style={{ width: '100%', padding: '10px', background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px' }} />
+          <input placeholder="Description (optional)" value={builder.description} onChange={e => setBuilder({ ...builder, description: e.target.value })} style={{ width: '100%', marginBottom: '10px', padding: '10px', background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px' }} />
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#6b7a8d', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Assign to Units</label>
+          <AssetPicker assets={assets} value={builder.asset_ids || []} onChange={ids => setBuilder(b => ({ ...b, asset_ids: ids }))} />
         </div>
         {builder.sections.map((section, si) => (
           <div key={si} className="form-card" style={{ marginTop: '15px' }}>
@@ -766,19 +874,54 @@ function PrestartTab({ userRole }) {
           )}
         </div>
       </div>
-      {templates.length === 0 ? (
+      {assetLocked && (
+        <div style={{ background: 'var(--accent-light)', border: '1px solid rgba(0,194,224,0.3)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 16 }}>📋</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>Starting prestart for: {prestartAsset}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+              {(() => {
+                const assetIdInt = parseInt(prestartAssetId);
+                const assigned = templates.filter(t => Array.isArray(t.asset_ids) && t.asset_ids.includes(assetIdInt));
+                return assigned.length > 0
+                  ? `${assigned.length} template${assigned.length > 1 ? 's' : ''} assigned to this unit`
+                  : 'No templates assigned — showing all templates';
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+      {(() => {
+        const assetIdInt = parseInt(prestartAssetId);
+        const assignedTemplates = prestartAssetId
+          ? templates.filter(t => Array.isArray(t.asset_ids) && t.asset_ids.includes(assetIdInt))
+          : [];
+        const displayTemplates = assignedTemplates.length > 0 ? assignedTemplates : templates;
+        return (
+      <>
+      {displayTemplates.length === 0 && templates.length === 0 ? (
         <div className="form-card" style={{ textAlign: 'center', padding: '40px' }}>
           <p style={{ color: '#a0b0b0', marginBottom: '20px' }}>No prestart templates yet.</p>
           {userRole && userRole.role !== 'technician' && <button className="btn-primary" style={{ background: 'linear-gradient(135deg, #00c2e0, #0090a8)', color: '#000', padding: '12px 24px' }} onClick={() => setShowAI(true)}>Generate with AI</button>}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', marginTop: '20px' }}>
-          {templates.map(t => (
+          {displayTemplates.map(t => (
             <div key={t.id} className="form-card" style={{ cursor: 'pointer' }} onClick={() => { setSelectedTemplate(t); setView('fill'); }}>
               <h3 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>{t.name}</h3>
-              <p style={{ color: '#a0b0b0', fontSize: '13px', marginBottom: '12px' }}>{t.description}</p>
-              <p style={{ color: '#a0b0b0', fontSize: '12px' }}>{(t.sections || []).length} sections</p>
-              <button className="btn-primary" style={{ marginTop: '12px', width: '100%' }}>Start Prestart</button>
+              <p style={{ color: '#a0b0b0', fontSize: '13px', marginBottom: '8px' }}>{t.description}</p>
+              <p style={{ color: '#a0b0b0', fontSize: '12px', marginBottom: '8px' }}>{(t.sections || []).length} sections</p>
+              {Array.isArray(t.asset_ids) && t.asset_ids.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                  {t.asset_ids.map(id => {
+                    const a = assets.find(x => x.id === id);
+                    return a ? (
+                      <span key={id} style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px', background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid rgba(0,194,224,0.3)' }}>{a.name}</span>
+                    ) : null;
+                  })}
+                </div>
+              )}
+              <button className="btn-primary" style={{ marginTop: '4px', width: '100%' }}>Start Prestart</button>
               {isAdmin && <button className="btn-delete" style={{ marginTop: '8px', width: '100%', padding: '6px' }} onClick={e => deleteTemplate(t.id, e)}>Delete Template</button>}
             </div>
           ))}
@@ -789,6 +932,9 @@ function PrestartTab({ userRole }) {
           )}
         </div>
       )}
+      </>
+        );
+      })()}
     </div>
   );
 }
@@ -810,7 +956,7 @@ function ServiceSheetsTab({ userRole }) {
   const sigCanvas = React.useRef(null);
   const [isSigning, setIsSigning] = useState(false);
   const [signatureData, setSignatureData] = useState('');
-  const [builder, setBuilder] = useState({ name: '', description: '', service_type: '', sections: [], parts_template: [], labour_items: [] });
+  const [builder, setBuilder] = useState({ name: '', description: '', service_type: '', sections: [], parts_template: [], labour_items: [], asset_ids: [] });
   const [form, setForm] = useState({ asset: '', technician: '', date: new Date().toISOString().split('T')[0], odometer: '', service_type: '', notes: '', responses: {}, parts: [{ name: '', qty: '', cost: '', part_id: null }], labour: [{ description: '', hours: '' }] });
   const isAdmin = userRole && (userRole.role === 'admin' || userRole.role === 'master');
 
@@ -825,7 +971,8 @@ function ServiceSheetsTab({ userRole }) {
 
   const fetchTemplates = async () => {
     const { data } = await supabase.from('service_sheet_templates').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false });
-    setTemplates(data || []); setLoading(false);
+    const allTemplates = data || [];
+    setTemplates(allTemplates); setLoading(false);
     // Check if navigated here from Assets, Maintenance or MachineProfile
     const intent = sessionStorage.getItem('mechiq_open_form');
     if (intent) {
@@ -833,19 +980,32 @@ function ServiceSheetsTab({ userRole }) {
         const { templateId, assetName, serviceType, showPicker } = JSON.parse(intent);
         sessionStorage.removeItem('mechiq_open_form');
         if (showPicker || !templateId) {
-          // No matched template — pre-fill asset/service and let user pick template from list
           setForm(f => ({ ...f, asset: assetName || f.asset, service_type: serviceType || '' }));
-          // Stay on list view so user can pick a template — highlight with a banner
           sessionStorage.setItem('mechiq_prefill', JSON.stringify({ assetName, serviceType }));
         } else {
-          const tmpl = (data || []).find(t => t.id === templateId);
+          const tmpl = allTemplates.find(t => t.id === templateId);
           if (tmpl) {
             setSelectedTemplate(tmpl);
-            setForm(f => ({ ...f, asset: assetName || f.asset, service_type: serviceType || tmpl.service_type || '' }));
+            setForm(f => ({ ...f, asset: assetName || f.asset, service_type: serviceType || tmpl.service_type || '', _assetLocked: !!assetName }));
             setView('fill');
           }
         }
       } catch(e) {}
+    } else {
+      // If sessionStorage has prefill (from mechiq_prefill set by earlier nav), check for single assigned template
+      const prefill = (() => { try { const p = sessionStorage.getItem('mechiq_prefill'); return p ? JSON.parse(p) : null; } catch(e) { return null; } })();
+      if (prefill?.assetName) {
+        const assetObj = (assets.length > 0 ? assets : await supabase.from('assets').select('id,name').eq('company_id', userRole.company_id).then(r => r.data || [])).find(a => a.name === prefill.assetName);
+        if (assetObj) {
+          const assigned = allTemplates.filter(t => Array.isArray(t.asset_ids) && t.asset_ids.includes(assetObj.id));
+          if (assigned.length === 1) {
+            setSelectedTemplate(assigned[0]);
+            setForm(f => ({ ...f, asset: prefill.assetName, service_type: prefill.serviceType || assigned[0].service_type || '', _assetLocked: true }));
+            sessionStorage.removeItem('mechiq_prefill');
+            setView('fill');
+          }
+        }
+      }
     }
   };
   const fetchSubmissions = async () => {
@@ -859,7 +1019,7 @@ function ServiceSheetsTab({ userRole }) {
 
   const handleAIGenerated = (result) => {
     setAiPreview(result); setShowAI(false);
-    setBuilder({ name: result.name || '', description: result.description || '', service_type: result.service_type || '', sections: normaliseItems(result.sections), parts_template: result.parts_template || [], labour_items: result.labour_items || [] });
+    setBuilder({ name: result.name || '', description: result.description || '', service_type: result.service_type || '', sections: normaliseItems(result.sections), parts_template: result.parts_template || [], labour_items: result.labour_items || [], asset_ids: [] });
     setView('builder');
   };
 
@@ -962,7 +1122,7 @@ function ServiceSheetsTab({ userRole }) {
   const saveTemplate = async () => {
     if (!builder.name) { alert('Please add a template name'); return; }
     const { error } = await supabase.from('service_sheet_templates').insert([{ ...builder, company_id: userRole.company_id }]);
-    if (!error) { fetchTemplates(); setView('list'); setBuilder({ name: '', description: '', service_type: '', sections: [], parts_template: [], labour_items: [] }); setAiPreview(null); }
+    if (!error) { fetchTemplates(); setView('list'); setBuilder({ name: '', description: '', service_type: '', sections: [], parts_template: [], labour_items: [], asset_ids: [] }); setAiPreview(null); }
     else alert('Error: ' + error.message);
   };
 
@@ -986,8 +1146,15 @@ function ServiceSheetsTab({ userRole }) {
           <h3 style={{ color: 'var(--accent)', marginBottom: '15px' }}>Service Details</h3>
           <div className="form-grid">
             <div>
-              <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Asset</label>
-              <select value={form.asset} onChange={e => setForm({ ...form, asset: e.target.value })} style={iStyle}>
+              <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                Asset {form.asset && form._assetLocked && <span style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: 700, marginLeft: '6px', padding: '1px 6px', background: 'var(--accent-light)', borderRadius: '4px', border: '1px solid rgba(0,194,224,0.3)' }}>PRE-FILLED</span>}
+              </label>
+              <select
+                value={form.asset}
+                onChange={e => !form._assetLocked && setForm({ ...form, asset: e.target.value })}
+                disabled={!!form._assetLocked}
+                style={{ ...iStyle, background: form._assetLocked ? '#f0f8ff' : undefined, border: form._assetLocked ? '1px solid rgba(0,194,224,0.4)' : undefined, cursor: form._assetLocked ? 'not-allowed' : 'auto' }}
+              >
                 <option value="">Select Asset</option>
                 {assets.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
               </select>
@@ -1284,7 +1451,9 @@ function ServiceSheetsTab({ userRole }) {
         <div className="form-card">
           <input placeholder="Template Name" value={builder.name} onChange={e => setBuilder({ ...builder, name: e.target.value })} style={{ width: '100%', marginBottom: '10px', padding: '10px', background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px' }} />
           <input placeholder="Description" value={builder.description} onChange={e => setBuilder({ ...builder, description: e.target.value })} style={{ width: '100%', marginBottom: '10px', padding: '10px', background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px' }} />
-          <input placeholder="Service Type (e.g. 250hr Service)" value={builder.service_type} onChange={e => setBuilder({ ...builder, service_type: e.target.value })} style={{ width: '100%', padding: '10px', background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px' }} />
+          <input placeholder="Service Type (e.g. 250hr Service)" value={builder.service_type} onChange={e => setBuilder({ ...builder, service_type: e.target.value })} style={{ width: '100%', marginBottom: '10px', padding: '10px', background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px' }} />
+          <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#6b7a8d', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Assign to Units</label>
+          <AssetPicker assets={assets} value={builder.asset_ids || []} onChange={ids => setBuilder(b => ({ ...b, asset_ids: ids }))} />
         </div>
         {builder.sections.map((section, si) => (
           <div key={si} className="form-card" style={{ marginTop: '15px' }}>
@@ -1343,54 +1512,79 @@ function ServiceSheetsTab({ userRole }) {
           )}
         </div>
       </div>
-      {templates.length === 0 ? (
-        <div className="form-card" style={{ textAlign: 'center', padding: '40px' }}>
-          <p style={{ color: '#a0b0b0', marginBottom: '20px' }}>No service sheet templates yet.</p>
-          {userRole && userRole.role !== 'technician' && <button className="btn-primary" style={{ background: 'linear-gradient(135deg, #00c2e0, #0090a8)', color: '#000', padding: '12px 24px' }} onClick={() => setShowAI(true)}>Generate with AI</button>}
-        </div>
-      ) : (
-        <>
-          {/* Prefill banner — shown when navigated from asset/maintenance without matched template */}
-          {(() => {
-            const prefill = (() => { try { const p = sessionStorage.getItem('mechiq_prefill'); if (p) { sessionStorage.removeItem('mechiq_prefill'); return JSON.parse(p); } } catch(e) {} return null; })();
-            return prefill ? (
-              <div style={{ background:'var(--accent-light)', border:'1px solid rgba(14,165,233,0.3)', borderRadius:10, padding:'12px 16px', marginBottom:16, display:'flex', alignItems:'center', gap:10 }}>
-                <span style={{ fontSize:16 }}>📋</span>
-                <div>
-                  <div style={{ fontSize:13, fontWeight:700, color:'var(--accent)' }}>Select a template for: {prefill.assetName}</div>
-                  {prefill.serviceType && <div style={{ fontSize:12, color:'var(--text-muted)' }}>Service: {prefill.serviceType}</div>}
+      {(() => {
+        // Determine which asset we're operating in context of (from asset page nav or sessionStorage)
+        const ssIntent = (() => { try { const p = sessionStorage.getItem('mechiq_prefill'); return p ? JSON.parse(p) : null; } catch(e) { return null; } })();
+        const contextAssetName = ssIntent?.assetName || '';
+        const contextAssetId = contextAssetName ? (assets.find(a => a.name === contextAssetName)?.id || null) : null;
+        // Filter templates: prefer assigned ones, fallback to all
+        const assignedTemplates = contextAssetId
+          ? templates.filter(t => Array.isArray(t.asset_ids) && t.asset_ids.includes(contextAssetId))
+          : [];
+        const displayTemplates = assignedTemplates.length > 0 ? assignedTemplates : templates;
+        return (
+          <>
+            {/* Context banner */}
+            {contextAssetName && (
+              <div style={{ background:'var(--accent-light)', border:'1px solid rgba(0,194,224,0.3)', borderRadius:10, padding:'12px 16px', marginBottom:16, display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ fontSize:16 }}>🔧</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:'var(--accent)' }}>
+                    Service sheet for: {contextAssetName}
+                    {ssIntent?.serviceType && <span style={{ fontWeight:400, color:'var(--text-muted)', marginLeft:8 }}>— {ssIntent.serviceType}</span>}
+                  </div>
+                  <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:2 }}>
+                    {assignedTemplates.length > 0
+                      ? `${assignedTemplates.length} template${assignedTemplates.length > 1 ? 's' : ''} assigned to this unit`
+                      : 'No templates assigned — showing all templates'}
+                  </div>
                 </div>
               </div>
-            ) : null;
-          })()}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', marginTop: '20px' }}>
-          {templates.map(t => (
-            <div key={t.id} className="form-card" style={{ cursor: 'pointer' }} onClick={() => {
-              setSelectedTemplate(t);
-              // Apply any prefilled asset/service from navigation intent
-              const prefill = (() => { try { return JSON.parse(sessionStorage.getItem('mechiq_prefill') || '{}'); } catch(e) { return {}; } })();
-              if (prefill.assetName) {
-                setForm(f => ({ ...f, asset: prefill.assetName, service_type: prefill.serviceType || t.service_type || '' }));
-                sessionStorage.removeItem('mechiq_prefill');
-              }
-              setView('fill');
-            }}>
-              <h3 style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>{t.name}</h3>
-              {t.service_type && <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '8px', fontWeight: 600 }}>{t.service_type}</p>}
-              <p style={{ color: '#a0b0b0', fontSize: '13px', marginBottom: '12px' }}>{t.description}</p>
-              <p style={{ color: '#a0b0b0', fontSize: '12px' }}>{(t.sections || []).length} sections</p>
-              <button className="btn-primary" style={{ marginTop: '12px', width: '100%' }}>Start Service Sheet</button>
-              {isAdmin && <button className="btn-delete" style={{ marginTop: '8px', width: '100%', padding: '6px' }} onClick={e => deleteTemplate(t.id, e)}>Delete Template</button>}
-            </div>
-          ))}
-          {userRole && userRole.role !== 'technician' && (
-            <div className="form-card" style={{ cursor: 'pointer', border: '1px dashed #00c2e040', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }} onClick={() => setShowAI(true)}>
-              <p style={{ color: 'var(--accent)', fontSize: '14px', margin: 0 }}>Generate with AI</p>
-            </div>
-          )}
-        </div>
-        </>
-      )}
+            )}
+            {templates.length === 0 ? (
+              <div className="form-card" style={{ textAlign: 'center', padding: '40px' }}>
+                <p style={{ color: '#a0b0b0', marginBottom: '20px' }}>No service sheet templates yet.</p>
+                {userRole && userRole.role !== 'technician' && <button className="btn-primary" style={{ background: 'linear-gradient(135deg, #00c2e0, #0090a8)', color: '#000', padding: '12px 24px' }} onClick={() => setShowAI(true)}>Generate with AI</button>}
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', marginTop: '20px' }}>
+                {displayTemplates.map(t => (
+                  <div key={t.id} className="form-card" style={{ cursor: 'pointer' }} onClick={() => {
+                    setSelectedTemplate(t);
+                    if (contextAssetName) {
+                      setForm(f => ({ ...f, asset: contextAssetName, service_type: ssIntent?.serviceType || t.service_type || '', _assetLocked: true }));
+                      sessionStorage.removeItem('mechiq_prefill');
+                    }
+                    setView('fill');
+                  }}>
+                    <h3 style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>{t.name}</h3>
+                    {t.service_type && <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '8px', fontWeight: 600 }}>{t.service_type}</p>}
+                    <p style={{ color: '#a0b0b0', fontSize: '13px', marginBottom: '8px' }}>{t.description}</p>
+                    <p style={{ color: '#a0b0b0', fontSize: '12px', marginBottom: '8px' }}>{(t.sections || []).length} sections</p>
+                    {Array.isArray(t.asset_ids) && t.asset_ids.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
+                        {t.asset_ids.map(id => {
+                          const a = assets.find(x => x.id === id);
+                          return a ? (
+                            <span key={id} style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px', background: 'var(--accent-light)', color: 'var(--accent)', border: '1px solid rgba(0,194,224,0.3)' }}>{a.name}</span>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+                    <button className="btn-primary" style={{ marginTop: '4px', width: '100%' }}>Start Service Sheet</button>
+                    {isAdmin && <button className="btn-delete" style={{ marginTop: '8px', width: '100%', padding: '6px' }} onClick={e => deleteTemplate(t.id, e)}>Delete Template</button>}
+                  </div>
+                ))}
+                {userRole && userRole.role !== 'technician' && (
+                  <div className="form-card" style={{ cursor: 'pointer', border: '1px dashed #00c2e040', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '120px' }} onClick={() => setShowAI(true)}>
+                    <p style={{ color: 'var(--accent)', fontSize: '14px', margin: 0 }}>Generate with AI</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
