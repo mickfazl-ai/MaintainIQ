@@ -499,7 +499,7 @@ function SignaturePad({ sigCanvas, isSigning, setIsSigning, setSignatureData }) 
 }
 
 // ─── PRESTART TAB ─────────────────────────────────────────────────────────────
-function PrestartTab({ userRole }) {
+function PrestartTab({ userRole, prestartAsset, prestartAssetId, onClearPreload }) {
   const [templates, setTemplates] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [assets, setAssets] = useState([]);
@@ -514,10 +514,30 @@ function PrestartTab({ userRole }) {
   const [form, setForm] = useState({ asset: '', operator_name: '', site_area: '', hrs_start: '', date: new Date().toISOString().split('T')[0], notes: '', responses: {} });
   const [builder, setBuilder] = useState({ name: '', description: '', sections: [] });
   const isAdmin = userRole && (userRole.role === 'admin' || userRole.role === 'master');
+  // Lock asset dropdown when navigated from an asset page
+  const assetLocked = !!prestartAsset;
 
   useEffect(() => {
     if (userRole && userRole.company_id) { fetchTemplates(); fetchSubmissions(); fetchAssets(); }
   }, [userRole]);
+
+  // Pre-fill asset name when navigated from MachineProfile / Assets
+  useEffect(() => {
+    if (prestartAsset) {
+      setForm(f => ({ ...f, asset: prestartAsset }));
+    }
+  }, [prestartAsset]);
+
+  // Auto-open fill view once templates load (single template = skip picker)
+  useEffect(() => {
+    if (prestartAsset && !loading && templates.length > 0 && view === 'list') {
+      if (templates.length === 1) {
+        setSelectedTemplate(templates[0]);
+        setView('fill');
+      }
+      // Multiple templates: stay on list, form.asset already set — user picks template
+    }
+  }, [prestartAsset, loading, templates]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchTemplates = async () => {
     const { data } = await supabase.from('form_templates').select('*').eq('company_id', userRole.company_id).order('created_at', { ascending: false });
@@ -658,8 +678,15 @@ function PrestartTab({ userRole }) {
           <h3 style={{ color: 'var(--accent)', marginBottom: '15px' }}>Prestart Details</h3>
           <div className="form-grid">
             <div>
-              <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>Asset</label>
-              <select value={form.asset} onChange={e => setForm({ ...form, asset: e.target.value })} style={{ width: '100%', padding: '10px', background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '4px' }}>
+              <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
+                Asset {assetLocked && <span style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: 700, marginLeft: '6px', padding: '1px 6px', background: 'var(--accent-light)', borderRadius: '4px', border: '1px solid rgba(0,194,224,0.3)' }}>PRE-FILLED</span>}
+              </label>
+              <select
+                value={form.asset}
+                onChange={e => !assetLocked && setForm({ ...form, asset: e.target.value })}
+                disabled={assetLocked}
+                style={{ width: '100%', padding: '10px', background: assetLocked ? 'var(--surface-3, #0d1f1f)' : 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid ' + (assetLocked ? 'rgba(0,194,224,0.4)' : 'var(--border)'), borderRadius: '4px', opacity: assetLocked ? 0.85 : 1, cursor: assetLocked ? 'not-allowed' : 'auto' }}
+              >
                 <option value="">Select Asset</option>
                 {assets.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
               </select>
@@ -766,6 +793,16 @@ function PrestartTab({ userRole }) {
           )}
         </div>
       </div>
+      {/* Asset pre-fill banner — shown when navigated from an asset page */}
+      {assetLocked && (
+        <div style={{ background: 'var(--accent-light)', border: '1px solid rgba(0,194,224,0.3)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 16 }}>📋</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>Starting prestart for: {prestartAsset}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Select a template below to continue</div>
+          </div>
+        </div>
+      )}
       {templates.length === 0 ? (
         <div className="form-card" style={{ textAlign: 'center', padding: '40px' }}>
           <p style={{ color: '#a0b0b0', marginBottom: '20px' }}>No prestart templates yet.</p>

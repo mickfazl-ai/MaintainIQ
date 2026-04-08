@@ -1439,7 +1439,7 @@ function AssetPage({ assetId, userRole, onStartPrestart, initialTab }) {
       )}
 
       {/* ── Prestart button ── */}
-      <button className="mp-start-btn" onClick={() => onStartPrestart(asset.name)}>
+      <button className="mp-start-btn" onClick={() => onStartPrestart(asset.name, asset.id)}>
         Start Prestart for {asset.name} →
       </button>
 

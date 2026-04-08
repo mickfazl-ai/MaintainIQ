@@ -151,8 +151,9 @@ function App() {
     setCurrentPageRaw('assetpage');
   };
 
-  const handleStartPrestartFromAsset = (assetName) => {
+  const handleStartPrestartFromAsset = (assetName, assetId) => {
     setPrestartAsset(assetName);
+    setPrestartAssetId(assetId || null);
     setCurrentPage('forms', 'prestarts');
     setViewingAssetId(null);
   };
