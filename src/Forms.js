@@ -594,6 +594,8 @@ function PrestartTab({ userRole, prestartAsset, prestartAssetId, onClearPreload 
   const [signatureData, setSignatureData] = useState('');
   const [form, setForm] = useState({ asset: '', operator_name: '', site_area: '', hrs_start: '', date: new Date().toISOString().split('T')[0], notes: '', responses: {} });
   const [builder, setBuilder] = useState({ name: '', description: '', sections: [], asset_ids: [] });
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [filters, setFilters] = useState({ search: '', asset: '', dateFrom: '', dateTo: '', status: 'all' });
   const isAdmin = userRole && (userRole.role === 'admin' || userRole.role === 'master');
   const assetLocked = !!prestartAsset;
 
@@ -835,25 +837,161 @@ function PrestartTab({ userRole, prestartAsset, prestartAssetId, onClearPreload 
   }
 
   if (view === 'history') {
+    // ── Filtered records ──────────────────────────────────────────────────────
+    const filtered = submissions.filter(s => {
+      if (filters.search && !s.asset?.toLowerCase().includes(filters.search.toLowerCase()) && !s.operator_name?.toLowerCase().includes(filters.search.toLowerCase())) return false;
+      if (filters.asset && s.asset !== filters.asset) return false;
+      if (filters.dateFrom && s.date < filters.dateFrom) return false;
+      if (filters.dateTo && s.date > filters.dateTo) return false;
+      if (filters.status === 'defects' && !s.defects_found) return false;
+      if (filters.status === 'clear' && s.defects_found) return false;
+      return true;
+    });
+    const allSelected = filtered.length > 0 && filtered.every(s => selectedIds.has(s.id));
+    const thisMonth = submissions.filter(s => s.date && s.date.startsWith(new Date().toISOString().slice(0,7))).length;
+    const defectCount = submissions.filter(s => s.defects_found).length;
+
+    const toggleAll = () => {
+      if (allSelected) setSelectedIds(new Set());
+      else setSelectedIds(new Set(filtered.map(s => s.id)));
+    };
+    const toggleOne = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+    const exportBulkPDF = () => {
+      const sel = filtered.filter(s => selectedIds.has(s.id));
+      if (sel.length === 0) return;
+      sel.forEach(s => exportPDF(s));
+    };
+    const exportExcel = () => {
+      const rows = filtered.filter(s => selectedIds.size === 0 || selectedIds.has(s.id));
+      const ws = XLSX.utils.json_to_sheet(rows.map(s => ({
+        Date: s.date, Asset: s.asset, Operator: s.operator_name,
+        Site: s.site_area || '', Hours: s.hrs_start || '',
+        Status: s.defects_found ? 'Defects Found' : 'Clear', Notes: s.notes || '',
+      })));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Prestart Records');
+      XLSX.writeFile(wb, 'MechIQ-Prestarts-' + new Date().toISOString().slice(0,10) + '.xlsx');
+    };
+
+    const statBox = (val, lbl, col) => (
+      <div style={{ background: '#fff', border: '1px solid #dde2ea', borderRadius: 10, padding: '12px 18px', minWidth: 100, textAlign: 'center' }}>
+        <div style={{ fontSize: 24, fontWeight: 800, color: col, fontFamily: 'var(--font-display)' }}>{val}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7a8d', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 2 }}>{lbl}</div>
+      </div>
+    );
+
     return (
       <div className="prestart">
-        <div className="page-header"><h2>Prestart History</h2><button className="btn-primary" onClick={() => setView('list')}>Back</button></div>
-        {submissions.length === 0 ? <p style={{ color: '#a0b0b0' }}>No submissions yet</p> : (
-          <table className="data-table">
-            <thead>
-              <tr><th>Date</th><th>Asset</th><th>Operator</th><th>Site</th><th>Defects</th><th>PDF</th>{isAdmin && <th>Delete</th>}</tr>
-            </thead>
-            <tbody>
-              {submissions.map(s => (
-                <tr key={s.id}>
-                  <td>{s.date}</td><td>{s.asset}</td><td>{s.operator_name}</td><td>{s.site_area || '-'}</td>
-                  <td><span style={{ color: s.defects_found ? '#e94560' : '#00c264' }}>{s.defects_found ? 'Defects' : 'Clear'}</span></td>
-                  <td><button className="btn-primary" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => exportPDF(s)}>PDF</button></td>
-                  {isAdmin && <td><button className="btn-delete" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => deleteSubmission(s.id)}>Delete</button></td>}
+        {/* Header */}
+        <div className="page-header">
+          <h2>Prestart Records</h2>
+          <button className="btn-primary" onClick={() => { setView('list'); setSelectedIds(new Set()); }}>Back</button>
+        </div>
+
+        {/* Stats bar */}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+          {statBox(submissions.length, 'Total', '#2d8cf0')}
+          {statBox(defectCount, 'Defects', '#e94560')}
+          {statBox(submissions.length - defectCount, 'Clear', '#00c264')}
+          {statBox(thisMonth, 'This Month', '#f59e0b')}
+        </div>
+
+        {/* Filters */}
+        <div style={{ background: '#fff', border: '1px solid #dde2ea', borderRadius: 10, padding: '14px 16px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          <input
+            placeholder="Search asset or operator..."
+            value={filters.search}
+            onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+            style={{ flex: 1, minWidth: 180, padding: '8px 12px', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 13, color: '#1a2b3c', background: '#f8fafc' }}
+          />
+          <select value={filters.asset} onChange={e => setFilters(f => ({ ...f, asset: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 13, color: '#1a2b3c', background: '#f8fafc' }}>
+            <option value="">All Assets</option>
+            {assets.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
+          </select>
+          <input type="date" value={filters.dateFrom} onChange={e => setFilters(f => ({ ...f, dateFrom: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 13, color: '#1a2b3c', background: '#f8fafc' }} />
+          <input type="date" value={filters.dateTo} onChange={e => setFilters(f => ({ ...f, dateTo: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 13, color: '#1a2b3c', background: '#f8fafc' }} />
+          <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 13, color: '#1a2b3c', background: '#f8fafc' }}>
+            <option value="all">All Status</option>
+            <option value="clear">Clear</option>
+            <option value="defects">Defects</option>
+          </select>
+          {(filters.search || filters.asset || filters.dateFrom || filters.dateTo || filters.status !== 'all') && (
+            <button onClick={() => setFilters({ search: '', asset: '', dateFrom: '', dateTo: '', status: 'all' })} style={{ padding: '8px 12px', background: 'transparent', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 12, color: '#6b7a8d', cursor: 'pointer' }}>✕ Clear</button>
+          )}
+        </div>
+
+        {/* Bulk action bar */}
+        {filtered.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13, color: '#6b7a8d' }}>{filtered.length} record{filtered.length !== 1 ? 's' : ''} shown</span>
+            {selectedIds.size > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: '#2d8cf0' }}>{selectedIds.size} selected</span>}
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button
+                onClick={exportExcel}
+                style={{ padding: '7px 14px', background: '#fff', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#1a7a4a', cursor: 'pointer' }}
+              >
+                ⬇ Excel {selectedIds.size > 0 ? `(${selectedIds.size})` : '(All)'}
+              </button>
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={exportBulkPDF}
+                  style={{ padding: '7px 14px', background: '#2d8cf0', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#fff', cursor: 'pointer' }}
+                >
+                  ⬇ PDF ({selectedIds.size})
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Table */}
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#a0b0b0', background: '#fff', borderRadius: 10, border: '1px solid #dde2ea' }}>
+            {submissions.length === 0 ? 'No prestart records yet.' : 'No records match your filters.'}
+          </div>
+        ) : (
+          <div style={{ background: '#fff', border: '1px solid #dde2ea', borderRadius: 10, overflow: 'hidden' }}>
+            <table className="data-table" style={{ margin: 0 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 36 }}>
+                    <input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ cursor: 'pointer' }} />
+                  </th>
+                  <th>Date</th><th>Asset</th><th>Operator</th><th>Site</th><th>Hrs</th><th>Status</th><th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map(s => (
+                  <tr key={s.id} style={{ background: selectedIds.has(s.id) ? '#f0f7ff' : 'transparent' }}>
+                    <td><input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleOne(s.id)} style={{ cursor: 'pointer' }} /></td>
+                    <td style={{ fontWeight: 600, color: '#1a2b3c' }}>{s.date}</td>
+                    <td style={{ fontWeight: 600 }}>{s.asset}</td>
+                    <td>{s.operator_name}</td>
+                    <td style={{ color: '#6b7a8d' }}>{s.site_area || '—'}</td>
+                    <td style={{ color: '#2d8cf0', fontWeight: 600 }}>{s.hrs_start || '—'}</td>
+                    <td>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                        background: s.defects_found ? '#fff1f2' : '#f0fdf4',
+                        color: s.defects_found ? '#e94560' : '#00c264',
+                        border: '1px solid ' + (s.defects_found ? '#fecdd3' : '#bbf7d0'),
+                      }}>
+                        {s.defects_found ? '⚠ Defects' : '✓ Clear'}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn-primary" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => exportPDF(s)}>PDF</button>
+                        {isAdmin && <button className="btn-delete" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => deleteSubmission(s.id)}>Delete</button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     );
@@ -865,7 +1003,7 @@ function PrestartTab({ userRole, prestartAsset, prestartAssetId, onClearPreload 
       <div className="page-header">
         <h2>Prestart Checklists</h2>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button className="btn-primary" onClick={() => setView('history')}>History</button>
+          <button className="btn-primary" onClick={() => { setView('history'); setSelectedIds(new Set()); setFilters({ search: '', asset: '', dateFrom: '', dateTo: '', status: 'all' }); }}>📋 Records</button>
           {userRole && userRole.role !== 'technician' && (
             <>
               <button className="btn-primary" style={{ background: 'linear-gradient(135deg, #00c2e0, #0090a8)', color: '#000' }} onClick={() => setShowAI(true)}>Generate with AI</button>
@@ -957,6 +1095,8 @@ function ServiceSheetsTab({ userRole }) {
   const [isSigning, setIsSigning] = useState(false);
   const [signatureData, setSignatureData] = useState('');
   const [builder, setBuilder] = useState({ name: '', description: '', service_type: '', sections: [], parts_template: [], labour_items: [], asset_ids: [] });
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [filters, setFilters] = useState({ search: '', asset: '', dateFrom: '', dateTo: '', tech: '' });
   const [form, setForm] = useState({ asset: '', technician: '', date: new Date().toISOString().split('T')[0], odometer: '', service_type: '', notes: '', responses: {}, parts: [{ name: '', qty: '', cost: '', part_id: null }], labour: [{ description: '', hours: '' }] });
   const isAdmin = userRole && (userRole.role === 'admin' || userRole.role === 'master');
 
@@ -1472,26 +1612,148 @@ function ServiceSheetsTab({ userRole }) {
   }
 
   if (view === 'history') {
+    // ── Filtered records ──────────────────────────────────────────────────────
+    const filtered = submissions.filter(s => {
+      if (filters.search && !s.asset?.toLowerCase().includes(filters.search.toLowerCase()) && !s.technician?.toLowerCase().includes(filters.search.toLowerCase())) return false;
+      if (filters.asset && s.asset !== filters.asset) return false;
+      if (filters.dateFrom && s.date < filters.dateFrom) return false;
+      if (filters.dateTo && s.date > filters.dateTo) return false;
+      if (filters.tech && !s.technician?.toLowerCase().includes(filters.tech.toLowerCase())) return false;
+      return true;
+    });
+    const allSelected = filtered.length > 0 && filtered.every(s => selectedIds.has(s.id));
+    const thisMonth = submissions.filter(s => s.date && s.date.startsWith(new Date().toISOString().slice(0,7))).length;
+    const totalParts = submissions.reduce((sum, s) => sum + parseFloat(s.total_parts_cost || 0), 0);
+    const totalLabour = submissions.reduce((sum, s) => sum + parseFloat(s.total_labour_hours || 0), 0);
+
+    const toggleAll = () => {
+      if (allSelected) setSelectedIds(new Set());
+      else setSelectedIds(new Set(filtered.map(s => s.id)));
+    };
+    const toggleOne = (id) => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+    const exportBulkPDF = () => {
+      const sel = filtered.filter(s => selectedIds.has(s.id));
+      if (sel.length === 0) return;
+      sel.forEach(s => exportServicePDF(s));
+    };
+    const exportExcel = () => {
+      const rows = filtered.filter(s => selectedIds.size === 0 || selectedIds.has(s.id));
+      const ws = XLSX.utils.json_to_sheet(rows.map(s => ({
+        Date: s.date, Asset: s.asset, Technician: s.technician,
+        'Service Type': s.service_type || '',
+        'Parts Cost ($)': parseFloat(s.total_parts_cost || 0).toFixed(2),
+        'Labour Hours': parseFloat(s.total_labour_hours || 0).toFixed(1),
+        Notes: s.notes || '',
+      })));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Service Records');
+      XLSX.writeFile(wb, 'MechIQ-ServiceSheets-' + new Date().toISOString().slice(0,10) + '.xlsx');
+    };
+
+    const statBox = (val, lbl, col) => (
+      <div style={{ background: '#fff', border: '1px solid #dde2ea', borderRadius: 10, padding: '12px 18px', minWidth: 110, textAlign: 'center' }}>
+        <div style={{ fontSize: 22, fontWeight: 800, color: col, fontFamily: 'var(--font-display)' }}>{val}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7a8d', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 2 }}>{lbl}</div>
+      </div>
+    );
+
     return (
       <div className="prestart">
-        <div className="page-header"><h2>Service Sheet History</h2><button className="btn-primary" onClick={() => setView('list')}>Back</button></div>
-        {submissions.length === 0 ? <p style={{ color: '#a0b0b0' }}>No submissions yet</p> : (
-          <table className="data-table">
-            <thead>
-              <tr><th>Date</th><th>Asset</th><th>Technician</th><th>Service Type</th><th>Parts</th><th>Labour</th><th>PDF</th>{isAdmin && <th>Delete</th>}</tr>
-            </thead>
-            <tbody>
-              {submissions.map(s => (
-                <tr key={s.id}>
-                  <td>{s.date}</td><td>{s.asset}</td><td>{s.technician}</td><td>{s.service_type || '-'}</td>
-                  <td style={{ color: '#ff6b00' }}>${parseFloat(s.total_parts_cost || 0).toFixed(2)}</td>
-                  <td style={{ color: 'var(--accent)' }}>{parseFloat(s.total_labour_hours || 0).toFixed(1)}h</td>
-                  <td><button className="btn-primary" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => exportServicePDF(s)}>PDF</button></td>
-                  {isAdmin && <td><button className="btn-delete" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => deleteSubmission(s.id)}>Delete</button></td>}
+        {/* Header */}
+        <div className="page-header">
+          <h2>Service Sheet Records</h2>
+          <button className="btn-primary" onClick={() => { setView('list'); setSelectedIds(new Set()); }}>Back</button>
+        </div>
+
+        {/* Stats bar */}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+          {statBox(submissions.length, 'Total', '#2d8cf0')}
+          {statBox('$' + totalParts.toFixed(0), 'Parts Cost', '#ff6b00')}
+          {statBox(totalLabour.toFixed(1) + 'h', 'Labour Hrs', '#00c2e0')}
+          {statBox(thisMonth, 'This Month', '#f59e0b')}
+        </div>
+
+        {/* Filters */}
+        <div style={{ background: '#fff', border: '1px solid #dde2ea', borderRadius: 10, padding: '14px 16px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          <input
+            placeholder="Search asset or technician..."
+            value={filters.search}
+            onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+            style={{ flex: 1, minWidth: 180, padding: '8px 12px', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 13, color: '#1a2b3c', background: '#f8fafc' }}
+          />
+          <select value={filters.asset} onChange={e => setFilters(f => ({ ...f, asset: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 13, color: '#1a2b3c', background: '#f8fafc' }}>
+            <option value="">All Assets</option>
+            {assets.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
+          </select>
+          <input type="date" value={filters.dateFrom} onChange={e => setFilters(f => ({ ...f, dateFrom: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 13, color: '#1a2b3c', background: '#f8fafc' }} />
+          <input type="date" value={filters.dateTo} onChange={e => setFilters(f => ({ ...f, dateTo: e.target.value }))} style={{ padding: '8px 10px', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 13, color: '#1a2b3c', background: '#f8fafc' }} />
+          {(filters.search || filters.asset || filters.dateFrom || filters.dateTo || filters.tech) && (
+            <button onClick={() => setFilters({ search: '', asset: '', dateFrom: '', dateTo: '', tech: '' })} style={{ padding: '8px 12px', background: 'transparent', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 12, color: '#6b7a8d', cursor: 'pointer' }}>✕ Clear</button>
+          )}
+        </div>
+
+        {/* Bulk action bar */}
+        {filtered.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13, color: '#6b7a8d' }}>{filtered.length} record{filtered.length !== 1 ? 's' : ''} shown</span>
+            {selectedIds.size > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: '#2d8cf0' }}>{selectedIds.size} selected</span>}
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button
+                onClick={exportExcel}
+                style={{ padding: '7px 14px', background: '#fff', border: '1px solid #dde2ea', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#1a7a4a', cursor: 'pointer' }}
+              >
+                ⬇ Excel {selectedIds.size > 0 ? `(${selectedIds.size})` : '(All)'}
+              </button>
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={exportBulkPDF}
+                  style={{ padding: '7px 14px', background: '#2d8cf0', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#fff', cursor: 'pointer' }}
+                >
+                  ⬇ PDF ({selectedIds.size})
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Table */}
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#a0b0b0', background: '#fff', borderRadius: 10, border: '1px solid #dde2ea' }}>
+            {submissions.length === 0 ? 'No service sheet records yet.' : 'No records match your filters.'}
+          </div>
+        ) : (
+          <div style={{ background: '#fff', border: '1px solid #dde2ea', borderRadius: 10, overflow: 'hidden' }}>
+            <table className="data-table" style={{ margin: 0 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 36 }}>
+                    <input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ cursor: 'pointer' }} />
+                  </th>
+                  <th>Date</th><th>Asset</th><th>Technician</th><th>Service Type</th><th>Parts</th><th>Labour</th><th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map(s => (
+                  <tr key={s.id} style={{ background: selectedIds.has(s.id) ? '#f0f7ff' : 'transparent' }}>
+                    <td><input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleOne(s.id)} style={{ cursor: 'pointer' }} /></td>
+                    <td style={{ fontWeight: 600, color: '#1a2b3c' }}>{s.date}</td>
+                    <td style={{ fontWeight: 600 }}>{s.asset}</td>
+                    <td>{s.technician}</td>
+                    <td style={{ color: '#6b7a8d' }}>{s.service_type || '—'}</td>
+                    <td style={{ color: '#ff6b00', fontWeight: 600 }}>${parseFloat(s.total_parts_cost || 0).toFixed(2)}</td>
+                    <td style={{ color: '#00c2e0', fontWeight: 600 }}>{parseFloat(s.total_labour_hours || 0).toFixed(1)}h</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn-primary" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => exportServicePDF(s)}>PDF</button>
+                        {isAdmin && <button className="btn-delete" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={() => deleteSubmission(s.id)}>Delete</button>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     );
@@ -1503,7 +1765,7 @@ function ServiceSheetsTab({ userRole }) {
       <div className="page-header">
         <h2>Service Sheets</h2>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button className="btn-primary" onClick={() => setView('history')}>History</button>
+          <button className="btn-primary" onClick={() => { setView('history'); setSelectedIds(new Set()); setFilters({ search: '', asset: '', dateFrom: '', dateTo: '', tech: '' }); }}>📋 Records</button>
           {userRole && userRole.role !== 'technician' && (
             <>
               <button className="btn-primary" style={{ background: 'linear-gradient(135deg, #00c2e0, #0090a8)', color: '#000' }} onClick={() => setShowAI(true)}>Generate with AI</button>
