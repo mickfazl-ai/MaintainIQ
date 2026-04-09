@@ -184,7 +184,7 @@ function App() {
 
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
+        return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} onViewAsset={handleViewAsset} />;
       case 'assets':
         return <Assets userRole={effectiveUserRole} onViewAsset={handleViewAsset} initialTab={currentSubPage || 'units'} key={currentSubPage} />;
       case 'downtime':
@@ -237,10 +237,10 @@ function App() {
       case 'chat':
         return <Chat userRole={effectiveUserRole} />;
       case 'master':
-        if (userRole?.role !== 'master') return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
+        if (userRole?.role !== 'master') return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} onViewAsset={handleViewAsset} />;
         return <MasterAdmin initialTab={currentSubPage || 'companies'} key={currentSubPage} />;
       default:
-        return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
+        return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} onViewAsset={handleViewAsset} />;
     }
   };
 
