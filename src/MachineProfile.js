@@ -304,12 +304,160 @@ function WorkOrdersTab({ asset, userRole }) {
 }
 
 // ─── Tab: Service Schedule ────────────────────────────────────────────────────
+// ─── Service Schedule Modal ───────────────────────────────────────────────────
+const INTERVAL_TYPES = [
+  { id: 'hours',  label: 'Hours',  unit: 'hrs',    numeric: true  },
+  { id: 'km',     label: 'Kilometres', unit: 'km', numeric: true  },
+  { id: 'months', label: 'Months', unit: 'months', numeric: false },
+  { id: 'years',  label: 'Years',  unit: 'years',  numeric: false },
+];
+
+function ServiceScheduleModal({ asset, schedule, onClose, onSaved }) {
+  const isEdit = !!schedule;
+  const blank = { service_name: '', interval_value: '', interval_type: 'hours', last_service_value: '', last_service_date: '', notes: '' };
+  const [form, setForm] = useState(isEdit ? {
+    service_name:      schedule.service_name || '',
+    interval_value:    schedule.interval_value || '',
+    interval_type:     schedule.interval_type || 'hours',
+    last_service_value:schedule.last_service_value || '',
+    last_service_date: schedule.last_service_date || '',
+    notes:             schedule.notes || '',
+  } : blank);
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState('');
+
+  const iType = INTERVAL_TYPES.find(t => t.id === form.interval_type) || INTERVAL_TYPES[0];
+  const isNumeric = iType.numeric;
+
+  // Calculate next due from last done + interval
+  const calcNextDue = (f) => {
+    const iv = parseFloat(f.interval_value);
+    if (!iv) return { next_due_value: null, next_due_date: null };
+    if (f.interval_type === 'hours' || f.interval_type === 'km') {
+      const last = parseFloat(f.last_service_value) || 0;
+      return { next_due_value: last + iv, next_due_date: null };
+    }
+    // Date-based
+    const base = f.last_service_date ? new Date(f.last_service_date) : new Date();
+    if (f.interval_type === 'months') base.setMonth(base.getMonth() + iv);
+    if (f.interval_type === 'years')  base.setFullYear(base.getFullYear() + iv);
+    return { next_due_value: null, next_due_date: base.toISOString().split('T')[0] };
+  };
+
+  const handleSave = async () => {
+    if (!form.service_name.trim()) { setError('Service name is required'); return; }
+    if (!form.interval_value || parseFloat(form.interval_value) <= 0) { setError('Interval must be greater than 0'); return; }
+    setSaving(true); setError('');
+    const { next_due_value, next_due_date } = calcNextDue(form);
+    const payload = {
+      service_name:       form.service_name.trim(),
+      interval_value:     parseFloat(form.interval_value),
+      interval_type:      form.interval_type,
+      last_service_value: isNumeric && form.last_service_value ? parseFloat(form.last_service_value) : null,
+      last_service_date:  !isNumeric && form.last_service_date ? form.last_service_date : (form.last_service_date || null),
+      next_due_value,
+      next_due_date,
+      notes:              form.notes || null,
+    };
+    if (isEdit) {
+      await supabase.from('service_schedules').update(payload).eq('id', schedule.id);
+    } else {
+      await supabase.from('service_schedules').insert([{ ...payload, asset_name: asset.name, company_id: asset.company_id, asset_id: asset.id }]);
+    }
+    setSaving(false);
+    onSaved();
+  };
+
+  const fStyle = { width: '100%', padding: '9px 12px', border: '1px solid #dde2ea', borderRadius: 7, fontSize: 13, color: '#1a2b3c', background: '#fff', outline: 'none', boxSizing: 'border-box' };
+  const lStyle = { display: 'block', fontSize: 11, fontWeight: 700, color: '#6b7a8d', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 5 };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 480, boxShadow: '0 24px 80px rgba(0,0,0,0.18)', animation: 'fadeUp 0.2s ease' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#1a2b3c' }}>{isEdit ? 'Edit Service' : 'Add Service Schedule'}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#a0b0b0', lineHeight: 1 }}>✕</button>
+        </div>
+
+        {/* Service Name */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={lStyle}>Service Name</label>
+          <input style={fStyle} placeholder="e.g. 250hr Service, Annual Inspection" value={form.service_name} onChange={e => setForm(f => ({ ...f, service_name: e.target.value }))} />
+        </div>
+
+        {/* Interval Type + Value */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+          <div>
+            <label style={lStyle}>Interval Type</label>
+            <select style={fStyle} value={form.interval_type} onChange={e => setForm(f => ({ ...f, interval_type: e.target.value, last_service_value: '', last_service_date: '' }))}>
+              {INTERVAL_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lStyle}>Every</label>
+            <div style={{ position: 'relative' }}>
+              <input style={{ ...fStyle, paddingRight: 48 }} type="number" min="1" placeholder={isNumeric ? '250' : '3'} value={form.interval_value} onChange={e => setForm(f => ({ ...f, interval_value: e.target.value }))} />
+              <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 11, fontWeight: 700, color: '#a0b0b0', pointerEvents: 'none' }}>{iType.unit}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Last Done */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={lStyle}>Last Done <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional — used to calculate next due)</span></label>
+          {isNumeric ? (
+            <div style={{ position: 'relative' }}>
+              <input style={{ ...fStyle, paddingRight: 48 }} type="number" placeholder={`e.g. ${parseFloat(form.interval_value) || 0}`} value={form.last_service_value} onChange={e => setForm(f => ({ ...f, last_service_value: e.target.value }))} />
+              <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 11, fontWeight: 700, color: '#a0b0b0', pointerEvents: 'none' }}>{iType.unit}</span>
+            </div>
+          ) : (
+            <input style={fStyle} type="date" value={form.last_service_date} onChange={e => setForm(f => ({ ...f, last_service_date: e.target.value }))} />
+          )}
+        </div>
+
+        {/* Next Due Preview */}
+        {form.interval_value && (
+          <div style={{ background: '#f0f8ff', border: '1px solid rgba(0,194,224,0.25)', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#2d8cf0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Next Due Preview: </span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#1a2b3c' }}>
+              {(() => {
+                const { next_due_value, next_due_date } = calcNextDue(form);
+                if (next_due_value !== null) return `${next_due_value.toLocaleString()} ${iType.unit}`;
+                if (next_due_date) return next_due_date;
+                return '—';
+              })()}
+            </span>
+          </div>
+        )}
+
+        {/* Notes */}
+        <div style={{ marginBottom: 20 }}>
+          <label style={lStyle}>Notes (optional)</label>
+          <input style={fStyle} placeholder="e.g. Check coolant, replace filters" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+        </div>
+
+        {error && <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 7, padding: '8px 12px', color: '#e94560', fontSize: 12, marginBottom: 14 }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', background: '#f8fafc', border: '1px solid #dde2ea', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#6b7a8d', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: '10px', background: saving ? '#a0b0b0' : 'linear-gradient(135deg, #00c2e0, #0090a8)', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer' }}>
+            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Schedule'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ServiceTab({ asset }) {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentHours, setCurrentHours] = useState(asset.hours || 0);
   const [saving, setSaving] = useState(false);
   const [serviceTemplates, setServiceTemplates] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editSchedule, setEditSchedule] = useState(null);
 
   useEffect(() => { load(); loadTemplates(); }, [asset]);
 
@@ -376,6 +524,12 @@ function ServiceTab({ asset }) {
     load();
   };
 
+  const deleteSchedule = async (s) => {
+    if (!window.confirm(`Delete "${s.service_name}"? This cannot be undone.`)) return;
+    await supabase.from('service_schedules').delete().eq('id', s.id);
+    load();
+  };
+
   const getStatus = (s) => {
     if (s.interval_type === 'hours' || s.interval_type === 'km') {
       const remaining = (s.next_due_value || 0) - currentHours;
@@ -398,6 +552,16 @@ function ServiceTab({ asset }) {
 
   return (
     <div>
+      {/* Service Schedule Modal */}
+      {showModal && (
+        <ServiceScheduleModal
+          asset={asset}
+          schedule={editSchedule}
+          onClose={() => { setShowModal(false); setEditSchedule(null); }}
+          onSaved={() => { setShowModal(false); setEditSchedule(null); load(); }}
+        />
+      )}
+
       {/* Hours update */}
       <div className="mp-card" style={{ marginBottom:14 }}>
         <div className="mp-section-title">Current Reading</div>
@@ -451,12 +615,28 @@ function ServiceTab({ asset }) {
 
       {loading ? <Sk h="80px" /> : schedules.length === 0 ? (
         <div className="mp-card" style={{ textAlign:'center', padding:40, color:'var(--text-faint)' }}>
-          No service schedules set up for this asset.<br />
-          <span style={{ fontSize:12 }}>Go to Maintenance → Service Schedules to add them.</span>
+          <div style={{ fontSize:14, marginBottom:12 }}>No service schedules set up for this asset.</div>
+          <button
+            onClick={() => { setEditSchedule(null); setShowModal(true); }}
+            style={{ padding:'10px 24px', background:'linear-gradient(135deg,var(--accent),#0090a8)', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer' }}
+          >
+            + Add First Service
+          </button>
         </div>
       ) : (
         <div className="mp-card">
-          <div className="mp-section-title">Service Schedules ({schedules.length})</div>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, paddingBottom:12, borderBottom:'1.5px solid var(--border)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ fontFamily:'var(--font-display)', fontSize:15, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.8px', color:'var(--text-primary)' }}>Service Schedules</span>
+              <span style={{ background:'var(--accent-light)', color:'var(--accent)', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20 }}>{schedules.length}</span>
+            </div>
+            <button
+              onClick={() => { setEditSchedule(null); setShowModal(true); }}
+              style={{ padding:'7px 16px', background:'linear-gradient(135deg,var(--accent),#0090a8)', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}
+            >
+              + Add Service
+            </button>
+          </div>
           <div style={{ overflowX:'auto' }}>
             <table style={{ width:'100%', borderCollapse:'collapse', minWidth:500 }}>
               <thead><tr>
@@ -494,6 +674,16 @@ function ServiceTab({ asset }) {
                               </button>
                             );
                           })()}
+                          <button
+                            onClick={() => { setEditSchedule(s); setShowModal(true); }}
+                            style={{ padding:'4px 9px', background:'#f8fafc', color:'#6b7a8d', border:'1px solid #dde2ea', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer' }}
+                            title="Edit schedule"
+                          >✏️</button>
+                          <button
+                            onClick={() => deleteSchedule(s)}
+                            style={{ padding:'4px 9px', background:'#fff1f2', color:'#e94560', border:'1px solid #fecdd3', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer' }}
+                            title="Delete schedule"
+                          >🗑</button>
                         </div>
                       </td>
                     </tr>
@@ -1439,7 +1629,7 @@ function AssetPage({ assetId, userRole, onStartPrestart, initialTab }) {
       )}
 
       {/* ── Prestart button ── */}
-      <button className="mp-start-btn" onClick={() => onStartPrestart(asset.name, asset.id)}>
+      <button className="mp-start-btn" onClick={() => onStartPrestart(asset.name)}>
         Start Prestart for {asset.name} →
       </button>
 
