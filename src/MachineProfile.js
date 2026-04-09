@@ -314,15 +314,18 @@ const INTERVAL_TYPES = [
 
 function ServiceScheduleModal({ asset, schedule, onClose, onSaved }) {
   const isEdit = !!schedule;
-  const blank = { service_name: '', interval_value: '', interval_type: 'hours', last_service_value: '', last_service_date: '', notes: '' };
+  const blank = { service_name: '', interval_value: '', interval_type: 'hours', last_service_value: '', last_service_date: '', next_due_override: '', notes: '' };
   const [form, setForm] = useState(isEdit ? {
-    service_name:      schedule.service_name || '',
-    interval_value:    schedule.interval_value || '',
-    interval_type:     schedule.interval_type || 'hours',
-    last_service_value:schedule.last_service_value || '',
-    last_service_date: schedule.last_service_date || '',
-    notes:             schedule.notes || '',
+    service_name:       schedule.service_name || '',
+    interval_value:     schedule.interval_value || '',
+    interval_type:      schedule.interval_type || 'hours',
+    last_service_value: schedule.last_service_value || '',
+    last_service_date:  schedule.last_service_date || '',
+    next_due_override:  schedule.next_due_value ? String(schedule.next_due_value) : (schedule.next_due_date || ''),
+    notes:              schedule.notes || '',
   } : blank);
+  // 'auto' = calculate from last done + interval | 'manual' = hard-set exact next due
+  const [nextDueMode, setNextDueMode] = useState(isEdit && (schedule.next_due_value || schedule.next_due_date) ? 'manual' : 'auto');
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
 
@@ -348,13 +351,19 @@ function ServiceScheduleModal({ asset, schedule, onClose, onSaved }) {
     if (!form.service_name.trim()) { setError('Service name is required'); return; }
     if (!form.interval_value || parseFloat(form.interval_value) <= 0) { setError('Interval must be greater than 0'); return; }
     setSaving(true); setError('');
-    const { next_due_value, next_due_date } = calcNextDue(form);
+    let next_due_value, next_due_date;
+    if (nextDueMode === 'manual' && form.next_due_override) {
+      if (isNumeric) { next_due_value = parseFloat(form.next_due_override); next_due_date = null; }
+      else           { next_due_date = form.next_due_override; next_due_value = null; }
+    } else {
+      ({ next_due_value, next_due_date } = calcNextDue(form));
+    }
     const payload = {
       service_name:       form.service_name.trim(),
       interval_value:     parseFloat(form.interval_value),
       interval_type:      form.interval_type,
       last_service_value: isNumeric && form.last_service_value ? parseFloat(form.last_service_value) : null,
-      last_service_date:  !isNumeric && form.last_service_date ? form.last_service_date : (form.last_service_date || null),
+      last_service_date:  form.last_service_date || null,
       next_due_value,
       next_due_date,
       notes:              form.notes || null,
@@ -405,10 +414,10 @@ function ServiceScheduleModal({ asset, schedule, onClose, onSaved }) {
 
         {/* Last Done */}
         <div style={{ marginBottom: 14 }}>
-          <label style={lStyle}>Last Done <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional — used to calculate next due)</span></label>
+          <label style={lStyle}>Last Done <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional)</span></label>
           {isNumeric ? (
             <div style={{ position: 'relative' }}>
-              <input style={{ ...fStyle, paddingRight: 48 }} type="number" placeholder={`e.g. ${parseFloat(form.interval_value) || 0}`} value={form.last_service_value} onChange={e => setForm(f => ({ ...f, last_service_value: e.target.value }))} />
+              <input style={{ ...fStyle, paddingRight: 48 }} type="number" placeholder="e.g. 7548" value={form.last_service_value} onChange={e => setForm(f => ({ ...f, last_service_value: e.target.value }))} />
               <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 11, fontWeight: 700, color: '#a0b0b0', pointerEvents: 'none' }}>{iType.unit}</span>
             </div>
           ) : (
@@ -416,20 +425,57 @@ function ServiceScheduleModal({ asset, schedule, onClose, onSaved }) {
           )}
         </div>
 
-        {/* Next Due Preview */}
-        {form.interval_value && (
-          <div style={{ background: '#f0f8ff', border: '1px solid rgba(0,194,224,0.25)', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#2d8cf0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Next Due Preview: </span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#1a2b3c' }}>
-              {(() => {
-                const { next_due_value, next_due_date } = calcNextDue(form);
-                if (next_due_value !== null) return `${next_due_value.toLocaleString()} ${iType.unit}`;
-                if (next_due_date) return next_due_date;
-                return '—';
-              })()}
-            </span>
+        {/* Next Due — toggle between Auto and Hard Set */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <label style={lStyle}>Next Due</label>
+            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 7, padding: 2 }}>
+              {[['auto','Auto'], ['manual','Hard Set']].map(([m,l]) => (
+                <button key={m} type="button" onClick={() => setNextDueMode(m)}
+                  style={{ padding: '4px 12px', border: 'none', borderRadius: 6, background: nextDueMode===m ? '#fff' : 'transparent', color: nextDueMode===m ? '#1a2b3c' : '#6b7a8d', fontWeight: nextDueMode===m ? 700 : 500, fontSize: 12, cursor: 'pointer', boxShadow: nextDueMode===m ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
+
+          {nextDueMode === 'auto' ? (
+            <div style={{ background: '#f0f8ff', border: '1px solid rgba(0,194,224,0.25)', borderRadius: 8, padding: '10px 14px' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#2d8cf0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Calculated: </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#1a2b3c' }}>
+                {(() => {
+                  const { next_due_value, next_due_date } = calcNextDue(form);
+                  if (next_due_value !== null) return `${next_due_value.toLocaleString()} ${iType.unit}`;
+                  if (next_due_date) return next_due_date;
+                  return form.interval_value ? '—' : 'Enter interval above';
+                })()}
+              </span>
+              <div style={{ fontSize: 11, color: '#6b7a8d', marginTop: 4 }}>Last done + interval. Switch to Hard Set to enter an exact value.</div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ position: 'relative' }}>
+                {isNumeric ? (
+                  <>
+                    <input
+                      style={{ ...fStyle, paddingRight: 48, borderColor: '#00c2e0', background: '#f8feff' }}
+                      type="number"
+                      placeholder="e.g. 8000"
+                      value={form.next_due_override}
+                      onChange={e => setForm(f => ({ ...f, next_due_override: e.target.value }))}
+                    />
+                    <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 11, fontWeight: 700, color: '#00c2e0', pointerEvents: 'none' }}>{iType.unit}</span>
+                  </>
+                ) : (
+                  <input style={{ ...fStyle, borderColor: '#00c2e0', background: '#f8feff' }} type="date" value={form.next_due_override} onChange={e => setForm(f => ({ ...f, next_due_override: e.target.value }))} />
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: '#6b7a8d', marginTop: 4 }}>
+                {isNumeric ? `Enter the exact ${iType.unit} reading when this service is due.` : 'Enter the exact date this service is due.'}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Notes */}
         <div style={{ marginBottom: 20 }}>
