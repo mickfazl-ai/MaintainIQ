@@ -580,7 +580,7 @@ function SignaturePad({ sigCanvas, isSigning, setIsSigning, setSignatureData }) 
 }
 
 // ─── PRESTART TAB ─────────────────────────────────────────────────────────────
-function PrestartTab({ userRole, prestartAsset, prestartAssetId, onClearPreload }) {
+function PrestartTab({ userRole, prestartAsset, prestartAssetId, prestartAssetNumber, onClearPreload }) {
   const [templates, setTemplates] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [assets, setAssets] = useState([]);
@@ -761,6 +761,7 @@ function PrestartTab({ userRole, prestartAsset, prestartAssetId, onClearPreload 
             <div>
               <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
                 Asset {assetLocked && <span style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: 700, marginLeft: '6px', padding: '1px 6px', background: 'var(--accent-light)', borderRadius: '4px', border: '1px solid rgba(0,194,224,0.3)' }}>PRE-FILLED</span>}
+                {assetLocked && prestartAssetNumber && <span style={{ color: '#6b7a8d', fontSize: '10px', fontWeight: 700, marginLeft: '6px', padding: '1px 6px', background: '#f1f5f9', borderRadius: '4px', border: '1px solid #dde2ea' }}>#{prestartAssetNumber}</span>}
               </label>
               <select
                 value={form.asset}
@@ -1140,7 +1141,7 @@ function ServiceSheetsTab({ userRole }) {
           const assigned = allTemplates.filter(t => Array.isArray(t.asset_ids) && t.asset_ids.includes(assetObj.id));
           if (assigned.length === 1) {
             setSelectedTemplate(assigned[0]);
-            setForm(f => ({ ...f, asset: prefill.assetName, service_type: prefill.serviceType || assigned[0].service_type || '', _assetLocked: true }));
+            setForm(f => ({ ...f, asset: prefill.assetName, service_type: prefill.serviceType || assigned[0].service_type || '', _assetLocked: true, _assetNumber: prefill.assetNumber || '' }));
             sessionStorage.removeItem('mechiq_prefill');
             setView('fill');
           }
@@ -1288,6 +1289,7 @@ function ServiceSheetsTab({ userRole }) {
             <div>
               <label style={{ color: '#a0b0b0', fontSize: '12px', display: 'block', marginBottom: '4px' }}>
                 Asset {form.asset && form._assetLocked && <span style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: 700, marginLeft: '6px', padding: '1px 6px', background: 'var(--accent-light)', borderRadius: '4px', border: '1px solid rgba(0,194,224,0.3)' }}>PRE-FILLED</span>}
+                {form._assetLocked && form._assetNumber && <span style={{ color: '#6b7a8d', fontSize: '10px', fontWeight: 700, marginLeft: '6px', padding: '1px 6px', background: '#f1f5f9', borderRadius: '4px', border: '1px solid #dde2ea' }}>#{form._assetNumber}</span>}
               </label>
               <select
                 value={form.asset}
@@ -1814,7 +1816,7 @@ function ServiceSheetsTab({ userRole }) {
                   <div key={t.id} className="form-card" style={{ cursor: 'pointer' }} onClick={() => {
                     setSelectedTemplate(t);
                     if (contextAssetName) {
-                      setForm(f => ({ ...f, asset: contextAssetName, service_type: ssIntent?.serviceType || t.service_type || '', _assetLocked: true }));
+                      setForm(f => ({ ...f, asset: contextAssetName, service_type: ssIntent?.serviceType || t.service_type || '', _assetLocked: true, _assetNumber: ssIntent?.assetNumber || '' }));
                       sessionStorage.removeItem('mechiq_prefill');
                     }
                     setView('fill');
@@ -1851,7 +1853,7 @@ function ServiceSheetsTab({ userRole }) {
   );
 }
 
-function Forms({ userRole, initialTab, prestartAsset, prestartAssetId, onClearPreload }) {
+function Forms({ userRole, initialTab, prestartAsset, prestartAssetId, prestartAssetNumber, onClearPreload }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'prestarts');
   useEffect(() => { if (initialTab) setActiveTab(initialTab); }, [initialTab]);
 
@@ -1883,7 +1885,7 @@ function Forms({ userRole, initialTab, prestartAsset, prestartAssetId, onClearPr
           </button>
         ))}
       </div>
-      {activeTab === 'prestarts'     && <PrestartTab userRole={userRole} prestartAsset={prestartAsset} prestartAssetId={prestartAssetId} onClearPreload={onClearPreload} />}
+      {activeTab === 'prestarts'     && <PrestartTab userRole={userRole} prestartAsset={prestartAsset} prestartAssetId={prestartAssetId} prestartAssetNumber={prestartAssetNumber} onClearPreload={onClearPreload} />}
       {activeTab === 'service-sheets'&& <ServiceSheetsTab userRole={userRole} />}
       {activeTab === 'paper_scan'    && <PaperScan userRole={userRole} />}
     </div>

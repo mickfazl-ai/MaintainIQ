@@ -14,6 +14,13 @@ const CSS = `
   .mp-row:hover { background:var(--surface-2); }
   .mp-start-btn { width:100%; padding:14px; background:linear-gradient(135deg,var(--accent),#0096cc); color:#fff; border:none; border-radius:12px; font-size:14px; font-weight:800; cursor:pointer; font-family:inherit; letter-spacing:0.5px; box-shadow:0 6px 20px rgba(0,171,228,0.35); transition:all 0.2s; margin-bottom:20px; }
   .mp-start-btn:hover { transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,171,228,0.45); }
+  .mp-action-row { display:flex; gap:10px; margin-bottom:20px; }
+  .mp-action-btn { flex:1; padding:11px 14px; border:none; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; letter-spacing:0.3px; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:7px; }
+  .mp-action-btn:hover { transform:translateY(-1px); }
+  .mp-action-btn.prestart { background:linear-gradient(135deg,var(--accent),#0096cc); color:#fff; box-shadow:0 4px 14px rgba(0,171,228,0.3); }
+  .mp-action-btn.prestart:hover { box-shadow:0 8px 22px rgba(0,171,228,0.4); }
+  .mp-action-btn.servicesheet { background:#fff; color:#1a2b3c; border:1.5px solid #dde2ea; box-shadow:0 2px 8px rgba(0,0,0,0.07); }
+  .mp-action-btn.servicesheet:hover { border-color:var(--accent); color:var(--accent); box-shadow:0 4px 14px rgba(0,171,228,0.15); }
 
   .mp-tabs { display:flex; gap:3px; background:var(--surface-2); border-radius:12px; padding:4px; margin-bottom:20px; border:1px solid var(--border); flex-wrap:wrap; }
   .mp-tab { padding:8px 16px; border:none; border-radius:9px; cursor:pointer; font-size:12px; font-weight:600; transition:all 0.15s; font-family:inherit; white-space:nowrap; }
@@ -1519,7 +1526,7 @@ function IDTagModal({ tmpl, asset, assetId, qrUrl, onClose }) {
   );
 }
 
-function AssetPage({ assetId, userRole, onStartPrestart, initialTab }) {
+function AssetPage({ assetId, userRole, onStartPrestart, onStartServiceSheet, initialTab }) {
   const [asset, setAsset]             = useState(null);
   const [recentPrestarts, setRecentPrestarts] = useState([]);
   const [recentMaintenance, setRecentMaintenance] = useState([]);
@@ -1674,10 +1681,24 @@ function AssetPage({ assetId, userRole, onStartPrestart, initialTab }) {
         </div>
       )}
 
-      {/* ── Prestart button ── */}
-      <button className="mp-start-btn" onClick={() => onStartPrestart(asset.name)}>
-        Start Prestart for {asset.name} →
-      </button>
+      {/* ── Action buttons ── */}
+      <div className="mp-action-row">
+        <button className="mp-action-btn prestart" onClick={() => onStartPrestart && onStartPrestart(asset.name, asset.id, asset.asset_number)}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          Start Prestart
+        </button>
+        <button className="mp-action-btn servicesheet" onClick={() => {
+          if (onStartServiceSheet) {
+            onStartServiceSheet(asset.name, asset.id, asset.asset_number);
+          } else {
+            sessionStorage.setItem('mechiq_prefill', JSON.stringify({ assetName: asset.name, assetNumber: asset.asset_number || '', serviceType: '' }));
+            window.dispatchEvent(new CustomEvent('mechiq-navigate', { detail: { page: 'forms', subPage: 'service-sheets', assetName: asset.name, assetId: asset.id, assetNumber: asset.asset_number } }));
+          }
+        }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Start Service Sheet
+        </button>
+      </div>
 
       {/* ── Tabs ── */}
       <div className="mp-tabs">

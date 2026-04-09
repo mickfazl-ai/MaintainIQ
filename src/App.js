@@ -29,8 +29,9 @@ function App() {
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewingAssetId, setViewingAssetId] = useState(null);
-  const [prestartAssetId, setPrestartAssetId] = useState(null);
-  const [prestartAsset, setPrestartAsset] = useState(null);
+  const [prestartAssetId,     setPrestartAssetId]     = useState(null);
+  const [prestartAsset,       setPrestartAsset]       = useState(null);
+  const [prestartAssetNumber, setPrestartAssetNumber] = useState(null);
   const [viewingCompany, setViewingCompany] = useState(null);
   const [showTour, setShowTour] = useState(false);
 
@@ -83,7 +84,21 @@ function App() {
       else { setUserRole(null); setLoading(false); }
     });
 
-    return () => subscription.unsubscribe();
+    // Global navigation event (fired from deep components like MachineProfile service tabs)
+    const handleNavEvent = (e) => {
+      const { page, subPage, assetName, assetId, assetNumber } = e.detail || {};
+      if (page === 'forms' && subPage === 'service_sheets') {
+        if (assetName) {
+          sessionStorage.setItem('mechiq_prefill', JSON.stringify({ assetName, assetNumber, serviceType: '' }));
+        }
+        setCurrentPage('forms', 'service-sheets');
+        setViewingAssetId(null);
+      } else if (page) {
+        setCurrentPage(page, subPage || null);
+      }
+    };
+    window.addEventListener('mechiq-navigate', handleNavEvent);
+    return () => { subscription.unsubscribe(); window.removeEventListener('mechiq-navigate', handleNavEvent); };
   }, []);
 
   const fetchUserRole = async (email) => {
@@ -152,9 +167,17 @@ function App() {
     setCurrentPageRaw('assetpage');
   };
 
-  const handleStartPrestartFromAsset = (assetName) => {
+  const handleStartPrestartFromAsset = (assetName, assetId, assetNumber) => {
     setPrestartAsset(assetName);
+    setPrestartAssetId(assetId || null);
+    setPrestartAssetNumber(assetNumber || null);
     setCurrentPage('forms', 'prestarts');
+    setViewingAssetId(null);
+  };
+
+  const handleStartServiceSheetFromAsset = (assetName, assetId, assetNumber) => {
+    sessionStorage.setItem('mechiq_prefill', JSON.stringify({ assetName, assetNumber: assetNumber || '', serviceType: '' }));
+    setCurrentPage('forms', 'service-sheets');
     setViewingAssetId(null);
   };
 
@@ -200,7 +223,8 @@ function App() {
             initialTab={currentSubPage}
             prestartAsset={prestartAsset}
             prestartAssetId={prestartAssetId}
-            onClearPreload={() => { setPrestartAsset(null); setPrestartAssetId(null); }}
+            prestartAssetNumber={prestartAssetNumber}
+            onClearPreload={() => { setPrestartAsset(null); setPrestartAssetId(null); setPrestartAssetNumber(null); }}
           />
         );
       case 'scanner':
@@ -219,7 +243,7 @@ function App() {
             >
               Back to Assets
             </button>
-            <AssetPage assetId={viewingAssetId} userRole={effectiveUserRole} onStartPrestart={handleStartPrestartFromAsset} />
+            <AssetPage assetId={viewingAssetId} userRole={effectiveUserRole} onStartPrestart={handleStartPrestartFromAsset} onStartServiceSheet={handleStartServiceSheetFromAsset} />
           </div>
         );
       case 'reports':
