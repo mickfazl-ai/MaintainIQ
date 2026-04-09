@@ -556,7 +556,7 @@ function ExpandableWidget({ sizeClass, title, icon, count, countColor, countSize
   );
 }
 
-function WidgetFleetHealth({ assets, loading }) {
+function WidgetFleetHealth({ assets, loading, onViewAsset }) {
   if (loading) return <div className="widget-card widget-lg"><Sk h="60px" /></div>;
   const total = assets.length, running = assets.filter(a=>a.status==='Running').length, down = assets.filter(a=>a.status==='Down').length, maint = assets.filter(a=>a.status==='Maintenance').length;
   return (
@@ -566,7 +566,13 @@ function WidgetFleetHealth({ assets, loading }) {
         {assets.map(a => {
           const c = a.status==='Down'?'var(--red)':a.status==='Maintenance'?'var(--amber)':' var(--green)';
           return (
-            <div key={a.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 10px', borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)' }}>
+            <div
+              key={a.id}
+              onClick={() => onViewAsset && onViewAsset(a.id)}
+              style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 10px', borderRadius:8, background:'var(--surface-2)', border:'1px solid var(--border)', cursor: onViewAsset ? 'pointer' : 'default', transition:'background 0.15s' }}
+              onMouseEnter={e => { if (onViewAsset) e.currentTarget.style.background='var(--surface-3, #e8f0f8)'; }}
+              onMouseLeave={e => { if (onViewAsset) e.currentTarget.style.background='var(--surface-2)'; }}
+            >
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                 <span style={{ width:8, height:8, borderRadius:'50%', background:c, display:'inline-block', flexShrink:0 }} />
                 <span style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>{a.name}</span>
@@ -575,6 +581,7 @@ function WidgetFleetHealth({ assets, loading }) {
               <div style={{ display:'flex', gap:10, alignItems:'center' }}>
                 {a.hours && <span style={{ fontSize:11, color:'var(--text-muted)' }}>{Number(a.hours).toLocaleString()} hrs</span>}
                 <span style={{ fontSize:11, fontWeight:700, color:c, padding:'2px 8px', background:c+'18', borderRadius:20 }}>{a.status}</span>
+                {onViewAsset && <span style={{ fontSize:11, color:'var(--text-muted)', opacity:0.5 }}>›</span>}
               </div>
             </div>
           );
@@ -792,7 +799,7 @@ function WidgetMessages({ companyId, size }) {
 }
 
 /* ── Main Dashboard ── */
-function Dashboard({ companyId, userRole }) {
+function Dashboard({ companyId, userRole, onViewAsset }) {
   const [stats, setStats]   = useState(null);
   const [dt, setDT]         = useState([]);
   const [maint, setMaint]   = useState([]);
@@ -849,7 +856,7 @@ function Dashboard({ companyId, userRole }) {
   const A = { cyan:'var(--accent)', red:'var(--red)', amber:'var(--amber)', green:'var(--green)' };
 
   const WIDGET_COMPONENTS = {
-    fleet_health:     (w) => <WidgetFleetHealth key={w.id} assets={assets} loading={loading} />,
+    fleet_health:     (w) => <WidgetFleetHealth key={w.id} assets={assets} loading={loading} onViewAsset={onViewAsset} />,
     breakdowns:       (w) => <WidgetBreakdowns key={w.id} assets={assets} loading={loading} size={w.size} />,
     overdue:          (w) => <WidgetOverdue key={w.id} maint={maint} loading={loading} size={w.size} />,
     due_today:        (w) => <WidgetDueToday key={w.id} maint={maint} loading={loading} size={w.size} />,
