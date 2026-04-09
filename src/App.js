@@ -5,6 +5,7 @@ import Dashboard from './Dashboard';
 import Assets from './Assets';
 import Downtime from './Downtime';
 import Maintenance from './Maintenance';
+import Calendar from './Calendar';
 import Reports from './Reports';
 import Users from './Users';
 import Login from './Login';
@@ -183,13 +184,15 @@ function App() {
 
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} onViewAsset={handleViewAsset} />;
+        return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
       case 'assets':
         return <Assets userRole={effectiveUserRole} onViewAsset={handleViewAsset} initialTab={currentSubPage || 'units'} key={currentSubPage} />;
       case 'downtime':
         return <Downtime userRole={effectiveUserRole} />;
       case 'maintenance':
         return <Maintenance userRole={effectiveUserRole} initialTab={currentSubPage} setCurrentPage={setCurrentPage} />;
+      case 'calendar':
+        return <Calendar userRole={effectiveUserRole} setCurrentPage={setCurrentPage} />;
       case 'forms':
         return (
           <Forms
@@ -234,10 +237,10 @@ function App() {
       case 'chat':
         return <Chat userRole={effectiveUserRole} />;
       case 'master':
-        if (userRole?.role !== 'master') return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} onViewAsset={handleViewAsset} />;
+        if (userRole?.role !== 'master') return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
         return <MasterAdmin initialTab={currentSubPage || 'companies'} key={currentSubPage} />;
       default:
-        return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} onViewAsset={handleViewAsset} />;
+        return <Dashboard companyId={effectiveCompanyId} userRole={effectiveUserRole} />;
     }
   };
 

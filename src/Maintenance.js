@@ -204,11 +204,7 @@ function Maintenance({ userRole, initialTab, setCurrentPage }) {
   const [schedules, setSchedules] = useState([]);
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [calMonth, setCalMonth] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState(null);
-  const [dayPanelEvents, setDayPanelEvents] = useState([]);
   const [serviceTemplates, setServiceTemplates] = useState([]);
-  const [serviceSheetPrompt, setServiceSheetPrompt] = useState(null); // { ev, confirmed, selectedTemplate }
   const [newSchedule, setNewSchedule] = useState({ asset_id:'', asset_name:'', service_name:'', interval_type:'hours', interval_value:'', last_service_value:'', last_service_date:'', notes:'' });
   const [newTask, setNewTask] = useState({ asset:'', task:'', frequency:'', next_due:'', assigned_to:'' });
   const [newWO, setNewWO] = useState({ asset:'', defect_description:'', priority:'Medium', assigned_to:'', due_date:'', estimated_hours:'', comments:'' });
@@ -673,313 +669,25 @@ function Maintenance({ userRole, initialTab, setCurrentPage }) {
         </div>
       )}
 
-      {/* ── Calendar Tab ── */}
+
+      {/* ── Calendar Tab → now its own page ── */}
       {activeTab === 'calendar' && (
-        <div style={{ position:'relative' }}>
-          {(() => {
-            const year = calMonth.getFullYear();
-            const month = calMonth.getMonth();
-            const firstDay = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const userTz = getUserTz();
-            const dateFmt = getDateFmt();
-            const today = getTodayInTz(userTz);
-            const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-            // Helper: estimate a date for hour/km-based schedules
-            const estimateDate = (s) => {
-              if (s.next_due_date) return s.next_due_date;
-              if ((s.interval_type === 'hours' || s.interval_type === 'km') && s.next_due_value) {
-                const assetData = assets.find(a => a.name === s.asset_name);
-                const currentVal = assetData?.hours || s.last_service_value || 0;
-                const remaining = s.next_due_value - currentVal;
-                if (remaining <= 0) return today;
-                const dailyRate = s.interval_type === 'km' ? 50 : 10;
-                const daysUntilDue = Math.round(remaining / dailyRate);
-                const d = new Date();
-                d.setDate(d.getDate() + daysUntilDue);
-                return d.toISOString().split('T')[0];
-              }
-              return null;
-            };
-
-            // Build full event objects with navigation data
-            const events = {};
-            tasks.forEach(t => {
-              if (t.next_due && t.next_due.startsWith(`${year}-${String(month+1).padStart(2,'0')}`)) {
-                const day = parseInt(t.next_due.split('-')[2]);
-                if (!events[day]) events[day] = [];
-                const assetData = assets.find(a => a.name === t.asset);
-                events[day].push({
-                  label: t.asset + ' — ' + t.task,
-                  color: t.status==='Overdue'?'var(--red)':t.status==='Due Soon'?'var(--amber)':'var(--accent)',
-                  type: 'service',
-                  assetName: t.asset,
-                  assetId: assetData?.id,
-                  serviceName: t.task,
-                  detail: `Status: ${t.status} · Assigned: ${t.assigned_to || '—'}`,
-                });
-              }
-            });
-            schedules.forEach(s => {
-              const dateStr = estimateDate(s);
-              if (dateStr && dateStr.startsWith(`${year}-${String(month+1).padStart(2,'0')}`)) {
-                const day = parseInt(dateStr.split('-')[2]);
-                if (!events[day]) events[day] = [];
-                const assetData = assets.find(a => a.name === s.asset_name);
-                const currentVal = assetData?.hours || 0;
-                const remaining = s.next_due_value ? s.next_due_value - currentVal : null;
-                const isOverdue = remaining !== null && remaining <= 0;
-                const remainingLabel = remaining !== null
-                  ? (remaining > 0 ? `${remaining} ${s.interval_type} to go` : `${Math.abs(remaining)} ${s.interval_type} overdue`)
-                  : s.next_due_date || '—';
-                events[day].push({
-                  label: s.asset_name + ' — ' + s.service_name,
-                  color: isOverdue ? 'var(--red)' : 'var(--purple)',
-                  type: 'schedule',
-                  assetName: s.asset_name,
-                  assetId: assetData?.id,
-                  serviceName: s.service_name,
-                  detail: `Every ${s.interval_value} ${s.interval_type} · ${remainingLabel}`,
-                  scheduleId: s.id,
-                });
-              }
-            });
-            workOrders.filter(w=>w.status!=='Complete').forEach(w => {
-              if (w.due_date && w.due_date.startsWith(`${year}-${String(month+1).padStart(2,'0')}`)) {
-                const day = parseInt(w.due_date.split('-')[2]);
-                if (!events[day]) events[day] = [];
-                const assetData = assets.find(a => a.name === w.asset);
-                events[day].push({
-                  label: (w.asset||'') + ' — ' + (w.defect_description||'').slice(0,40),
-                  color: w.priority==='Critical'?'var(--red)':'var(--amber)',
-                  type: 'wo',
-                  assetName: w.asset,
-                  assetId: assetData?.id,
-                  serviceName: w.defect_description,
-                  detail: `Priority: ${w.priority} · Assigned: ${w.assigned_to || '—'}`,
-                });
-              }
-            });
-
-            const cells = [];
-            for (let i = 0; i < (firstDay === 0 ? 6 : firstDay - 1); i++) cells.push(null);
-            for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-
-            const openDayPanel = (day) => {
-              setSelectedDay(day);
-              setDayPanelEvents(events[day] || []);
-            };
-
-            return (
-              <div>
-                {/* Month nav */}
-                <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
-                  <button onClick={() => { setSelectedDay(null); setCalMonth(m => new Date(m.getFullYear(), m.getMonth()-1, 1)); }} style={{ padding:'8px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:16, color:'var(--text-secondary)', fontWeight:700 }}>‹</button>
-                  <div style={{ fontSize:20, fontWeight:800, color:'var(--text-primary)', minWidth:200, textAlign:'center', fontFamily:'var(--font-display)' }}>{monthNames[month]} {year}</div>
-                  <button onClick={() => { setSelectedDay(null); setCalMonth(m => new Date(m.getFullYear(), m.getMonth()+1, 1)); }} style={{ padding:'8px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:16, color:'var(--text-secondary)', fontWeight:700 }}>›</button>
-                  <button onClick={() => { setSelectedDay(null); setCalMonth(new Date()); }} style={{ padding:'7px 14px', background:'var(--accent-light)', color:'var(--accent)', border:'1px solid rgba(14,165,233,0.25)', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700 }}>Today</button>
-                </div>
-                {/* Legend */}
-                <div style={{ display:'flex', gap:16, marginBottom:16, flexWrap:'wrap' }}>
-                  {[['var(--accent)','Planned Maintenance'],['var(--purple)','Service Schedule'],['var(--red)','Work Order Due']].map(([col,lbl]) => (
-                    <div key={lbl} style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'var(--text-muted)' }}>
-                      <span style={{ width:10, height:10, borderRadius:2, background:col, display:'inline-block' }} />{lbl}
-                    </div>
-                  ))}
-                </div>
-                {/* Day headers */}
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4, marginBottom:4 }}>
-                  {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => (
-                    <div key={d} style={{ textAlign:'center', fontSize:11, fontWeight:700, color:'var(--text-muted)', padding:'6px 0', textTransform:'uppercase', letterSpacing:'0.5px' }}>{d}</div>
-                  ))}
-                </div>
-                {/* Grid */}
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4 }}>
-                  {cells.map((day, i) => {
-                    const isToday = day ? `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}` === today : false;
-                    const dayEvents = day ? (events[day] || []) : [];
-                    const isSelected = selectedDay === day;
-                    return (
-                      <div key={i} onClick={() => day && openDayPanel(day)} style={{
-                        minHeight:80, background: day ? 'var(--surface)' : 'transparent',
-                        border: day ? `1px solid ${isSelected ? 'var(--accent)' : isToday ? 'var(--accent)' : 'var(--border)'}` : 'none',
-                        borderRadius:8, padding:'6px 8px', cursor: day ? 'pointer' : 'default',
-                        boxShadow: isSelected ? '0 0 0 2px var(--accent)' : isToday ? '0 0 0 1px var(--accent)' : 'none',
-                        transition:'box-shadow 0.15s',
-                      }}>
-                        {day && (
-                          <>
-                            <div style={{ fontSize:12, fontWeight: isToday||isSelected ? 800 : 500, color: isToday ? 'var(--accent)' : 'var(--text-secondary)', marginBottom:4 }}>{day}</div>
-                            {dayEvents.slice(0,2).map((ev, j) => (
-                              <div key={j} title={ev.label} style={{ fontSize:10, fontWeight:600, color:'#fff', background:ev.color, borderRadius:3, padding:'2px 5px', marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ev.label}</div>
-                            ))}
-                            {dayEvents.length > 2 && <div style={{ fontSize:9, color:'var(--text-muted)', fontWeight:600 }}>+{dayEvents.length-2} more</div>}
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Day panel slide-out */}
-                {selectedDay !== null && (
-                  <>
-                    {/* Backdrop */}
-                    <div onClick={() => setSelectedDay(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.25)', zIndex:200 }} />
-                    {/* Panel */}
-                    <div style={{
-                      position:'fixed', top:0, right:0, bottom:0, width:380, maxWidth:'90vw',
-                      background:'var(--bg)', borderLeft:'1px solid var(--border)',
-                      boxShadow:'-8px 0 32px rgba(0,0,0,0.15)', zIndex:201,
-                      display:'flex', flexDirection:'column', overflowY:'auto',
-                    }}>
-                      {/* Panel header */}
-                      <div style={{ padding:'20px 20px 16px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                        <div>
-                          <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.8px' }}>{monthNames[month]} {year}</div>
-                          <div style={{ fontSize:24, fontWeight:900, color:'var(--text-primary)', fontFamily:'var(--font-display)' }}>
-                            {formatDateDisplay(`${year}-${String(month+1).padStart(2,'0')}-${String(selectedDay).padStart(2,'0')}`, dateFmt)}
-                          </div>
-                          <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:2 }}>
-                            {dayPanelEvents.length} event{dayPanelEvents.length !== 1 ? 's' : ''} · {userTz.replace(/_/g,' ')}
-                          </div>
-                        </div>
-                        <button onClick={() => setSelectedDay(null)} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:8, width:36, height:36, cursor:'pointer', fontSize:18, color:'var(--text-secondary)', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
-                      </div>
-                      {/* Events list */}
-                      <div style={{ padding:16, flex:1 }}>
-                        {dayPanelEvents.length === 0 ? (
-                          <div style={{ textAlign:'center', color:'var(--text-muted)', fontSize:14, paddingTop:40 }}>No events this day</div>
-                        ) : (
-                          dayPanelEvents.map((ev, i) => (
-                            <div key={i} style={{
-                              background:'var(--surface)', border:'1px solid var(--border)',
-                              borderRadius:12, padding:'14px 16px', marginBottom:12,
-                              borderLeft:`4px solid ${ev.color}`,
-                            }}>
-                              {/* Type badge */}
-                              <div style={{ fontSize:10, fontWeight:700, color:'#fff', background:ev.color, borderRadius:4, padding:'2px 8px', display:'inline-block', marginBottom:8, textTransform:'uppercase', letterSpacing:'0.5px' }}>
-                                {ev.type === 'service' ? 'Planned Maintenance' : ev.type === 'schedule' ? 'Service Schedule' : 'Work Order'}
-                              </div>
-                              {/* Asset + service */}
-                              <div style={{ fontSize:15, fontWeight:800, color:'var(--text-primary)', marginBottom:4 }}>{ev.assetName}</div>
-                              <div style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:6 }}>{ev.serviceName}</div>
-                              <div style={{ fontSize:11, color:'var(--text-muted)', marginBottom:12 }}>{ev.detail}</div>
-                              {/* Action buttons */}
-                              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                                {ev.assetId && setCurrentPage && (
-                                  <button onClick={() => {
-                                    setSelectedDay(null);
-                                    sessionStorage.setItem('mechiq_open_asset', JSON.stringify({ assetId: ev.assetId, tab: 'service' }));
-                                    setCurrentPage('assets', 'units');
-                                  }} style={{ padding:'7px 14px', background:'var(--surface-2)', color:'var(--text-secondary)', border:'1px solid var(--border)', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                                    View Asset →
-                                  </button>
-                                )}
-                                {(ev.type === 'service' || ev.type === 'schedule') && (
-                                  <button onClick={() => {
-                                    // Find best matching template by service name keywords
-                                    const keywords = (ev.serviceName||'').toLowerCase().split(/[\s\-\/]+/);
-                                    const matched = serviceTemplates.find(t => {
-                                      const tName = t.name.toLowerCase();
-                                      const tType = (t.service_type||'').toLowerCase();
-                                      return keywords.some(k => k.length > 2 && (tName.includes(k) || tType.includes(k)));
-                                    });
-                                    setServiceSheetPrompt({ ev, matched, selectedTemplate: matched?.id || '' });
-                                  }} style={{ padding:'7px 14px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                                    📄 Start Service Sheet
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })()}
+        <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📅</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>Calendar has moved</div>
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24 }}>The maintenance calendar is now its own page in the sidebar.</div>
+          {setCurrentPage && (
+            <button
+              onClick={() => setCurrentPage('calendar')}
+              style={{ padding: '12px 28px', background: 'linear-gradient(135deg, var(--accent), #0090a8)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+            >
+              Go to Calendar →
+            </button>
+          )}
         </div>
       )}
 
     </div>
-
-    {/* Service Sheet Confirm + Template Picker Modal */}
-    {serviceSheetPrompt && (
-      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:400, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-        <div style={{ background:'var(--bg)', borderRadius:16, width:'100%', maxWidth:460, boxShadow:'0 20px 60px rgba(0,0,0,0.3)', overflow:'hidden' }}>
-          <div style={{ padding:'18px 20px 14px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <div>
-              <div style={{ fontSize:16, fontWeight:800, color:'var(--text-primary)', fontFamily:'var(--font-display)' }}>📄 Start Service Sheet</div>
-              <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:2 }}>{serviceSheetPrompt.ev.assetName}</div>
-            </div>
-            <button onClick={() => setServiceSheetPrompt(null)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'var(--text-muted)' }}>✕</button>
-          </div>
-          <div style={{ padding:20 }}>
-            {/* Service being performed */}
-            <div style={{ background:'var(--surface)', borderRadius:10, padding:'12px 14px', marginBottom:16, borderLeft:'4px solid var(--accent)' }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:4 }}>Service Due</div>
-              <div style={{ fontSize:14, fontWeight:800, color:'var(--text-primary)' }}>{serviceSheetPrompt.ev.serviceName}</div>
-              <div style={{ fontSize:12, color:'var(--text-muted)', marginTop:2 }}>{serviceSheetPrompt.ev.detail}</div>
-            </div>
-
-            {/* Matched template */}
-            {serviceSheetPrompt.matched && (
-              <div style={{ background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.25)', borderRadius:10, padding:'10px 14px', marginBottom:14 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'var(--green)', textTransform:'uppercase', marginBottom:4 }}>✓ Suggested Template</div>
-                <div style={{ fontSize:13, fontWeight:700, color:'var(--text-primary)' }}>{serviceSheetPrompt.matched.name}</div>
-                {serviceSheetPrompt.matched.service_type && <div style={{ fontSize:11, color:'var(--text-muted)' }}>{serviceSheetPrompt.matched.service_type}</div>}
-              </div>
-            )}
-
-            {/* Template picker */}
-            <div style={{ marginBottom:16 }}>
-              <div style={{ fontSize:12, fontWeight:700, color:'var(--text-muted)', marginBottom:8 }}>
-                {serviceSheetPrompt.matched ? 'Or choose a different template:' : 'Select a template:'}
-              </div>
-              {serviceTemplates.length === 0 ? (
-                <div style={{ fontSize:12, color:'var(--text-muted)', padding:'10px 0' }}>No templates found — create one in Forms → Service Sheets first.</div>
-              ) : (
-                <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:200, overflowY:'auto' }}>
-                  {serviceTemplates.map(t => (
-                    <div key={t.id} onClick={() => setServiceSheetPrompt(p => ({ ...p, selectedTemplate: t.id, matched: t }))}
-                      style={{ padding:'10px 14px', borderRadius:9, border:`2px solid ${serviceSheetPrompt.selectedTemplate===t.id?'var(--accent)':'var(--border)'}`, background:serviceSheetPrompt.selectedTemplate===t.id?'var(--accent-light)':'var(--surface)', cursor:'pointer', transition:'all 0.15s' }}>
-                      <div style={{ fontSize:13, fontWeight:700, color:'var(--text-primary)' }}>{t.name}</div>
-                      {t.service_type && <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:1 }}>{t.service_type}</div>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display:'flex', gap:8 }}>
-              <button onClick={() => setServiceSheetPrompt(null)} style={{ flex:1, padding:'10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:9, cursor:'pointer', fontSize:13, color:'var(--text-secondary)' }}>Cancel</button>
-              <button
-                disabled={!serviceSheetPrompt.selectedTemplate && !serviceSheetPrompt.matched}
-                onClick={() => {
-                  const templateId = serviceSheetPrompt.selectedTemplate || serviceSheetPrompt.matched?.id;
-                  const templateName = serviceTemplates.find(t => t.id === templateId)?.name || '';
-                  if (!templateId) return;
-                  setServiceSheetPrompt(null);
-                  setSelectedDay(null);
-                  sessionStorage.setItem('mechiq_open_form', JSON.stringify({
-                    templateId,
-                    assetName: serviceSheetPrompt.ev.assetName,
-                    serviceType: serviceSheetPrompt.ev.serviceName || templateName,
-                  }));
-                  window.dispatchEvent(new CustomEvent('mechiq-navigate', { detail: { page: 'forms', subPage: 'service_sheets' } }));
-                }}
-                style={{ flex:2, padding:'10px', background:(serviceSheetPrompt.selectedTemplate||serviceSheetPrompt.matched)?'var(--accent)':'var(--surface-2)', color:(serviceSheetPrompt.selectedTemplate||serviceSheetPrompt.matched)?'#fff':'var(--text-muted)', border:'none', borderRadius:9, fontSize:13, fontWeight:700, cursor:(serviceSheetPrompt.selectedTemplate||serviceSheetPrompt.matched)?'pointer':'not-allowed' }}>
-                  Open Service Sheet →
-                </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
     </>
   );
 }
