@@ -239,8 +239,6 @@ function AssetCard({ asset, index, onView, onDelete, onQR, onQuickLog, onEdit, o
       <div className="card-actions" style={{ padding: '0 18px 16px', display: 'flex', gap: '8px', flexWrap:'wrap' }}>
         <button onClick={() => onView(asset.id)} className="nav-pill nav-pill-primary" style={{ fontSize: '11px', padding: '6px 14px' }}>View →</button>
 
-        {onServiceSheet && <button onClick={() => onServiceSheet(asset)} style={{ fontSize:'11px', padding:'6px 12px', background:'var(--accent-light)', color:'var(--accent)', border:'1px solid rgba(14,165,233,0.3)', borderRadius:8, fontWeight:700, cursor:'pointer', transition:'all 0.15s' }}>📄 Service Sheet</button>}
-        {canDelete && <button onClick={() => onEdit && onEdit(asset)} style={{ fontSize:'11px', padding:'6px 12px', background:'var(--surface-2)', color:'var(--text-secondary)', border:'1px solid var(--border)', borderRadius:8, fontWeight:700, cursor:'pointer', transition:'all 0.15s' }}>Edit</button>}
         {asset.status === 'Down' || asset.status === 'Maintenance' ? (
           <button onClick={() => onQuickLog && onQuickLog(asset, 'Running')} style={{ fontSize:'11px', padding:'6px 12px', background:'var(--green-bg)', color:'var(--green)', border:'1px solid var(--green-border)', borderRadius:8, fontWeight:700, cursor:'pointer', transition:'all 0.15s' }}>✓ Running</button>
         ) : (
