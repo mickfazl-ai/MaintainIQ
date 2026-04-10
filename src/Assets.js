@@ -647,7 +647,7 @@ function calcDepr(price, date, year) {
 }
 
 // ─── Onboarding Tab ────────────────────────────────────────────────────────────
-function OnboardingTab({ userRole, onComplete, toast }) {
+function OnboardingTab({ userRole, onComplete, toast, onEditAsset }) {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [savedAsset, setSavedAsset] = useState(null);
@@ -985,7 +985,7 @@ function OnboardingTab({ userRole, onComplete, toast }) {
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
                 <thead>
                   <tr style={{ background:'var(--surface-2)' }}>
-                    {['Asset No.','Name','Type','Make / Model','Status','Hours','Purchase Price','Date Added'].map(h => (
+                    {['Asset No.','Name','Type','Make / Model','Status','Hours','Purchase Price','Date Added',''].map(h => (
                       <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:10, fontWeight:700,
                         color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.5px',
                         borderBottom:'1px solid var(--border)', whiteSpace:'nowrap' }}>{h}</th>
@@ -1009,6 +1009,14 @@ function OnboardingTab({ userRole, onComplete, toast }) {
                         <td style={{ padding:'9px 14px', color:'var(--text-secondary)' }}>{a.hours?Number(a.hours).toLocaleString()+' hrs':'—'}</td>
                         <td style={{ padding:'9px 14px', color:'var(--text-secondary)' }}>{a.purchase_price?'$'+Number(a.purchase_price).toLocaleString():'—'}</td>
                         <td style={{ padding:'9px 14px', color:'var(--text-muted)', fontSize:12 }}>{a.created_at?new Date(a.created_at).toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
+                        <td style={{ padding:'9px 14px' }}>
+                          {onEditAsset && (
+                            <button onClick={() => onEditAsset(a)}
+                              style={{ padding:'4px 12px', background:'var(--surface-2)', color:'var(--text-secondary)', border:'1px solid var(--border)', borderRadius:6, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+                              ✏️ Edit
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -1381,7 +1389,7 @@ function Assets({ userRole, onViewAsset, initialTab }) {
   const renderTab = () => {
     switch (activeTab) {
       case 'units':        return <UnitsTab userRole={userRole} onViewAsset={onViewAsset} toast={toast} />;
-      case 'onboarding':  return <OnboardingTab userRole={userRole} onComplete={() => setActiveTab('units')} toast={toast} />;
+      case 'onboarding':  return <OnboardingTab userRole={userRole} onComplete={() => setActiveTab('units')} toast={toast} onEditAsset={setEditAsset} />;
       case 'depreciation':return <DepreciationTab userRole={userRole} />;
       case 'tracker':     return <TrackerPlaceholder userRole={userRole} />;
       default:            return <UnitsTab userRole={userRole} onViewAsset={onViewAsset} toast={toast} />;
