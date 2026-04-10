@@ -1504,6 +1504,7 @@ const ADMIN_TABS = [
   { id: 'notifs',           label: 'Notifications',   icon: '🔔' },
   { id: 'billing',          label: 'Contact & Plan',  icon: '💳' },
   { id: 'data',             label: 'Data & Export',   icon: '📤' },
+  { id: 'scan',             label: 'Scan Settings',   icon: '📱' },
   { id: 'label_designer',   label: 'Label Designer',  icon: '🏷' },
 ];
 
@@ -1514,6 +1515,121 @@ const PERSONAL_TABS = [
   { id: 'app_modifier', label: 'App Requests',   icon: '🛠️' },
   { id: 'password',     label: 'Password Reset', icon: '🔑' },
 ];
+
+
+// ─── Scan Settings ────────────────────────────────────────────────────────────
+function ScanSettings({ userRole }) {
+  const [behaviour, setBehaviour] = React.useState('landing');
+  const [saving,    setSaving]    = React.useState(false);
+  const [saved,     setSaved]     = React.useState(false);
+  const [loading,   setLoading]   = React.useState(true);
+
+  React.useEffect(() => {
+    if (!userRole?.company_id) return;
+    supabase.from('companies').select('features').eq('id', userRole.company_id).single()
+      .then(({ data }) => {
+        if (data?.features?.scan_behaviour) setBehaviour(data.features.scan_behaviour);
+        setLoading(false);
+      });
+  }, [userRole]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const { data: co } = await supabase.from('companies').select('features').eq('id', userRole.company_id).single();
+    const features = { ...(co?.features || {}), scan_behaviour: behaviour };
+    await supabase.from('companies').update({ features }).eq('id', userRole.company_id);
+    setSaving(false); setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
+
+  const OPTIONS = [
+    {
+      id: 'landing',
+      label: 'Show Choice Screen',
+      icon: '📋',
+      desc: 'Operators see the asset name and choose between Prestart or Job Card. Recommended for most sites.',
+    },
+    {
+      id: 'prestart',
+      label: 'Auto-Open Prestart',
+      icon: '✅',
+      desc: 'Scanning a QR code immediately opens the prestart checklist — no extra tap required.',
+    },
+    {
+      id: 'jobcard',
+      label: 'Auto-Open Job Card',
+      icon: '🔧',
+      desc: 'Scanning a QR code immediately opens the job card / fault reporting form.',
+    },
+  ];
+
+  const card = (opt) => {
+    const active = behaviour === opt.id;
+    return (
+      <div key={opt.id} onClick={() => setBehaviour(opt.id)}
+        style={{
+          display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px',
+          borderRadius: 12, border: `2px solid ${active ? 'var(--accent)' : '#dde2ea'}`,
+          background: active ? 'var(--accent-light, #e8f8fc)' : '#f8fafc',
+          cursor: 'pointer', transition: 'all 0.15s', marginBottom: 10,
+        }}>
+        <div style={{
+          width: 22, height: 22, borderRadius: '50%', flexShrink: 0, marginTop: 1,
+          background: active ? 'var(--accent)' : '#fff',
+          border: `2px solid ${active ? 'var(--accent)' : '#c8d4e0'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {active && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff' }} />}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a2b3c', marginBottom: 3 }}>
+            {opt.icon} {opt.label}
+          </div>
+          <div style={{ fontSize: 12, color: '#6b7a8d', lineHeight: 1.5 }}>{opt.desc}</div>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) return <div style={{ padding: 20, color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>;
+
+  return (
+    <div style={{ maxWidth: 560 }}>
+      {/* Preview */}
+      <div style={{ background: '#0d1520', borderRadius: 14, padding: '24px 20px', marginBottom: 24, textAlign: 'center' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#4a6a8a', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 16 }}>QR Scan Preview</div>
+        <div style={{ background: 'linear-gradient(135deg,#1a2b3c,#223040)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '20px 16px', maxWidth: 280, margin: '0 auto' }}>
+          <div style={{ width: 32, height: 2, background: 'var(--accent,#1e88e5)', borderRadius: 2, margin: '0 auto 12px' }} />
+          <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Generator Genelite</div>
+          <div style={{ fontSize: 11, color: '#7a9ab8', marginBottom: 16 }}>HK-003 · Genelite GM20KS</div>
+          {behaviour === 'landing' && (
+            <>
+              <div style={{ background: 'var(--accent,#1e88e5)', borderRadius: 8, padding: '10px', marginBottom: 8, color: '#fff', fontSize: 12, fontWeight: 700 }}>PRESTART — Daily inspection</div>
+              <div style={{ background: '#1e2d3d', borderRadius: 8, padding: '10px', color: '#7a9ab8', fontSize: 12, fontWeight: 700 }}>JOB CARD — Log a fault</div>
+            </>
+          )}
+          {behaviour === 'prestart' && (
+            <div style={{ background: 'var(--accent,#1e88e5)', borderRadius: 8, padding: '12px', color: '#fff', fontSize: 12, fontWeight: 700 }}>↳ Prestart opens immediately</div>
+          )}
+          {behaviour === 'jobcard' && (
+            <div style={{ background: '#2a3d50', borderRadius: 8, padding: '12px', color: '#90aec8', fontSize: 12, fontWeight: 700 }}>↳ Job Card opens immediately</div>
+          )}
+        </div>
+      </div>
+
+      {/* Options */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7a8d', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>Scan Behaviour</div>
+        {OPTIONS.map(card)}
+      </div>
+
+      <button onClick={handleSave} disabled={saving}
+        style={{ padding: '11px 28px', background: saved ? '#00c264' : 'var(--accent, #1e88e5)', color: '#fff', border: 'none', borderRadius: 9, fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}>
+        {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Settings'}
+      </button>
+    </div>
+  );
+}
 
 function Settings({ userRole, initialTab, adminMode, personalMode }) {
   const TABS = adminMode ? ADMIN_TABS : PERSONAL_TABS;
@@ -1532,6 +1648,7 @@ function Settings({ userRole, initialTab, adminMode, personalMode }) {
     sync:         <OneDriveSync userRole={userRole} />,
     app_modifier: <AppModifier userRole={userRole} />,
     password:        <PasswordReset userRole={userRole} />,
+    scan:            <ScanSettings userRole={userRole} />,
     label_designer:  <LabelDesigner userRole={userRole?.role} companyId={userRole?.company_id} />,
   };
 

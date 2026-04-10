@@ -287,9 +287,15 @@ export default function ScanPage({ assetId, partId }) {
         const { data } = await supabase.from('assets').select('*').eq('id', numId).single();
         if (data) {
           setAsset(data);
-          setForm('prestart'); /* auto-open prestart on scan */
           const { data: co } = await supabase.from('companies').select('*').eq('id', data.company_id).single();
-          if (co) setCompany(co);
+          if (co) {
+            setCompany(co);
+            // Respect scan_behaviour setting: 'landing' | 'prestart' | 'jobcard' (default: 'landing')
+            const scanBehaviour = co?.features?.scan_behaviour || 'landing';
+            if (scanBehaviour === 'prestart') setForm('prestart');
+            else if (scanBehaviour === 'jobcard') setForm('jobcard');
+            // else 'landing' — show choice screen (do nothing, form stays null)
+          }
           const { data: br } = await supabase.from('company_branding').select('*').eq('company_id', data.company_id).single();
           if (br) setBranding(br);
         }
