@@ -49,6 +49,7 @@ function App() {
           if (assetId) {
             setViewingAssetId(assetId);
             setCurrentPageRaw('assetpage');
+            window.history.pushState({ page: 'assetpage', subPage: null, assetId }, '', '/');
             return;
           }
         } catch(e) {}
@@ -56,6 +57,9 @@ function App() {
     }
     setCurrentPageRaw(page);
     setCurrentSubPage(subPage);
+    // Push to browser history so back button works within the app
+    const state = { page, subPage };
+    window.history.pushState(state, '', '/');
   };
 
   useEffect(() => {
@@ -98,7 +102,38 @@ function App() {
       }
     };
     window.addEventListener('mechiq-navigate', handleNavEvent);
-    return () => { subscription.unsubscribe(); window.removeEventListener('mechiq-navigate', handleNavEvent); };
+
+    // Browser back/forward — restore app state from history
+    const handlePopState = (e) => {
+      const state = e.state;
+      if (!state) {
+        // No state = user went back to initial entry — go to dashboard
+        setCurrentPageRaw('dashboard');
+        setCurrentSubPage(null);
+        setViewingAssetId(null);
+        return;
+      }
+      if (state.page === 'assetpage' && state.assetId) {
+        setViewingAssetId(state.assetId);
+        setCurrentPageRaw('assetpage');
+      } else {
+        setCurrentPageRaw(state.page || 'dashboard');
+        setCurrentSubPage(state.subPage || null);
+        setViewingAssetId(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    // Set initial history state so the first back press doesn't leave the app
+    if (!window.history.state) {
+      window.history.replaceState({ page: 'dashboard', subPage: null }, '', '/');
+    }
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('mechiq-navigate', handleNavEvent);
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, []);
 
   const fetchUserRole = async (email) => {
@@ -165,6 +200,7 @@ function App() {
   const handleViewAsset = (assetId) => {
     setViewingAssetId(assetId);
     setCurrentPageRaw('assetpage');
+    window.history.pushState({ page: 'assetpage', subPage: null, assetId }, '', '/');
   };
 
   const handleStartPrestartFromAsset = (assetName, assetId, assetNumber) => {
@@ -243,7 +279,7 @@ function App() {
             >
               Back to Assets
             </button>
-            <AssetPage assetId={viewingAssetId} userRole={effectiveUserRole} onStartPrestart={handleStartPrestartFromAsset} onStartServiceSheet={handleStartServiceSheetFromAsset} />
+            <AssetPage assetId={viewingAssetId} userRole={effectiveUserRole} onStartPrestart={handleStartPrestartFromAsset} onStartServiceSheet={handleStartServiceSheetFromAsset} onBack={() => { setCurrentPage('assets'); setViewingAssetId(null); }} />
           </div>
         );
       case 'reports':
