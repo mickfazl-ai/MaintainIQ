@@ -1504,7 +1504,7 @@ const ADMIN_TABS = [
   { id: 'notifs',           label: 'Notifications',   icon: '🔔' },
   { id: 'billing',          label: 'Contact & Plan',  icon: '💳' },
   { id: 'data',             label: 'Data & Export',   icon: '📤' },
-  { id: 'scan',             label: 'Scan Settings',   icon: '📱' },
+  { id: 'assets_settings',  label: 'Assets',          icon: '🚛' },
   { id: 'label_designer',   label: 'Label Designer',  icon: '🏷' },
 ];
 
@@ -1517,116 +1517,311 @@ const PERSONAL_TABS = [
 ];
 
 
-// ─── Scan Settings ────────────────────────────────────────────────────────────
-function ScanSettings({ userRole }) {
-  const [behaviour, setBehaviour] = React.useState('landing');
+// ─── Assets Settings ──────────────────────────────────────────────────────────
+const INTERVAL_TYPES_CFG = [
+  { id: 'hours',  label: 'Hours',      unit: 'hrs',    numeric: true  },
+  { id: 'km',     label: 'Kilometres', unit: 'km',     numeric: true  },
+  { id: 'months', label: 'Months',     unit: 'months', numeric: false },
+  { id: 'years',  label: 'Years',      unit: 'years',  numeric: false },
+];
+
+function AssetSettingsRow({ asset, onSaved }) {
+  const [open,      setOpen]      = React.useState(false);
+  const [tab,       setTab]       = React.useState('info');   // 'info' | 'intervals'
+  const [form,      setForm]      = React.useState({ ...asset });
+  const [schedules, setSchedules] = React.useState([]);
+  const [loadingSch,setLoadingSch]= React.useState(false);
   const [saving,    setSaving]    = React.useState(false);
   const [saved,     setSaved]     = React.useState(false);
-  const [loading,   setLoading]   = React.useState(true);
+  const [editSch,   setEditSch]   = React.useState(null);  // schedule being edited inline
+  const [addSch,    setAddSch]    = React.useState(false); // show add row
 
-  React.useEffect(() => {
-    if (!userRole?.company_id) return;
-    supabase.from('companies').select('features').eq('id', userRole.company_id).single()
-      .then(({ data }) => {
-        if (data?.features?.scan_behaviour) setBehaviour(data.features.scan_behaviour);
-        setLoading(false);
-      });
-  }, [userRole]);
+  const blankSch = { service_name: '', interval_type: 'hours', interval_value: '', next_due_override: '', notes: '' };
+  const [newSch, setNewSch] = React.useState(blankSch);
 
-  const handleSave = async () => {
-    setSaving(true);
-    const { data: co } = await supabase.from('companies').select('features').eq('id', userRole.company_id).single();
-    const features = { ...(co?.features || {}), scan_behaviour: behaviour };
-    await supabase.from('companies').update({ features }).eq('id', userRole.company_id);
-    setSaving(false); setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const fStyle = { width:'100%', padding:'8px 10px', border:'1px solid #dde2ea', borderRadius:6, fontSize:13, color:'#1a2b3c', background:'#fff', outline:'none', boxSizing:'border-box' };
+  const lStyle = { display:'block', fontSize:10, fontWeight:700, color:'#6b7a8d', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:4 };
+
+  const loadSchedules = async () => {
+    setLoadingSch(true);
+    const { data } = await supabase.from('service_schedules').select('*')
+      .eq('asset_id', asset.id).order('interval_value');
+    setSchedules(data || []);
+    setLoadingSch(false);
   };
 
-  const OPTIONS = [
-    {
-      id: 'landing',
-      label: 'Show Choice Screen',
-      icon: '📋',
-      desc: 'Operators see the asset name and choose between Prestart or Job Card. Recommended for most sites.',
-    },
-    {
-      id: 'prestart',
-      label: 'Auto-Open Prestart',
-      icon: '✅',
-      desc: 'Scanning a QR code immediately opens the prestart checklist — no extra tap required.',
-    },
-    {
-      id: 'jobcard',
-      label: 'Auto-Open Job Card',
-      icon: '🔧',
-      desc: 'Scanning a QR code immediately opens the job card / fault reporting form.',
-    },
-  ];
+  const handleOpen = () => {
+    setOpen(o => {
+      if (!o) loadSchedules();
+      return !o;
+    });
+  };
 
-  const card = (opt) => {
-    const active = behaviour === opt.id;
-    return (
-      <div key={opt.id} onClick={() => setBehaviour(opt.id)}
-        style={{
-          display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px',
-          borderRadius: 12, border: `2px solid ${active ? 'var(--accent)' : '#dde2ea'}`,
-          background: active ? 'var(--accent-light, #e8f8fc)' : '#f8fafc',
-          cursor: 'pointer', transition: 'all 0.15s', marginBottom: 10,
-        }}>
-        <div style={{
-          width: 22, height: 22, borderRadius: '50%', flexShrink: 0, marginTop: 1,
-          background: active ? 'var(--accent)' : '#fff',
-          border: `2px solid ${active ? 'var(--accent)' : '#c8d4e0'}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          {active && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff' }} />}
+  const saveInfo = async () => {
+    setSaving(true);
+    await supabase.from('assets').update({
+      name: form.name, asset_number: form.asset_number, type: form.type,
+      make: form.make, model: form.model, year: form.year ? parseInt(form.year) : null,
+      location: form.location, status: form.status,
+      serial_number: form.serial_number, engine_number: form.engine_number,
+      hours: form.hours ? parseFloat(form.hours) : null,
+      target_hours: form.target_hours ? parseFloat(form.target_hours) : null,
+      hourly_rate: form.hourly_rate ? parseFloat(form.hourly_rate) : null,
+      purchase_price: form.purchase_price ? parseFloat(form.purchase_price) : null,
+      purchase_date: form.purchase_date || null,
+      registration: form.registration, notes: form.notes,
+    }).eq('id', asset.id);
+    setSaving(false); setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+    onSaved && onSaved();
+  };
+
+  const calcNextDue = (type, value, last) => {
+    const iv = parseFloat(value);
+    if (!iv) return { next_due_value: null, next_due_date: null };
+    if (type === 'hours' || type === 'km') {
+      return { next_due_value: (parseFloat(last) || 0) + iv, next_due_date: null };
+    }
+    const base = new Date();
+    if (type === 'months') base.setMonth(base.getMonth() + iv);
+    if (type === 'years')  base.setFullYear(base.getFullYear() + iv);
+    return { next_due_value: null, next_due_date: base.toISOString().split('T')[0] };
+  };
+
+  const saveSchedule = async (sch, isNew = false) => {
+    const iType = INTERVAL_TYPES_CFG.find(t => t.id === sch.interval_type) || INTERVAL_TYPES_CFG[0];
+    let next_due_value = null, next_due_date = null;
+    if (sch.next_due_override) {
+      if (iType.numeric) next_due_value = parseFloat(sch.next_due_override);
+      else               next_due_date  = sch.next_due_override;
+    } else {
+      ({ next_due_value, next_due_date } = calcNextDue(sch.interval_type, sch.interval_value, asset.hours || 0));
+    }
+    const payload = {
+      service_name:       sch.service_name.trim(),
+      interval_type:      sch.interval_type,
+      interval_value:     parseFloat(sch.interval_value),
+      next_due_value, next_due_date,
+      notes:              sch.notes || null,
+    };
+    if (isNew) {
+      await supabase.from('service_schedules').insert([{ ...payload, asset_id: asset.id, asset_name: asset.name, company_id: asset.company_id }]);
+      setNewSch(blankSch); setAddSch(false);
+    } else {
+      await supabase.from('service_schedules').update(payload).eq('id', sch.id);
+      setEditSch(null);
+    }
+    loadSchedules();
+  };
+
+  const deleteSch = async (id) => {
+    if (!window.confirm('Delete this service interval?')) return;
+    await supabase.from('service_schedules').delete().eq('id', id);
+    loadSchedules();
+  };
+
+  const sc = asset.status === 'Down' ? 'var(--red)' : asset.status === 'Maintenance' ? 'var(--amber)' : 'var(--green)';
+
+  const SchRow = ({ s, editing, onChange, onSave, onCancel, isNew }) => {
+    const iType = INTERVAL_TYPES_CFG.find(t => t.id === s.interval_type) || INTERVAL_TYPES_CFG[0];
+    if (!editing) return (
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:8, background:'#f8fafc', border:'1px solid #dde2ea', marginBottom:6 }}>
+        <div style={{ flex:2, fontSize:13, fontWeight:600, color:'#1a2b3c' }}>{s.service_name}</div>
+        <div style={{ flex:1, fontSize:12, color:'#6b7a8d' }}>Every {s.interval_value} {s.interval_type}</div>
+        <div style={{ flex:1, fontSize:12, color:'#6b7a8d' }}>
+          {s.next_due_value ? `Due: ${Number(s.next_due_value).toLocaleString()} ${s.interval_type}` : s.next_due_date ? `Due: ${s.next_due_date}` : '—'}
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#1a2b3c', marginBottom: 3 }}>
-            {opt.icon} {opt.label}
+        <button onClick={() => onChange(s)} style={{ padding:'3px 10px', background:'#fff', border:'1px solid #dde2ea', borderRadius:5, fontSize:11, fontWeight:700, color:'#6b7a8d', cursor:'pointer' }}>✏️</button>
+        <button onClick={() => deleteSch(s.id)} style={{ padding:'3px 10px', background:'#fff1f2', border:'1px solid #fecdd3', borderRadius:5, fontSize:11, fontWeight:700, color:'#e94560', cursor:'pointer' }}>🗑</button>
+      </div>
+    );
+    return (
+      <div style={{ background:'#f0f8ff', border:'1px solid rgba(0,194,224,0.3)', borderRadius:8, padding:'12px', marginBottom:6 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', gap:8, marginBottom:8 }}>
+          <div>
+            <label style={lStyle}>Service Name</label>
+            <input style={fStyle} value={s.service_name} onChange={e => onChange({ ...s, service_name: e.target.value })} placeholder="e.g. 500hr Service" />
           </div>
-          <div style={{ fontSize: 12, color: '#6b7a8d', lineHeight: 1.5 }}>{opt.desc}</div>
+          <div>
+            <label style={lStyle}>Type</label>
+            <select style={fStyle} value={s.interval_type} onChange={e => onChange({ ...s, interval_type: e.target.value })}>
+              {INTERVAL_TYPES_CFG.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={lStyle}>Every</label>
+            <input style={fStyle} type="number" min="1" value={s.interval_value} onChange={e => onChange({ ...s, interval_value: e.target.value })} placeholder="250" />
+          </div>
+          <div>
+            <label style={lStyle}>Next Due {iType.numeric ? '('+iType.unit+')' : '(date)'}</label>
+            <input style={fStyle} type={iType.numeric ? 'number' : 'date'} value={s.next_due_override || ''} onChange={e => onChange({ ...s, next_due_override: e.target.value })} placeholder={iType.numeric ? 'e.g. 8000' : ''} />
+          </div>
+        </div>
+        <div style={{ marginBottom:8 }}>
+          <label style={lStyle}>Notes (optional)</label>
+          <input style={fStyle} value={s.notes || ''} onChange={e => onChange({ ...s, notes: e.target.value })} placeholder="e.g. Check coolant, replace filters" />
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={() => onSave(s, isNew)} style={{ padding:'6px 16px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+            {isNew ? 'Add Interval' : 'Save'}
+          </button>
+          <button onClick={onCancel} style={{ padding:'6px 12px', background:'#f8fafc', border:'1px solid #dde2ea', borderRadius:6, fontSize:12, color:'#6b7a8d', cursor:'pointer' }}>Cancel</button>
         </div>
       </div>
     );
   };
 
-  if (loading) return <div style={{ padding: 20, color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>;
+  const FIELDS = [
+    ['Asset Name',    'name',          'text'],
+    ['Asset Number',  'asset_number',  'text'],
+    ['Type',          'type',          'text'],
+    ['Make',          'make',          'text'],
+    ['Model',         'model',         'text'],
+    ['Year',          'year',          'number'],
+    ['Location',      'location',      'text'],
+    ['Serial Number', 'serial_number', 'text'],
+    ['Engine Number', 'engine_number', 'text'],
+    ['Current Hours', 'hours',         'number'],
+    ['Target Hrs/Day','target_hours',  'number'],
+    ['Hourly Rate',   'hourly_rate',   'number'],
+    ['Purchase Price','purchase_price','number'],
+    ['Purchase Date', 'purchase_date', 'date'],
+    ['Registration',  'registration',  'text'],
+  ];
 
   return (
-    <div style={{ maxWidth: 560 }}>
-      {/* Preview */}
-      <div style={{ background: '#0d1520', borderRadius: 14, padding: '24px 20px', marginBottom: 24, textAlign: 'center' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#4a6a8a', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 16 }}>QR Scan Preview</div>
-        <div style={{ background: 'linear-gradient(135deg,#1a2b3c,#223040)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '20px 16px', maxWidth: 280, margin: '0 auto' }}>
-          <div style={{ width: 32, height: 2, background: 'var(--accent,#1e88e5)', borderRadius: 2, margin: '0 auto 12px' }} />
-          <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Generator Genelite</div>
-          <div style={{ fontSize: 11, color: '#7a9ab8', marginBottom: 16 }}>HK-003 · Genelite GM20KS</div>
-          {behaviour === 'landing' && (
+    <div style={{ border:'1px solid #dde2ea', borderRadius:10, marginBottom:8, overflow:'hidden' }}>
+      {/* Row header */}
+      <div onClick={handleOpen} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:open?'#f0f8ff':'#fff', cursor:'pointer', transition:'background 0.15s' }}>
+        <span style={{ fontSize:11, fontWeight:800, color:'var(--accent)', fontFamily:'var(--font-mono)' }}>{asset.asset_number}</span>
+        <span style={{ fontSize:14, fontWeight:700, color:'#1a2b3c', flex:1 }}>{asset.name}</span>
+        <span style={{ fontSize:11, color:'#6b7a8d' }}>{asset.type || '—'}</span>
+        <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:sc+'18', color:sc }}>{asset.status || 'Active'}</span>
+        <span style={{ fontSize:12, color:'#a0b0b0', marginLeft:4 }}>{open ? '▲' : '▼'}</span>
+      </div>
+
+      {open && (
+        <div style={{ padding:'16px', borderTop:'1px solid #dde2ea', background:'#fff' }}>
+          {/* Sub-tabs */}
+          <div style={{ display:'flex', background:'#f1f5f9', borderRadius:8, padding:3, marginBottom:16, width:'fit-content' }}>
+            {[['info','📋 Asset Info'],['intervals','🔧 Service Intervals']].map(([id,lbl]) => (
+              <button key={id} onClick={() => setTab(id)} style={{ padding:'7px 18px', border:'none', borderRadius:6, background:tab===id?'#fff':'transparent', color:tab===id?'#1a2b3c':'#6b7a8d', fontWeight:tab===id?700:500, fontSize:13, cursor:'pointer', boxShadow:tab===id?'0 1px 4px rgba(0,0,0,0.1)':'none', transition:'all 0.15s' }}>{lbl}</button>
+            ))}
+          </div>
+
+          {tab === 'info' && (
             <>
-              <div style={{ background: 'var(--accent,#1e88e5)', borderRadius: 8, padding: '10px', marginBottom: 8, color: '#fff', fontSize: 12, fontWeight: 700 }}>PRESTART — Daily inspection</div>
-              <div style={{ background: '#1e2d3d', borderRadius: 8, padding: '10px', color: '#7a9ab8', fontSize: 12, fontWeight: 700 }}>JOB CARD — Log a fault</div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(200px,1fr))', gap:12, marginBottom:12 }}>
+                {FIELDS.map(([label, key, type]) => (
+                  <div key={key}>
+                    <label style={lStyle}>{label}</label>
+                    <input style={fStyle} type={type} value={form[key] || ''} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} />
+                  </div>
+                ))}
+                <div>
+                  <label style={lStyle}>Status</label>
+                  <select style={fStyle} value={form.status || 'Active'} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+                    <option>Running</option><option>Active</option><option>Maintenance</option><option>Down</option><option>Standby</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ marginBottom:12 }}>
+                <label style={lStyle}>Notes</label>
+                <textarea style={{ ...fStyle, minHeight:60, resize:'vertical', fontFamily:'inherit' }} value={form.notes || ''} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+              </div>
+              <button onClick={saveInfo} disabled={saving}
+                style={{ padding:'9px 24px', background:saved?'#00c264':'var(--accent)', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer', transition:'all 0.2s' }}>
+                {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Changes'}
+              </button>
             </>
           )}
-          {behaviour === 'prestart' && (
-            <div style={{ background: 'var(--accent,#1e88e5)', borderRadius: 8, padding: '12px', color: '#fff', fontSize: 12, fontWeight: 700 }}>↳ Prestart opens immediately</div>
-          )}
-          {behaviour === 'jobcard' && (
-            <div style={{ background: '#2a3d50', borderRadius: 8, padding: '12px', color: '#90aec8', fontSize: 12, fontWeight: 700 }}>↳ Job Card opens immediately</div>
+
+          {tab === 'intervals' && (
+            <>
+              {loadingSch ? (
+                <div style={{ fontSize:13, color:'#a0b0b0', padding:'10px 0' }}>Loading…</div>
+              ) : (
+                <>
+                  {schedules.length === 0 && !addSch && (
+                    <div style={{ fontSize:13, color:'#a0b0b0', padding:'10px 0', marginBottom:8 }}>No service intervals set up yet.</div>
+                  )}
+                  {schedules.map(s => (
+                    <SchRow key={s.id} s={editSch?.id === s.id ? editSch : s}
+                      editing={editSch?.id === s.id}
+                      onChange={v => setEditSch(v)}
+                      onSave={(v) => saveSchedule(v, false)}
+                      onCancel={() => setEditSch(null)}
+                      isNew={false}
+                    />
+                  ))}
+                  {addSch && (
+                    <SchRow s={newSch} editing={true}
+                      onChange={v => setNewSch(v)}
+                      onSave={(v) => saveSchedule(v, true)}
+                      onCancel={() => { setAddSch(false); setNewSch(blankSch); }}
+                      isNew={true}
+                    />
+                  )}
+                  {!addSch && (
+                    <button onClick={() => setAddSch(true)}
+                      style={{ marginTop:4, padding:'8px 18px', background:'transparent', border:'1px dashed rgba(0,194,224,0.5)', color:'var(--accent)', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', width:'100%' }}>
+                      + Add Service Interval
+                    </button>
+                  )}
+                </>
+              )}
+            </>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+function AssetsSettings({ userRole }) {
+  const [assets,  setAssets]  = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [search,  setSearch]  = React.useState('');
+
+  React.useEffect(() => {
+    if (userRole?.company_id) load();
+  }, [userRole]);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase.from('assets').select('*')
+      .eq('company_id', userRole.company_id)
+      .order('asset_number');
+    setAssets(data || []);
+    setLoading(false);
+  };
+
+  const filtered = assets.filter(a =>
+    !search ||
+    a.name?.toLowerCase().includes(search.toLowerCase()) ||
+    a.asset_number?.toLowerCase().includes(search.toLowerCase()) ||
+    a.type?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div>
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20, flexWrap:'wrap' }}>
+        <input
+          placeholder="Search assets…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ flex:1, minWidth:200, padding:'9px 14px', border:'1px solid #dde2ea', borderRadius:8, fontSize:13, color:'#1a2b3c', background:'#f8fafc', outline:'none' }}
+        />
+        <span style={{ fontSize:13, color:'#6b7a8d', flexShrink:0 }}>{filtered.length} asset{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* Options */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7a8d', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>Scan Behaviour</div>
-        {OPTIONS.map(card)}
-      </div>
-
-      <button onClick={handleSave} disabled={saving}
-        style={{ padding: '11px 28px', background: saved ? '#00c264' : 'var(--accent, #1e88e5)', color: '#fff', border: 'none', borderRadius: 9, fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}>
-        {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Settings'}
-      </button>
+      {loading ? (
+        <div style={{ fontSize:13, color:'#a0b0b0', padding:20, textAlign:'center' }}>Loading assets…</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ fontSize:13, color:'#a0b0b0', padding:20, textAlign:'center' }}>No assets found.</div>
+      ) : (
+        filtered.map(a => <AssetSettingsRow key={a.id} asset={a} onSaved={load} />)
+      )}
     </div>
   );
 }
@@ -1648,7 +1843,7 @@ function Settings({ userRole, initialTab, adminMode, personalMode }) {
     sync:         <OneDriveSync userRole={userRole} />,
     app_modifier: <AppModifier userRole={userRole} />,
     password:        <PasswordReset userRole={userRole} />,
-    scan:            <ScanSettings userRole={userRole} />,
+    assets_settings:  <AssetsSettings userRole={userRole} />,
     label_designer:  <LabelDesigner userRole={userRole?.role} companyId={userRole?.company_id} />,
   };
 
